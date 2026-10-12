@@ -84,6 +84,15 @@ dialog input { width: 100%; padding: 11px 12px; border-radius: 12px; border: 1.5
 dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 18px 0 0; }
 dialog button { border: 1.5px solid var(--ink); border-radius: 999px; padding: 8px 16px; font: 500 15px var(--body); cursor: pointer;
   background: var(--surface); color: var(--ink); }
+dialog .appareil { border-top: 1.5px solid var(--doux); margin-top: 16px; padding-top: 14px; }
+dialog .appareil h3 { margin: 0 0 6px; font: 700 16px var(--display); }
+dialog .appareil .rang { display: flex; flex-wrap: wrap; gap: 8px; }
+#qr { display: block; width: 220px; max-width: 100%; margin: 12px auto 4px; background: #fff; padding: 10px; border-radius: 12px; border: 1.5px solid var(--ink); }
+#qr[hidden] { display: none; }
+#maj { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 84px); transform: translateX(-50%); z-index: 9;
+  border: 1.5px solid var(--ink); border-radius: 999px; padding: 9px 16px; font: 500 13px var(--mono); background: var(--ink); color: var(--bg);
+  box-shadow: 3px 3px 0 var(--doux); cursor: pointer; }
+#maj[hidden] { display: none; }
 dialog button.principal { background: var(--ink); color: var(--bg); box-shadow: 3px 3px 0 var(--doux); }
 .bulle.systeme .titre { display: block; font: 700 18px/1.25 var(--display); margin-bottom: 6px; }
 .bulle.systeme .section { display: block; font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
@@ -215,7 +224,15 @@ body.replie nav button .point { display: none; }
   <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (https://…/webhook/life)">
   <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien">
   <menu><button value="annuler" id="annuler">Annuler</button><button class="principal" id="garder">Enregistrer</button></menu>
+  <div class="appareil">
+    <h3>Connecter un autre appareil</h3>
+    <p>Sur l'ordinateur, montre le code ; sur le téléphone, vise-le avec l'appareil photo. L'adresse et la clé passent d'un appareil à l'autre, les messages sont les mêmes partout. Ce code contient ta clé : ne le montre qu'à toi.</p>
+    <div class="rang"><button id="montrer-qr">Montrer le code</button><button id="copier-lien">Copier le lien</button></div>
+    <img id="qr" alt="Code de connexion" hidden>
+  </div>
+  <p class="version" id="version"></p>
 </dialog>
+<button id="maj" hidden>Nouvelle version de LIFE — toucher pour l'ouvrir</button>
 
 <script>
 /* l'adresse du serveur n'est pas dans ce code public : elle est collée dans les Réglages, avec la clé, et reste sur l'appareil */
@@ -522,7 +539,73 @@ try {
     window.resizeTo(430, Math.min(820, screen.availHeight)); store.ecrire('fenetre', true);
   }
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
+// À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
+const VERSION = '2026-10-12';
+$('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique';
+function lienConnexion() {
+  const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return location.origin + location.pathname + '#connexion=' + d;
+}
+function pretAConnecter() {
+  if (adresse() && cle()) return true;
+  etat('enregistre d\'abord l\'adresse et la clé'); return false;
+}
+let qrCharge = null;
+$('montrer-qr').onclick = async () => {
+  if (!pretAConnecter()) return;
+  if (!$('qr').hidden) { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code'; return; }
+  qrCharge = qrCharge || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'qr.js'; s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
+  try {
+    await qrCharge;
+    const q = qrcode(0, 'M'); q.addData(lienConnexion()); q.make();
+    $('qr').src = q.createDataURL(6, 2); $('qr').hidden = false; $('montrer-qr').textContent = 'Cacher le code';
+    setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code'; }, 120e3);
+  } catch (e) { qrCharge = null; etat('code indisponible hors ligne'); }
+};
+$('copier-lien').onclick = async () => {
+  if (!pretAConnecter()) return;
+  try { await navigator.clipboard.writeText(lienConnexion()); $('copier-lien').textContent = 'Lien copié ✓'; }
+  catch (e) { $('copier-lien').textContent = 'Copie refusée'; }
+  setTimeout(() => { $('copier-lien').textContent = 'Copier le lien'; }, 2500);
+};
+$('dlg').addEventListener('close', () => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code'; });
+// le message reste après la première actualisation, puis s'efface
+function annonce(t) { setTimeout(() => { etat(t); setTimeout(() => { if ($('etat').textContent === t) etat(''); }, 5000); }, 1500); }
+function recevoirConnexion(ev) {
+  const m = location.hash.match(/^#connexion=([A-Za-z0-9_-]+)$/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    const b = m[1].replace(/-/g, '+').replace(/_/g, '/');
+    const o = JSON.parse(decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))));
+    if (!/^https:\/\/[^\s]+$/.test(o.a || '') || typeof o.c !== 'string' || !o.c.trim()) throw new Error('lien incomplet');
+    store.ecrire('adresse', o.a); store.ecrire('cle', o.c.trim());
+    annonce('appareil connecté ✓');
+  } catch (e) { annonce('lien de connexion illisible'); }
+  if (ev) actualiser();   // app déjà ouverte : sinon le démarrage actualise déjà
+}
+recevoirConnexion();
+window.addEventListener('hashchange', recevoirConnexion);
+
+// Mise à jour automatique : l'app vérifie s'il y a une nouvelle version à chaque retour au premier plan (et toutes les heures).
+// La nouvelle version s'installe d'elle-même ; on recharge tout de suite si rien n'est en cours, sinon un bouton le propose.
+if ('serviceWorker' in navigator) {
+  const pageAvecSW = !!navigator.serviceWorker.controller;
+  let recharge = false;
+  const rechargerSiLibre = () => {
+    if (recharge) return;
+    if (!$('saisie').value.trim() && !$('dlg').open && !enAttente) { recharge = true; location.reload(); }
+    else $('maj').hidden = false;
+  };
+  $('maj').onclick = () => { recharge = true; location.reload(); };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (pageAvecSW) rechargerSiLibre(); });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    const verifier = () => reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') verifier(); });
+    setInterval(verifier, 60 * 60e3);
+  }).catch(() => {});
+}
 // Aperçu (?demo) : une conversation d'exemple, sans clé ni réseau.
 setTimeout(() => { const o = $('ouverture'); if (o) { o.classList.add('fini'); setTimeout(() => o.remove(), 400); } }, 650);
 if (DEMO) {
