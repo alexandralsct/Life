@@ -257,7 +257,7 @@ body.replie nav button .point { display: none; }
 /* l'adresse du serveur n'est pas dans ce code public : elle est collée dans les Réglages, avec la clé, et reste sur l'appareil */
 function adresse() { try { const v = JSON.parse(localStorage.getItem('life.adresse') || '""'); return /^https:\/\/[^\s]+$/.test(v) ? v : ''; } catch (e) { return ''; } }
 const FILS = [['general', 'Général'], ['travail', 'Travail'], ['metamorphose', 'Mon projet'], ['patrimoine', 'Patrimoine'],
-  ['quotidien', 'Quotidien'], ['voyage', 'Voyage'], ['social', 'Social'], ['coach', 'Coach']];
+  ['quotidien', 'Quotidien'], ['voyage', 'Voyage'], ['experts', 'Experts'], ['coach', 'Coach']];
 // Icônes au trait (couleur du texte), une par fil.
 const ICONES = {
   general: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>',
@@ -266,12 +266,12 @@ const ICONES = {
   patrimoine: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
   quotidien: '<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M12 3v3"/>',
   voyage: '<path d="M10.5 13.5L3 11l1.5-1.5 8 1 4-4c1-1 3-1.5 3.5-1s0 2.5-1 3.5l-4 4 1 8L14.5 22 12 14.5l-3 3V20l-1.5 1.5-1-3-3-1L6 16h2.5z"/>',
-  social: '<circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 14.6c.8-.4 1.6-.6 2.5-.6 2.8 0 5 2.2 5 5"/>',
+  experts: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5M22 9v6"/>',
   coach: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'
 };
 const ESSAI_POINTS = false;   // essai refusé : pas de point de couleur
 const COULEURS = { general: '#002FA7', travail: '#2f5fd8', metamorphose: '#6c8fe6', patrimoine: '#0b2a6b', quotidien: '#4f7be0',
-  voyage: '#8fb0f0', social: '#3a4fb0', coach: '#a9c0f2' };
+  voyage: '#8fb0f0', experts: '#3a4fb0', coach: '#a9c0f2' };
 const svg = id => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONES[id] + '</svg>';
 const $ = id => document.getElementById(id);
 const store = {
@@ -308,10 +308,10 @@ async function appel(corps) {
 
 function fusionner(nouveaux) {
   const parId = new Map(messages.map(m => [m.id, m]));
-  nouveaux.forEach(m => parId.set(m.id, m));
+  nouveaux.forEach(m => { if (m.fil === 'social') m.fil = 'general'; parId.set(m.id, m); });
   // une copie locale disparaît dès que le serveur renvoie le même message
   const duServeur = new Set(nouveaux.filter(m => m.auteur === 'moi' && !m.local).map(m => (m.fil || 'general') + '|' + m.texte));
-  [...parId.values()].forEach(m => { if (m.local && duServeur.has((m.fil || 'general') + '|' + m.texte)) parId.delete(m.id); });
+  [...parId.values()].forEach(m => { if (m.local && !m.expert && duServeur.has((m.fil || 'general') + '|' + m.texte)) parId.delete(m.id); });
   messages = [...parId.values()].filter(m => !m.temp).sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : (a.id < b.id ? -1 : 1)).slice(-400);
   store.ecrire('messages', messages);
 }
@@ -381,6 +381,7 @@ function afficherEpingles() {
 }
 function afficher() {
   afficherEpingles();
+  $('saisie').placeholder = fil === 'experts' ? 'Ta question — ou « notaire : … » pour un expert précis' : 'Écris à LIFE…';
   $('fils').innerHTML = '';
   if (document.visibilityState !== 'hidden') marquerLu(fil);   // le fil ouvert est lu
   FILS.forEach(([id, nom]) => {
@@ -474,6 +475,19 @@ function raison(e) {
 
 function heureLocale() { const d = new Date(), z = n => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds()); }
+const ACCENTS = /[\u0300-\u036f]/g;
+async function demanderExpert(texte) {
+  const m = texte.match(/^\s*([A-Za-zÀ-ÿ_ ]{2,30})\s*:\s*([\s\S]+)$/), membre = m ? m[1].normalize('NFD').replace(ACCENTS, '').toLowerCase().trim().replace(/\s+/g, '_') : '';
+  const url = adresse().replace(/\/life\/?$/, '/app-lien');
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-cle-app': cle() },
+    body: JSON.stringify({ type: 'expert', texte: m ? m[2].trim() : texte, expert: { membre } }) });
+  if (r.status === 403 || r.status === 401) throw new Error('clé refusée');
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 || /type inconnu/i.test(String(j.erreur || ''))) return [{ nom: 'LIFE', texte: 'Les experts ne sont pas encore branchés : le circuit du lien avec l\'app doit être publié dans ton système.' }];
+  if (!r.ok || j.ok === false) throw new Error(j.erreur || ('erreur ' + r.status));
+  const L = (j.reponses || []).filter(x => x && x.texte).map(x => ({ nom: String(x.nom || 'Expert'), texte: String(x.texte) }));
+  return L.length ? L : [{ nom: 'LIFE', texte: String(j.reponse || 'Pas de réponse.') }];
+}
 async function envoyer() {
   const texte = $('saisie').value.trim();
   if (!texte) return;
@@ -482,6 +496,13 @@ async function envoyer() {
   try { if (navigator.vibrate && !enCalme()) navigator.vibrate(12); } catch (e) { /* pas de vibreur */ }
   messages.push(temp); enAttente = true; afficher();
   try {
+    if (fil === 'experts') {
+      if (!cle() || !adresse()) { $('dlg').showModal(); throw new Error('clé ou adresse manquante'); }
+      const rep = await demanderExpert(texte), t0 = Date.now();
+      fusionner([Object.assign({}, temp, { id: 'loc-' + t0, temp: false, local: true, expert: true }),
+        ...rep.map((x, k) => ({ id: 'loc-' + t0 + '-' + k, t: heureLocale(), auteur: 'life', fil: 'experts', texte: '🎓 ' + x.nom + '\n' + x.texte, local: true, expert: true }))]);
+      etat(''); enAttente = false; afficher(); return;
+    }
     const j = await appel({ action: 'envoyer', texte, fil });
     const recus = j.messages || [];
     if (!recus.some(m => m.auteur === 'moi' && m.texte === texte)) recus.push(Object.assign({}, temp, { id: 'loc-' + Date.now(), temp: false, local: true }));
@@ -589,7 +610,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.10';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.11';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
