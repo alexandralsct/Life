@@ -179,7 +179,10 @@ body.replie nav button .point { display: none; }
 #barre-fils #plier { margin: 0; }
 #chercher { justify-self: end; all: unset; cursor: pointer; justify-self: end; width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); }
 #chercher svg { width: 18px; height: 18px; }
-@media (min-width: 600px) { nav { grid-template-columns: repeat(8, 1fr); } }
+@media (min-width: 600px) {
+  html { background: var(--board); }
+  body { max-width: 440px; border-left: 1.5px solid var(--ink); border-right: 1.5px solid var(--ink); box-shadow: 6px 0 0 var(--doux); }
+}
 </style>
 </head>
 <body>
@@ -514,6 +517,11 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && Date.now() - derniereActu > 5 * 60e3) actualiser();
 });
 
+try {
+  if (window.matchMedia('(display-mode: standalone)').matches && screen.width > 900 && !store.lire('fenetre', false)) {
+    window.resizeTo(440, Math.min(900, screen.availHeight)); store.ecrire('fenetre', true);
+  }
+} catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // Aperçu (?demo) : une conversation d'exemple, sans clé ni réseau.
 setTimeout(() => { const o = $('ouverture'); if (o) { o.classList.add('fini'); setTimeout(() => o.remove(), 400); } }, 650);
