@@ -152,6 +152,13 @@ body.replie nav button { padding: 0; border-radius: 10px; }
 body.replie nav button > span:not(.badge) { display: none; }
 body.replie nav button svg { width: 20px; height: 20px; }
 header button { position: relative; }
+.bulle { position: relative; }
+.feuille-msg { position: absolute; z-index: 8; top: calc(100% + 6px); right: 0; display: flex; flex-direction: column; min-width: 150px;
+  background: var(--surface); border: 1.5px solid var(--ink); border-radius: 14px; box-shadow: 4px 4px 0 var(--doux); overflow: hidden; }
+.bulle.life .feuille-msg, .bulle.systeme .feuille-msg { right: auto; left: 0; }
+.feuille-msg button { all: unset; cursor: pointer; padding: 12px 16px; font: 500 14px var(--mono); color: var(--ink); }
+.feuille-msg button + button { border-top: 1.5px solid var(--doux); }
+.feuille-msg button:last-child { font-weight: 700; }
 /* ronds bien ronds et serrés (ils ne se déforment plus quand la place manque) */
 header { gap: 5px; } header h1 { margin-right: auto; min-width: 0; }
 header button { flex: 0 0 auto; width: 38px; height: 38px; aspect-ratio: 1; border-radius: 50%; }
@@ -236,7 +243,7 @@ main, #vue-brief, #vue-maintenance { min-height: 0; }
   <button id="maintenance" title="Maintenance" aria-label="Maintenance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></button>
   <button id="theme" title="Jour / nuit" aria-label="Jour ou nuit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
   <button id="plus" title="Plus" aria-label="Plus d'options" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
-  <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="reglages" role="menuitem">Réglages (clé du lien)</button></div>
+  <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="effacer-fil" role="menuitem">Effacer ce fil</button><button id="reglages" role="menuitem">Réglages (clé du lien)</button></div>
 </header>
 <nav id="fils" aria-label="Fils"></nav>
 <div id="barre-fils"><span></span><button id="plier" aria-label="Replier les fils" title="Replier les fils"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button><button id="chercher" aria-label="Rechercher" title="Rechercher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button></div>
@@ -331,7 +338,7 @@ async function appel(corps) {
 
 function fusionner(nouveaux) {
   const parId = new Map(messages.map(m => [m.id, m]));
-  nouveaux.forEach(m => { if (m.fil === 'social') m.fil = 'general'; parId.set(m.id, m); });
+  nouveaux.forEach(m => { if (!supprimes.has(m.id)) parId.set(m.id, m); });
   // une copie locale disparaît dès que le serveur renvoie le même message
   const duServeur = new Set(nouveaux.filter(m => m.auteur === 'moi' && !m.local).map(m => (m.fil || 'general') + '|' + m.texte));
   [...parId.values()].forEach(m => { if (m.local && !m.expert && duServeur.has((m.fil || 'general') + '|' + m.texte)) parId.delete(m.id); });
@@ -383,7 +390,28 @@ function carteSysteme(m) {
   const h = document.createElement('span'); h.className = 'heure'; h.textContent = jourLisible(m.t) + ' · ' + heure(m.t); b.appendChild(h);
   return b;
 }
-let epingles = store.lire('epingles', {});   // fil → [id]
+let epingles = store.lire('epingles', {});
+// Suppression manuelle (appui long → Supprimer, ou ••• → Effacer ce fil) : retirée de l'appareil tout de suite, puis du serveur.
+let supprimes = new Set(store.lire('supprimes', []));
+function supprimer(ids) {
+  ids = ids.filter(Boolean); if (!ids.length) return;
+  ids.forEach(i => supprimes.add(i)); store.ecrire('supprimes', [...supprimes].slice(-3000));
+  messages = messages.filter(m => !supprimes.has(m.id)); store.ecrire('messages', messages);
+  Object.keys(epingles).forEach(f => { epingles[f] = (epingles[f] || []).filter(i => !supprimes.has(i)); }); store.ecrire('epingles', epingles);
+  afficher();
+  const serveur = ids.filter(i => !/^(tmp|loc)-/.test(i));
+  if (serveur.length && !DEMO) appel({ action: 'retirer', ids: serveur }).catch(() => {});
+}
+function actionsMessage(m, b) {
+  document.querySelectorAll('.feuille-msg').forEach(x => x.remove());
+  const f = document.createElement('div'); f.className = 'feuille-msg'; f.setAttribute('role', 'menu');
+  const bt = (t, fn) => { const x = document.createElement('button'); x.textContent = t; x.onclick = e => { e.stopPropagation(); f.remove(); fn(); }; f.appendChild(x); };
+  const ep = (epingles[m.fil || 'general'] || []).includes(m.id);
+  bt(ep ? 'Désépingler' : 'Épingler', () => epingler(m));
+  bt('Copier', () => { try { navigator.clipboard.writeText(m.texte || ''); } catch (e) { /* refusé */ } });
+  bt('Supprimer', () => { if (confirm('Supprimer ce message ?')) supprimer([m.id]); });
+  b.appendChild(f); setTimeout(() => document.addEventListener('click', () => f.remove(), { once: true }), 0);
+}   // fil → [id]
 function epingler(m) {
   const f = m.fil || 'general', l = epingles[f] || [];
   epingles[f] = l.includes(m.id) ? l.filter(x => x !== m.id) : [m.id].concat(l).slice(0, 3);
@@ -459,7 +487,8 @@ function afficher() {
       l.appendChild(a); l.appendChild(b); zone.appendChild(l);
     } else zone.appendChild(b);
     let appui = null;   // appui long (0,6 s) : épingler en haut du fil
-    b.addEventListener('pointerdown', () => { appui = setTimeout(() => { epingler(m); }, 600); });
+    b.addEventListener('pointerdown', () => { appui = setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate(15); } catch (e) { /* */ } actionsMessage(m, b); }, 550); });
+    b.addEventListener('contextmenu', e => { e.preventDefault(); actionsMessage(m, b); });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => clearTimeout(appui)));
     if (!suivant && m.auteur === 'life' && /\?\s*$/.test(m.texte) && !enAttente) {   // elle peut répondre d'un toucher
       const r = document.createElement('div'); r.className = 'rapides';
@@ -601,6 +630,10 @@ const enCalme = () => { const h = new Date().getHours(); return calme && (h >= 2
 $('plus').onclick = e => { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; };
 document.addEventListener('click', () => { $('menu').hidden = true; });
 $('actualiser').onclick = actualiser;
+$('effacer-fil').onclick = () => { $('menu').hidden = true; const nom = (FILS.find(([i]) => i === fil) || [, 'ce fil'])[1].replace(/\u00AD/g, '');
+  const ids = messages.filter(m => (m.fil || 'general') === fil).map(m => m.id);
+  if (!ids.length) { etat('rien à effacer'); setTimeout(() => etat(''), 1500); return; }
+  if (confirm('Effacer toute la conversation « ' + nom + ' » (' + ids.length + ' message' + (ids.length > 1 ? 's' : '') + ') ?')) supprimer(ids); };
 // Tirer la conversation vers le bas, en haut de la liste, pour actualiser.
 let tire = null;
 $('messages').addEventListener('touchstart', e => { tire = $('messages').scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
@@ -633,7 +666,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.17';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.18';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
