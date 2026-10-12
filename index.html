@@ -151,6 +151,10 @@ body.replie nav button { padding: 0; border-radius: 10px; }
 body.replie nav button > span:not(.badge) { display: none; }
 body.replie nav button svg { width: 20px; height: 20px; }
 header button { position: relative; }
+/* ronds bien ronds et serrés (ils ne se déforment plus quand la place manque) */
+header { gap: 5px; } header h1 { margin-right: auto; min-width: 0; }
+header button { flex: 0 0 auto; width: 38px; height: 38px; aspect-ratio: 1; border-radius: 50%; }
+header .etat { flex: 1 1 0; min-width: 0; }
 header button .badge { position: absolute; top: -6px; right: -6px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px;
   background: var(--ink); color: var(--surface); border: 1.5px solid var(--surface); font: 600 11px/16px var(--mono); text-align: center; }
 body.brief #brief .badge, body.maintenance #maintenance .badge { display: none; }
@@ -610,7 +614,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.11';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.12';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
