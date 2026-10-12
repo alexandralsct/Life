@@ -146,7 +146,7 @@ body.brief #brief { background: var(--ink); color: var(--surface); }
   background: var(--surface); color: var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
 #plier svg { width: 16px; height: 16px; transition: transform .2s; }
 body.replie #plier svg { transform: rotate(180deg); }
-body.replie nav { grid-template-columns: repeat(9, 1fr); gap: 6px; padding: 8px 12px 10px; }
+body.replie nav { grid-template-columns: repeat(10, 1fr); gap: 6px; padding: 8px 12px 10px; }
 body.replie nav button { padding: 0; border-radius: 10px; }
 body.replie nav button > span:not(.badge) { display: none; }
 body.replie nav button svg { width: 20px; height: 20px; }
@@ -204,6 +204,22 @@ body.replie nav button .point { display: none; }
 #barre-fils #plier { margin: 0; }
 #chercher { justify-self: end; all: unset; cursor: pointer; justify-self: end; width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); }
 #chercher svg { width: 18px; height: 18px; }
+/* Tout tient dans l'écran : la page ne défile jamais, seule la conversation défile ; sur un écran peu haut (ou un
+   texte agrandi par le téléphone), l'en-tête et les fils se compactent. */
+html, body { overflow: hidden; overscroll-behavior: none; }
+header, nav, #barre-fils, #epingles, footer { flex-shrink: 0; }
+main, #vue-brief, #vue-maintenance { min-height: 0; }
+@media (max-height: 780px) {
+  header { padding-top: calc(env(safe-area-inset-top) + 10px); padding-bottom: 4px; }
+  header h1 { font-size: 24px; }
+  nav { gap: 6px; padding: 8px 14px 8px; }
+  nav button { aspect-ratio: auto; height: 54px; border-radius: 13px; gap: 3px; padding: 4px 2px; }
+  nav button svg { width: 22px; height: 22px; }
+  footer { padding-top: 6px; padding-bottom: calc(env(safe-area-inset-bottom) + 8px); }
+}
+@media (max-height: 600px) {
+  nav button { height: 40px; } nav button > span:not(.badge) { display: none; }
+}
 @media (min-width: 600px) {
   html { background: var(--board); }
   body { max-width: 520px; border-left: 1.5px solid var(--ink); border-right: 1.5px solid var(--ink); box-shadow: 6px 0 0 var(--doux); zoom: .82; height: calc(100dvh / .82); }
@@ -261,7 +277,7 @@ body.replie nav button .point { display: none; }
 /* l'adresse du serveur n'est pas dans ce code public : elle est collée dans les Réglages, avec la clé, et reste sur l'appareil */
 function adresse() { try { const v = JSON.parse(localStorage.getItem('life.adresse') || '""'); return /^https:\/\/[^\s]+$/.test(v) ? v : ''; } catch (e) { return ''; } }
 const FILS = [['general', 'Général'], ['travail', 'Travail'], ['metamorphose', 'Mon projet'], ['patrimoine', 'Patrimoine'],
-  ['quotidien', 'Quotidien'], ['voyage', 'Voyage'], ['experts', 'Experts'], ['comite', 'Comité'], ['coach', 'Coach']];
+  ['quotidien', 'Quotidien'], ['voyage', 'Voyage'], ['experts', 'Experts'], ['comite', 'Comité'], ['brainstorm', 'Idées'], ['coach', 'Coach']];
 // Icônes au trait (couleur du texte), une par fil.
 const ICONES = {
   general: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>',
@@ -272,11 +288,12 @@ const ICONES = {
   voyage: '<path d="M10.5 13.5L3 11l1.5-1.5 8 1 4-4c1-1 3-1.5 3.5-1s0 2.5-1 3.5l-4 4 1 8L14.5 22 12 14.5l-3 3V20l-1.5 1.5-1-3-3-1L6 16h2.5z"/>',
   experts: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5M22 9v6"/>',
   comite: '<path d="M3 21h18M5 21V10M19 21V10M9 21v-7M15 21v-7M2 10l10-6 10 6z"/>',
+  brainstorm: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
   coach: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'
 };
 const ESSAI_POINTS = false;   // essai refusé : pas de point de couleur
 const COULEURS = { general: '#002FA7', travail: '#2f5fd8', metamorphose: '#6c8fe6', patrimoine: '#0b2a6b', quotidien: '#4f7be0',
-  voyage: '#8fb0f0', experts: '#3a4fb0', comite: '#2a3f9a', coach: '#a9c0f2' };
+  voyage: '#8fb0f0', experts: '#3a4fb0', comite: '#2a3f9a', brainstorm: '#5f86e8', coach: '#a9c0f2' };
 const svg = id => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONES[id] + '</svg>';
 const $ = id => document.getElementById(id);
 const store = {
@@ -386,7 +403,7 @@ function afficherEpingles() {
 }
 function afficher() {
   afficherEpingles();
-  $('saisie').placeholder = fil === 'experts' ? 'Ta question — ou « notaire : … » pour un expert précis' : fil === 'comite' ? 'Ta décision à prendre — /direct, /fiche, /vite, /comite' : 'Écris à LIFE…';
+  $('saisie').placeholder = fil === 'experts' ? 'Ta question — ou « notaire : … » pour un expert précis' : fil === 'comite' ? 'Ta décision à prendre — /direct, /fiche, /vite, /comite' : fil === 'brainstorm' ? 'Un besoin, une idée : je pars dans tous les sens' : 'Écris à LIFE…';
   $('fils').innerHTML = '';
   if (document.visibilityState !== 'hidden') marquerLu(fil);   // le fil ouvert est lu
   FILS.forEach(([id, nom]) => {
@@ -615,7 +632,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.13';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.15';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
