@@ -91,6 +91,13 @@ dialog .appareil h3 { margin: 0 0 6px; font: 700 16px var(--display); }
 dialog .appareil .rang { display: flex; flex-wrap: wrap; gap: 8px; }
 #qr { display: block; width: 220px; max-width: 100%; margin: 12px auto 4px; background: #fff; padding: 10px; border-radius: 12px; border: 1.5px solid var(--ink); }
 #qr[hidden] { display: none; }
+#installe { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: rgba(0,47,167,.18); }
+#installe[hidden] { display: none; }
+#installe > div { background: var(--surface); color: var(--ink); border: 1.5px solid var(--ink); border-radius: 16px; padding: 22px; max-width: 360px; box-shadow: 6px 6px 0 var(--sh); }
+#installe h2 { margin: 0 0 8px; font: 700 22px var(--display); }
+#installe p { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+#installe button { border: 1.5px solid var(--ink); border-radius: 999px; padding: 10px 18px; font: 500 15px var(--body); cursor: pointer; background: var(--surface); color: var(--ink); margin: 4px 6px 0 0; }
+#installe button.principal { background: var(--ink); color: var(--bg); box-shadow: 3px 3px 0 var(--doux); }
 #maj { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 84px); transform: translateX(-50%); z-index: 9;
   border: 1.5px solid var(--ink); border-radius: 999px; padding: 9px 16px; font: 500 13px var(--mono); background: var(--ink); color: var(--bg);
   box-shadow: 3px 3px 0 var(--doux); cursor: pointer; }
@@ -230,12 +237,17 @@ body.replie nav button .point { display: none; }
   <menu><button value="annuler" id="annuler">Annuler</button><button class="principal" id="garder">Enregistrer</button></menu>
   <div class="appareil">
     <h3>Connecter un autre appareil</h3>
-    <p>Sur l'ordinateur, montre le code ; sur le téléphone, vise-le avec l'appareil photo. L'adresse et la clé passent d'un appareil à l'autre, les messages sont les mêmes partout. Ce code contient ta clé : ne le montre qu'à toi.</p>
-    <div class="rang"><button id="tester">Tester la connexion</button><button id="montrer-qr">Montrer le code</button><button id="copier-lien">Copier le lien</button></div>
+    <p>Sur l'ordinateur, montre le code ; sur le téléphone, vise-le avec l'appareil photo : LIFE s'ouvre, connectée, et propose de s'installer. L'adresse et la clé passent d'un appareil à l'autre, les messages sont les mêmes partout. Ce code contient ta clé : ne le montre qu'à toi.</p>
+    <div class="rang"><button id="tester">Tester la connexion</button><button id="montrer-qr">Montrer le code (téléphone)</button><button id="copier-lien">Copier le lien</button></div>
     <img id="qr" alt="Code de connexion" hidden>
   </div>
   <p class="version" id="version"></p>
 </dialog>
+<div id="installe" hidden role="dialog" aria-label="Installer LIFE"><div>
+  <h2>LIFE est connectée ✓</h2>
+  <p id="installe-txt">Installe-la sur ce téléphone : elle aura son icône et s'ouvrira comme une app.</p>
+  <button class="principal" id="installe-ok">Installer LIFE</button><button id="installe-non">Plus tard</button>
+</div></div>
 <button id="maj" hidden>Nouvelle version de LIFE — toucher pour l'ouvrir</button>
 
 <script>
@@ -558,7 +570,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = '2026-10-12 (6)';
+const VERSION = '2026-10-12 (7)';
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique';
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -571,13 +583,13 @@ function pretAConnecter() {
 let qrCharge = null;
 $('montrer-qr').onclick = async () => {
   if (!pretAConnecter()) return;
-  if (!$('qr').hidden) { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code'; return; }
+  if (!$('qr').hidden) { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; return; }
   qrCharge = qrCharge || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'qr.js'; s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
   try {
     await qrCharge;
     const q = qrcode(0, 'M'); q.addData(lienConnexion()); q.make();
     $('qr').src = q.createDataURL(6, 2); $('qr').hidden = false; $('montrer-qr').textContent = 'Cacher le code';
-    setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code'; }, 120e3);
+    setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; }, 120e3);
   } catch (e) { qrCharge = null; etat('code indisponible hors ligne'); }
 };
 // La clé ne s'affiche jamais : on la colle depuis le presse-papiers (copiée dans Ma carte de vie → 🔑 Clé du lien) ou on la copie.
@@ -606,7 +618,29 @@ $('copier-lien').onclick = async () => {
   catch (e) { $('copier-lien').textContent = 'Copie refusée'; }
   setTimeout(() => { $('copier-lien').textContent = 'Copier le lien'; }, 2500);
 };
-$('dlg').addEventListener('close', () => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code'; });
+$('dlg').addEventListener('close', () => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; });
+// Installation : Chrome (Android, ordinateur) donne l'invitation « beforeinstallprompt » ; on la garde pour le bouton
+// « Installer LIFE » affiché après une connexion par code. Sans elle (iPhone, ou Chrome qui croit l'app déjà là) : le geste à faire.
+let invitation = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); invitation = e; });
+window.addEventListener('appinstalled', () => { $('installe').hidden = true; annonce('LIFE est installée ✓'); });
+function proposerInstallation() {
+  if (window.matchMedia('(display-mode: standalone)').matches) return;   // déjà ouverte comme app
+  setTimeout(() => {
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if (!invitation) $('installe-txt').textContent = ios
+      ? 'Pour l\'installer : touche Partager (le carré avec une flèche), puis « Sur l\'écran d\'accueil ».'
+      : 'Pour l\'installer : menu ⋮ de Chrome → « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »). Pas la flèche ⬇, qui enregistre seulement la page.';
+    $('installe-ok').hidden = !invitation;
+    $('installe').hidden = false;
+  }, 1200);   // laisse à Chrome le temps d'envoyer son invitation
+}
+$('installe-ok').onclick = async () => {
+  if (!invitation) return;
+  invitation.prompt(); const r = await invitation.userChoice.catch(() => ({})); invitation = null;
+  $('installe').hidden = true; if (r && r.outcome === 'accepted') annonce('installation en cours…');
+};
+$('installe-non').onclick = () => { $('installe').hidden = true; };
 // le message reste après la première actualisation, puis s'efface
 function annonce(t) { setTimeout(() => { etat(t); setTimeout(() => { if ($('etat').textContent === t) etat(''); }, 5000); }, 1500); }
 function recevoirConnexion(ev) {
@@ -618,7 +652,7 @@ function recevoirConnexion(ev) {
     const o = JSON.parse(decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))));
     if (!/^https:\/\/[^\s]+$/.test(o.a || '') || typeof o.c !== 'string' || !o.c.trim()) throw new Error('lien incomplet');
     store.ecrire('adresse', o.a); store.ecrire('cle', o.c.trim());
-    annonce('appareil connecté ✓');
+    annonce('appareil connecté ✓'); proposerInstallation();
   } catch (e) { annonce('lien de connexion illisible'); }
   if (ev) actualiser();   // app déjà ouverte : sinon le démarrage actualise déjà
 }
