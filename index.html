@@ -203,6 +203,7 @@ body.replie nav button .point { display: none; }
   <span class="etat" id="etat"></span>
   <button id="brief" title="Brief du jour" aria-label="Brief du jour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
   <button id="maintenance" title="Maintenance" aria-label="Maintenance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></button>
+  <button id="btn-cle" title="Clé et connexion" aria-label="Clé et connexion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2"/></svg></button>
   <button id="plus" title="Plus" aria-label="Plus d'options" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
   <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="reglages" role="menuitem">Réglages (clé du lien)</button></div>
 </header>
@@ -221,7 +222,7 @@ body.replie nav button .point { display: none; }
 </footer>
 
 <dialog id="dlg">
-  <h2>Réglages</h2>
+  <h2>🔑 Clé et connexion</h2>
   <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil.</p>
   <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (https://…/webhook/life)">
   <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien">
@@ -540,6 +541,7 @@ $('messages').addEventListener('touchmove', e => { if (tire === null) return; co
   $('tirer').style.height = d > 20 ? Math.min(d / 2, 40) + 'px' : '0'; }, { passive: true });
 $('messages').addEventListener('touchend', () => { if ($('tirer').offsetHeight >= 36) actualiser(); $('tirer').style.height = '0'; tire = null; });
 $('reglages').onclick = () => { $('menu').hidden = true; $('cle').value = cle(); $('adresse').value = adresse(); $('dlg').showModal(); };
+$('btn-cle').onclick = e => { e.stopPropagation(); $('reglages').click(); };
 $('annuler').onclick = () => $('dlg').close();
 $('garder').onclick = () => { store.ecrire('cle', $('cle').value.trim()); store.ecrire('adresse', $('adresse').value.trim()); $('dlg').close(); actualiser(); };
 // Une actualisation = une exécution du serveur (quota) : au retour dans l'app, pas plus d'une fois toutes les 5 minutes.
@@ -555,7 +557,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = '2026-10-12 (4)';
+const VERSION = '2026-10-12 (5)';
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique';
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
