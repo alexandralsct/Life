@@ -84,6 +84,8 @@ dialog input { width: 100%; padding: 11px 12px; border-radius: 12px; border: 1.5
 dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 18px 0 0; }
 dialog button { border: 1.5px solid var(--ink); border-radius: 999px; padding: 8px 16px; font: 500 15px var(--body); cursor: pointer;
   background: var(--surface); color: var(--ink); }
+dialog .cle-bt { margin-top: 8px; }
+dialog .cle-bt button { padding: 6px 12px; font-size: 13px; }
 dialog .appareil { border-top: 1.5px solid var(--doux); margin-top: 16px; padding-top: 14px; }
 dialog .appareil h3 { margin: 0 0 6px; font: 700 16px var(--display); }
 dialog .appareil .rang { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -223,6 +225,7 @@ body.replie nav button .point { display: none; }
   <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil.</p>
   <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (https://…/webhook/life)">
   <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien">
+  <div class="rang cle-bt"><button id="coller-cle">Coller la clé copiée</button><button id="copier-cle">Copier la clé</button></div>
   <menu><button value="annuler" id="annuler">Annuler</button><button class="principal" id="garder">Enregistrer</button></menu>
   <div class="appareil">
     <h3>Connecter un autre appareil</h3>
@@ -552,7 +555,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = '2026-10-12 (3)';
+const VERSION = '2026-10-12 (4)';
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique';
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -573,6 +576,20 @@ $('montrer-qr').onclick = async () => {
     $('qr').src = q.createDataURL(6, 2); $('qr').hidden = false; $('montrer-qr').textContent = 'Cacher le code';
     setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code'; }, 120e3);
   } catch (e) { qrCharge = null; etat('code indisponible hors ligne'); }
+};
+// La clé ne s'affiche jamais : on la colle depuis le presse-papiers (copiée dans Ma carte de vie → 🔑 Clé du lien) ou on la copie.
+$('coller-cle').onclick = async () => {
+  let v = ''; try { v = ((await navigator.clipboard.readText()) || '').trim(); } catch (e) { /* lecture refusée */ }
+  if (!v) { $('cle').focus(); etat('colle la clé dans le champ (⌘V)'); return; }
+  if (/\s/.test(v) || v.length < 12) { $('coller-cle').textContent = 'Pas une clé'; }
+  else { $('cle').value = v; store.ecrire('cle', v); $('coller-cle').textContent = 'Clé collée ✓'; }
+  setTimeout(() => { $('coller-cle').textContent = 'Coller la clé copiée'; }, 2500);
+};
+$('copier-cle').onclick = async () => {
+  const v = $('cle').value.trim() || cle();
+  if (!v) { $('copier-cle').textContent = 'Aucune clé'; }
+  else { try { await navigator.clipboard.writeText(v); $('copier-cle').textContent = 'Clé copiée ✓'; } catch (e) { $('copier-cle').textContent = 'Copie refusée'; } }
+  setTimeout(() => { $('copier-cle').textContent = 'Copier la clé'; }, 2500);
 };
 $('tester').onclick = async () => {
   $('tester').textContent = 'Test…';
