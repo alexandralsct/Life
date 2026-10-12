@@ -227,7 +227,7 @@ body.replie nav button .point { display: none; }
   <div class="appareil">
     <h3>Connecter un autre appareil</h3>
     <p>Sur l'ordinateur, montre le code ; sur le téléphone, vise-le avec l'appareil photo. L'adresse et la clé passent d'un appareil à l'autre, les messages sont les mêmes partout. Ce code contient ta clé : ne le montre qu'à toi.</p>
-    <div class="rang"><button id="montrer-qr">Montrer le code</button><button id="copier-lien">Copier le lien</button></div>
+    <div class="rang"><button id="tester">Tester la connexion</button><button id="montrer-qr">Montrer le code</button><button id="copier-lien">Copier le lien</button></div>
     <img id="qr" alt="Code de connexion" hidden>
   </div>
   <p class="version" id="version"></p>
@@ -435,7 +435,18 @@ async function actualiser() {
     const dernier = messages.length ? messages[messages.length - 1].t : '';
     const j = await appel({ action: 'fil', depuis: dernier });
     fusionner(j.messages || []); afficher(); etat('');
-  } catch (e) { etat(e.message === 'clé manquante' ? '' : 'hors ligne'); }
+  } catch (e) { etat(raison(e)); }
+}
+// Dire pourquoi la connexion ne passe pas, au lieu d'un simple « hors ligne » (Réglages → « Tester la connexion »).
+function raison(e) {
+  const m = (e && e.message) || '';
+  if (/manquante/.test(m)) return 'pas connectée : adresse ou clé manquante';
+  if (m === 'clé refusée') return 'clé refusée — vérifie les réglages';
+  if (/erreur 404/.test(m)) return 'serveur introuvable (404) — lien LIFE pas publié dans n8n ?';
+  if (/^erreur \d/.test(m)) return 'le serveur répond mal (' + m + ')';
+  if (!navigator.onLine) return 'hors ligne';
+  if (e instanceof TypeError) return 'serveur injoignable — vérifie l\'adresse';
+  return m.slice(0, 80) || 'hors ligne';
 }
 
 async function envoyer() {
@@ -541,7 +552,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = '2026-10-12 (2)';
+const VERSION = '2026-10-12 (3)';
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique';
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -562,6 +573,12 @@ $('montrer-qr').onclick = async () => {
     $('qr').src = q.createDataURL(6, 2); $('qr').hidden = false; $('montrer-qr').textContent = 'Cacher le code';
     setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code'; }, 120e3);
   } catch (e) { qrCharge = null; etat('code indisponible hors ligne'); }
+};
+$('tester').onclick = async () => {
+  $('tester').textContent = 'Test…';
+  try { await appel({ action: 'fil', depuis: messages.length ? messages[messages.length - 1].t : '' }); $('tester').textContent = 'Connectée ✓'; }
+  catch (e) { $('tester').textContent = raison(e); }
+  setTimeout(() => { $('tester').textContent = 'Tester la connexion'; }, 6000);
 };
 $('copier-lien').onclick = async () => {
   if (!pretAConnecter()) return;
