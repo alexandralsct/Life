@@ -45,7 +45,7 @@ nav button { position: relative; flex: none; border: 1.5px solid var(--ink); bac
   border-radius: 16px; padding: 6px 2px; min-width: 0; aspect-ratio: 1; justify-content: center;   /* carrés */ font: 500 11.5px/1.1 var(--body); cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 4px; }
 nav button svg { width: 27px; height: 27px; }
-nav button > span:not(.badge) { text-transform: uppercase; font: 700 9.5px/1.1 var(--display); letter-spacing: 0; -webkit-text-stroke: .25px currentColor; }   /* gras marqué */   /* libellés en capitales */
+nav button > span:not(.badge) { hyphens: manual; overflow-wrap: normal; text-align: center; text-transform: uppercase; font: 700 9.5px/1.1 var(--display); letter-spacing: 0; -webkit-text-stroke: .25px currentColor; }   /* gras marqué */   /* libellés en capitales */
 nav button .badge { position: absolute; top: -7px; right: -7px; min-width: 21px; height: 21px; padding: 0 6px; border-radius: 999px;
   background: var(--ink); color: var(--surface); border: 1.5px solid var(--surface); font: 600 12px/18px var(--mono); text-align: center;
   box-shadow: 2px 2px 0 var(--doux); }
@@ -277,7 +277,7 @@ main, #vue-brief, #vue-maintenance { min-height: 0; }
 /* l'adresse du serveur n'est pas dans ce code public : elle est collée dans les Réglages, avec la clé, et reste sur l'appareil */
 function adresse() { try { const v = JSON.parse(localStorage.getItem('life.adresse') || '""'); return /^https:\/\/[^\s]+$/.test(v) ? v : ''; } catch (e) { return ''; } }
 const FILS = [['general', 'Général'], ['travail', 'Travail'], ['metamorphose', 'Mon projet'], ['patrimoine', 'Patrimoine'],
-  ['quotidien', 'Quotidien'], ['voyage', 'Voyage'], ['experts', 'Experts'], ['comite', 'Comité'], ['brainstorm', 'Idées'], ['coach', 'Coach']];
+  ['quotidien', 'Quotidien'], ['voyage', 'Voyage'], ['experts', 'Experts'], ['comite', 'Comité'], ['brainstorm', 'Brain\u00ADstorming'], ['coach', 'Coach']];
 // Icônes au trait (couleur du texte), une par fil.
 const ICONES = {
   general: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>',
@@ -632,7 +632,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.15';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.16';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
