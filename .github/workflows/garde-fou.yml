@@ -1,0 +1,47 @@
+# Alerte de fuite : à chaque envoi (et chaque jour), vérifie que ce dépôt public
+# ne contient que du code. En cas de problème, le contrôle échoue et GitHub
+# envoie un e-mail d'alerte à la propriétaire du dépôt.
+# Les contrôles eux-mêmes sont dans tests/garde-fou.sh (le même script sert de hook local avant chaque commit).
+name: Garde-fou données personnelles
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fichiers autorisés, secrets, e-mails, mots de la liste privée (mots entiers)
+        # La liste est un secret du dépôt (Settings → Secrets and variables → Actions → MOTS_INTERDITS),
+        # mots séparés par | ; elle n'apparaît jamais ici ni dans les journaux. Sans elle, le contrôle échoue.
+        env:
+          MOTS: ${{ secrets.MOTS_INTERDITS }}
+        run: bash tests/garde-fou.sh
+      - name: Icônes inchangées (empreintes sha256)
+        # Une image ou un fichier tiers modifié doit être vérifié puis son empreinte mise à jour ici.
+        run: |
+          sha256sum -c --strict <<'FIN'
+          e99334a6b4cec7dfd82972c3cdda40bd6506d80abb1ab6d24dcc60edde6c0ffd  icon-192.png
+          911decb9b5c73875a1783cf51b022846e0f02cbf75f110e2a0f800a73f6a65dc  icon-512.png
+          3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35  icon.svg
+          FIN
+  historique:
+    # Chaque jour : tout l'historique public (lignes ajoutées et messages de commit) pour les secrets et les mots privés.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Historique complet
+        env:
+          MOTS: ${{ secrets.MOTS_INTERDITS }}
+          # premier commit du dépôt (version 155), déjà connu : il contient d'anciens mots retirés depuis ;
+          # l'historique public ne se réécrit qu'avec l'accord de la propriétaire.
+          HISTO_CONNUS: ""
+        run: bash tests/garde-fou.sh --historique
