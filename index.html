@@ -260,7 +260,7 @@ main, #vue-brief, #vue-maintenance { min-height: 0; }
 </footer>
 
 <dialog id="dlg">
-  <h2>🔑 Clé et connexion</h2>
+  <h2>Clé et connexion</h2>
   <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil.</p>
   <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (https://…/webhook/life)">
   <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien">
@@ -372,17 +372,24 @@ const ICONES_CARTE = {
   '🏠': SVGC('<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>'),
   '⚠️': SVGC('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>')
 };
+const SIGNES = { '⭐': '★', '🌟': '★', '✅': '✓', '✔️': '✓', '☑️': '✓', '❌': '✕', '⚠️': '⚠\ufe0e', '⚠': '⚠\ufe0e', '➡️': '→', '👉': '→', '📌': '•', '❗': '!', '❓': '?' };
+const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B50}\u{2B55}\u{231A}\u{231B}\u{23E9}-\u{23F3}]\uFE0F?|\uFE0F|\u200D/gu;
+const GARDES = new Set(['★', '✓', '✕', '✎', '☾', '✦', '✧', '◆', '♥', '♡', '☆', '✳', '✱', '⚠']);
+function sobre(t) {
+  let x = String(t || ''); Object.keys(SIGNES).forEach(k => { x = x.split(k).join(SIGNES[k]); });
+  return x.replace(EMOJI, c => GARDES.has(c.replace(/\uFE0F/g, '')) ? c.replace(/\uFE0F/g, '') + '\ufe0e' : '').replace(/\uFE0E+/g, '\uFE0E').replace(/[ \t]{2,}/g, ' ');
+}
 function remplirCarte(b, texte) {   // 1re ligne = titre, lignes « ━━ » = sections (texte brut, jamais du HTML)
   String(texte).split('\n').forEach((l, i) => {
     if (i === 0) {
       const t = document.createElement('span'); t.className = 'titre';
       const e = ESSAI_ICONES && Object.keys(ICONES_CARTE).find(k => l.startsWith(k));
-      if (e) { t.innerHTML = ICONES_CARTE[e]; t.appendChild(document.createTextNode(l.slice(e.length).trim())); }
-      else t.textContent = l;
+      if (e) { t.innerHTML = ICONES_CARTE[e]; t.appendChild(document.createTextNode(sobre(l.slice(e.length).trim()))); }
+      else t.textContent = sobre(l);
       b.appendChild(t); return;
     }
-    if (/^━━/.test(l)) { const t = document.createElement('span'); t.className = 'section'; t.textContent = l.replace(/^━━\s*/, ''); b.appendChild(t); return; }
-    if (l.trim()) b.appendChild(document.createTextNode(l + '\n'));
+    if (/^━━/.test(l)) { const t = document.createElement('span'); t.className = 'section'; t.textContent = sobre(l.replace(/^━━\s*/, '')); b.appendChild(t); return; }
+    if (l.trim()) b.appendChild(document.createTextNode(sobre(l) + '\n'));
   });
 }
 function carteSysteme(m) {
@@ -425,7 +432,7 @@ function afficherEpingles() {
   (epingles[fil] || []).map(id => messages.find(m => m.id === id)).filter(Boolean).forEach(m => {
     const d = document.createElement('div'); d.className = 'epingle';
     d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 5 3 3H7l3-3zM12 15v5"/></svg><span></span><button aria-label="Désépingler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
-    d.querySelector('span').textContent = m.texte.split('\n')[0];
+    d.querySelector('span').textContent = sobre(m.texte.split('\n')[0]);
     d.querySelector('button').onclick = () => epingler(m);
     z.appendChild(d);
   });
@@ -475,7 +482,7 @@ function afficher() {
     const b = document.createElement('div');
     b.className = 'bulle ' + (m.auteur === 'moi' ? 'moi' : m.auteur === 'systeme' ? 'systeme' : 'life') + (m.temp ? ' attente' : '');
     if (m.auteur === 'systeme') { remplirCarte(b, m.texte); b.dataset.etiquette = 'Info · ' + (FILS.find(f => f[0] === (m.fil || 'general')) || ['', ''])[1]; }
-    else b.textContent = m.texte;   // texte brut : jamais interprété comme du HTML
+    else b.textContent = m.auteur === 'moi' ? m.texte : sobre(m.texte);   // texte brut : jamais interprété comme du HTML
     const suivant = liste[k + 1];
     const finDeGroupe = !suivant || suivant.auteur !== m.auteur || (suivant.t || '').slice(0, 15) !== (m.t || '').slice(0, 15);
     if (m.temp || finDeGroupe) {   // l'heure une fois par groupe de messages rapprochés
@@ -552,7 +559,7 @@ async function envoyer() {
       if (!cle() || !adresse()) { $('dlg').showModal(); throw new Error('clé ou adresse manquante'); }
       const rep = await demanderExpert(texte), t0 = Date.now();
       fusionner([Object.assign({}, temp, { id: 'loc-' + t0, temp: false, local: true, expert: true }),
-        ...rep.map((x, k) => ({ id: 'loc-' + t0 + '-' + k, t: heureLocale(), auteur: 'life', fil: 'experts', texte: '🎓 ' + x.nom + '\n' + x.texte, local: true, expert: true }))]);
+        ...rep.map((x, k) => ({ id: 'loc-' + t0 + '-' + k, t: heureLocale(), auteur: 'life', fil: 'experts', texte: x.nom + '\n' + x.texte, local: true, expert: true }))]);
       etat(''); enAttente = false; afficher(); return;
     }
     const j = await appel({ action: 'envoyer', texte, fil });
@@ -666,7 +673,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.18';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.19';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -688,7 +695,7 @@ $('montrer-qr').onclick = async () => {
     setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; }, 120e3);
   } catch (e) { qrCharge = null; etat('code indisponible hors ligne'); }
 };
-// La clé ne s'affiche jamais : on la colle depuis le presse-papiers (copiée dans Ma carte de vie → 🔑 Clé du lien) ou on la copie.
+// La clé ne s'affiche jamais : on la colle depuis le presse-papiers (copiée dans Ma carte de vie → Clé du lien) ou on la copie.
 $('coller-cle').onclick = async () => {
   let v = ''; try { v = ((await navigator.clipboard.readText()) || '').trim(); } catch (e) { /* lecture refusée */ }
   if (!v) { $('cle').focus(); etat('colle la clé dans le champ (⌘V)'); return; }
@@ -783,7 +790,7 @@ if (DEMO) {
     { id: 'd3', t: '2026-10-13 09:12:06', auteur: 'life', fil: 'general', texte: '4 candidatures attendent une réponse. La plus ancienne : Atelier Dupont, envoyée il y a 12 jours — je te prépare une relance ?' },
     { id: 'd4', t: '2026-10-13 09:13:00', auteur: 'moi', fil: 'general', texte: 'oui' },
     { id: 'd4b', t: '2026-10-13 09:13:08', auteur: 'life', fil: 'general', texte: 'C\'est prêt : la relance est dans tes brouillons. Je te la rappelle vendredi si Dupont ne répond pas ?' },
-    { id: 'd5', t: '2026-10-13 12:01:00', auteur: 'systeme', fil: 'travail', texte: '💼 2 offres qui te ressemblent\n⭐ Chef de projet — Agence A · 8/10\n⭐ Projeteur — Agence B · 8/10' },
+    { id: 'd5', t: '2026-10-13 12:01:00', auteur: 'systeme', fil: 'travail', texte: '💼 2 offres qui te ressemblent\n★ Chef de projet — Agence A · 8/10\n★ Projeteur — Agence B · 8/10' },
     { id: 'd6', t: '2026-10-13 12:02:00', auteur: 'life', fil: 'travail', texte: 'La relance pour Atelier Dupont est prête en brouillon dans ta boîte mail.' },
     { id: 'd7', t: '2026-10-13 12:05:00', auteur: 'life', fil: 'travail', texte: 'Studio K a répondu : entretien proposé jeudi 10 h.' },
     { id: 'd9', t: '2026-10-13 07:55:00', auteur: 'systeme', fil: 'systeme', texte: '🛠 Rapport du système — mardi 13 octobre\n━━ En bref\n• 52 workflows en ordre · 0 erreur en 24 h\n• Quota : 612 / 2 500 exécutions ce mois-ci\n━━ À publier\n• Aucun brouillon en attente\n━━ Sécurité\n• Vérification de la carte : tout va bien' },
