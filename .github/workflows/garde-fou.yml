@@ -45,5 +45,5 @@ jobs:
           MOTS: ${{ secrets.MOTS_INTERDITS }}
           # premier commit du dépôt (version 155), déjà connu : il contient d'anciens mots retirés depuis ;
           # l'historique public ne se réécrit qu'avec l'accord de la propriétaire.
-          HISTO_CONNUS: ""
+          HISTO_CONNUS: "3347256 b13ac13"
         run: bash tests/garde-fou.sh --historique
