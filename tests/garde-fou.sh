@@ -50,5 +50,11 @@ m=$(git grep --cached -lIiwE -- "$MOTS" || true)
 v=$(git show :app.js 2>/dev/null | grep -oE "const VERSION = 'V[.0-9]+'" | grep -oE "V[.0-9]+")
 c=$(git show :sw.js 2>/dev/null | grep -oE "const CACHE = 'life-V[.0-9]+'" | grep -oE "V[.0-9]+")
 [ -n "$v" ] && [ "$v" != "$c" ] && err "Version de app.js ($v) différente de celle du cache de sw.js ($c)"
+# empreintes de la coquille inscrites dans sw.js (une copie gardée n'est servie que si elle est intacte) : à jour ?
+while read -r f h; do
+  [ -z "$f" ] && continue
+  a=$(git cat-file -p ":$f" 2>/dev/null | sha256sum | cut -d' ' -f1)
+  [ "$a" = "$h" ] || err "sw.js : empreinte fausse pour $f (lancer : node tests/empreintes.mjs)"
+done < <(git show :sw.js 2>/dev/null | grep -oE "'[^']+': '[0-9a-f]{64}'" | tr -d "':")
 [ $ko = 0 ] && echo "Garde-fou : rien à signaler."
 exit $ko

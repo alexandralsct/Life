@@ -79,7 +79,7 @@ export const tests = [
     const r = await A.page.evaluate(async () => {
       await caches.open('carte-copie'); await caches.open('coulisses-copie'); await caches.open('life-V.0.0.1');
       // une seconde inscription (autre portée) installe et active un nouveau service worker : son nettoyage s'exécute
-      const n = await navigator.serviceWorker.register('sw.js', { scope: './essai-nettoyage/', updateViaCache: 'none' });
+      const n = await navigator.serviceWorker.register(POLITIQUE.createScriptURL('sw.js'), { scope: './essai-nettoyage/', updateViaCache: 'none' });
       await new Promise(ok => { const w = n.installing || n.waiting || n.active; if (!w || w.state === 'activated') return ok(); w.addEventListener('statechange', () => { if (w.state === 'activated') ok(); }); });
       await new Promise(ok => setTimeout(ok, 500));
       return caches.keys();

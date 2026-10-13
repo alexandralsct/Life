@@ -4,6 +4,26 @@
 // (ancien serveur), l'app garde un mode compatible. Tests : tests/lancer.mjs (app téléphone et app ordinateur).
 /* l'adresse du serveur n'est pas dans ce code public : elle est collée dans les Réglages, avec la clé, et reste sur l'appareil */
 function adresse() { try { const v = JSON.parse(localStorage.getItem('life.adresse') || '""'); return /^https:\/\/[^\s]+$/.test(v) ? v : ''; } catch (e) { return ''; } }
+// ---------- Sécurité (audit expert de sécurité du 13/10) ----------
+// 1. Jamais dans le cadre d'un autre site (LO2) : seule Ma carte de vie (même site) peut montrer LIFE dans un cadre.
+const DANS_CARTE = (() => { try { return window.top !== window && window.parent.location.pathname.indexOf('/carte-de-vie') === 0; } catch (e) { return false; } })();
+if (window.top !== window && !DANS_CARTE) { document.body.textContent = 'LIFE ne s\'ouvre pas dans le cadre d\'un autre site.'; throw new Error('cadre refusé'); }
+// 2. Seconde règle de sécurité (CSP), posée au lancement avec le serveur EXACT enregistré sur l'appareil (LC2) : les deux
+//    règles s'additionnent, et plus aucune donnée ne peut partir vers un autre serveur, même du même domaine de premier
+//    niveau. Changer d'adresse dans les Réglages recharge l'app (la nouvelle règle suit).
+const HOTE_CSP = (() => { try { return new URL(adresse()).host; } catch (e) { return ''; } })();
+if (HOTE_CSP && /^[a-z0-9.-]+(:\d+)?$/i.test(HOTE_CSP)) {
+  const m = document.createElement('meta'); m.httpEquiv = 'Content-Security-Policy';
+  m.content = "connect-src 'self' https://" + HOTE_CSP; document.head.appendChild(m);
+}
+// 3. Trusted Types (CSP : require-trusted-types-for 'script') : le HTML n'entre dans la page que par cette politique, qui
+//    refuse tout script, cadre ou attribut d'événement ; seuls qr.js et le service worker (sw.js) peuvent être chargés.
+const POLITIQUE = (() => {
+  const regle = { createHTML: x => { if (/<(script|iframe|object|embed|link|meta|base)\b|\son[a-z]+\s*=|javascript:/i.test(x)) throw new TypeError('HTML refusé'); return x; },
+                  createScriptURL: u => { if (u !== 'qr.js' && u !== 'sw.js') throw new TypeError('script refusé'); return u; } };
+  try { return window.trustedTypes && window.trustedTypes.createPolicy ? window.trustedTypes.createPolicy('life', regle) : regle; } catch (e) { return regle; }
+})();
+const html = (el, x) => { el.innerHTML = POLITIQUE.createHTML(x); };
 const FILS = [['general', 'Général'], ['travail', 'Travail'], ['metamorphose', 'Projet'], ['patrimoine', 'Patrimoine'],
   ['quotidien', 'Quotidien'], ['voyage', 'Voyage'], ['experts', 'Experts'], ['comite', 'Comité'], ['brainstorm', 'Brainstorming'], ['coach', 'Coach']];
 // Icônes au trait (couleur du texte), une par fil.
@@ -50,7 +70,7 @@ function ouvrirDialogue(d) {
 }));
 function boutonRetour() {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'retour';
-  b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span>Conversation</span>';
+  html(b, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span>Conversation</span>');
   b.onclick = () => vue(null); return b;
 }
 const DEMO = location.search.includes('demo');
@@ -146,7 +166,7 @@ function pastilleAppli(c) {   // le petit numéro sur l'icône de l'app (Android
 // action = [libellé, fonction] : un bouton dans le bandeau (« Annuler », « Réessayer »).
 let minuterieBandeau = null;
 function bandeau(texte, action, duree, important) {   // important : une actualisation réussie ne l'efface pas
-  const z = $('bandeau'); clearTimeout(minuterieBandeau); z.innerHTML = ''; z.dataset.important = important ? '1' : '';
+  const z = $('bandeau'); clearTimeout(minuterieBandeau); z.textContent = ''; z.dataset.important = important ? '1' : '';
   if (!texte) { z.hidden = true; return; }
   const s = document.createElement('span'); s.textContent = texte; z.appendChild(s);
   if (action) { const b = document.createElement('button'); b.type = 'button'; b.textContent = action[0];
@@ -162,7 +182,13 @@ function ouvrirReglages() {
   ouvrirDialogue($('dlg'));
 }
 // Clé du lien : sans clé enregistrée ici, LIFE reprend celle de Ma carte de vie (même site, même stockage).
-function cle() { const c = store.lire('cle', ''); if (c) return c; try { return (localStorage.getItem('carte-de-vie-lien') || '').trim(); } catch (e) { return ''; } }
+// Clé du lien (celle des experts). Depuis la V.0.0.35, LIFE ne lit plus la clé de Ma carte de vie à chaque appel
+// (audit de sécurité CC3) : un appareil déjà relié qui s'en servait la recopie une seule fois, puis plus jamais.
+function cle() { return store.lire('cle', ''); }
+(function recopierCleCarteUneFois() {
+  if (store.lire('cle', '') || !adresse()) return;
+  try { const c = (localStorage.getItem('carte-de-vie-lien') || '').trim(); if (c) store.ecrire('cle', c); } catch (e) { /* stockage indisponible */ }
+})();
 // Clé propre à LIFE (facultative, réglage séparé) : si elle existe, le serveur de LIFE la reçoit à la place de la clé du
 // lien ; le circuit des experts (lien de l'app) garde la clé du lien. Sans elle : comportement d'avant.
 function cleLife() { return store.lire('cleLife', '') || cle(); }
@@ -192,17 +218,25 @@ function noterContrat(j) {
   const v = Number(j.version) || 0;
   if (v !== versionServeur) { versionServeur = v; store.ecrire('versionServeur', v); }
   if (serveurAJour() && Object.keys(filsForces).length) { filsForces = {}; store.effacer('filsForces'); }   // plus utile : purgée
+  if (v && !!j.transfert !== store.lire('transfert', false)) store.ecrire('transfert', !!j.transfert);   // code à usage unique possible
   noterExperts(j);
 }
+// Clé propre à LIFE, bascule SANS COUPURE (audit de sécurité LC1) : tant que le serveur ne l'a jamais acceptée, un refus
+// fait reprendre la clé du lien (serveur pas encore passé à sa propre clé). Dès qu'il l'a acceptée une fois, la clé du
+// lien n'est plus jamais envoyée au serveur de LIFE (life.cleLifeServeur).
 async function appel(corps, o = {}) {
-  const k = o.url ? cle() : cleLife();
+  const propre = !o.url && store.lire('cleLife', ''), k = o.url ? cle() : (propre || cle());
   if (!k || !adresse()) { ouvrirReglages(); throw new Error('clé ou adresse manquante'); }
   const ac = new AbortController(), minuterie = setTimeout(() => ac.abort(), o.delai || DELAI);
+  const poster = c => fetch(o.url || adresse(), { method: 'POST', headers: { 'content-type': 'application/json', 'x-cle-app': c },
+                                                 body: JSON.stringify(corps), signal: ac.signal });
   try {
     let r;
-    try { r = await fetch(o.url || adresse(), { method: 'POST', headers: { 'content-type': 'application/json', 'x-cle-app': k },
-                                               body: JSON.stringify(corps), signal: ac.signal }); }
-    catch (e) { if (ac.signal.aborted) throw new Error('délai dépassé'); throw e; }
+    try {
+      r = await poster(k);
+      if (propre && (r.status === 403 || r.status === 401) && !store.lire('cleLifeServeur', false) && cle() && cle() !== propre) r = await poster(cle());
+      else if (propre && r.ok && !store.lire('cleLifeServeur', false)) store.ecrire('cleLifeServeur', true);
+    } catch (e) { if (ac.signal.aborted) throw new Error('délai dépassé'); throw e; }
     if (r.status === 403 || r.status === 401) throw new Error('clé refusée');
     const j = await r.json().catch(() => ({}));
     if (ac.signal.aborted) throw new Error('délai dépassé');
@@ -297,7 +331,7 @@ function remplirCarte(b, texte) {   // 1re ligne = titre, lignes « ━━ » = 
     if (i === 0) {
       const t = document.createElement('span'); t.className = 'titre';
       const e = Object.keys(ICONES_CARTE).find(k => l.startsWith(k));
-      if (e) { t.innerHTML = ICONES_CARTE[e]; t.appendChild(document.createTextNode(sobre(l.slice(e.length).trim()))); }
+      if (e) { html(t, ICONES_CARTE[e]); t.appendChild(document.createTextNode(sobre(l.slice(e.length).trim()))); }
       else t.textContent = sobre(l);
       b.appendChild(t); return;
     }
@@ -415,7 +449,7 @@ function afficherEpingles() {
   sigEpingles = sig; z.textContent = '';
   l.forEach(m => {
     const d = document.createElement('div'); d.className = 'epingle';
-    d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 5 3 3H7l3-3zM12 15v5"/></svg><span></span><button type="button" aria-label="Désépingler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+    html(d, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 5 3 3H7l3-3zM12 15v5"/></svg><span></span><button type="button" aria-label="Désépingler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>');
     d.querySelector('span').textContent = sobre(m.texte.split('\n')[0]);
     d.querySelector('button').onclick = () => epingler(m);
     z.appendChild(d);
@@ -459,7 +493,7 @@ function creerBulle(m, finDeGroupe) {
   }
   if (m.auteur !== 'life') return b;
   const l = document.createElement('div'); l.className = 'ligne-life';   // avatar de LIFE, une fois par groupe
-  const a = document.createElement('span'); a.className = 'avatar' + (finDeGroupe ? '' : ' vide'); a.setAttribute('aria-hidden', 'true'); a.innerHTML = AVATAR;
+  const a = document.createElement('span'); a.className = 'avatar' + (finDeGroupe ? '' : ' vide'); a.setAttribute('aria-hidden', 'true'); html(a, AVATAR);
   l.appendChild(a); l.appendChild(b); return l;
 }
 function element(cle, sig, fabriquer) {   // élément gardé (clé), refait seulement si sa signature change
@@ -486,7 +520,7 @@ function afficherConversation() {
   if (debut > 0) voulus.push(elementUnique('anciens', () => { const b = document.createElement('button'); b.type = 'button'; b.className = 'anciens';
     b.textContent = 'Messages plus anciens'; b.onclick = () => plusAnciens(true); return b; }));
   if (!liste.length) voulus.push(elementUnique('vide', () => { const d = document.createElement('div'); d.className = 'vide';
-    d.innerHTML = '<strong>Rien ici pour l\'instant</strong>Écris à LIFE : une question, une idée, une chose à ne pas oublier.'; return d; }));
+    html(d, '<strong>Rien ici pour l\'instant</strong>Écris à LIFE : une question, une idée, une chose à ne pas oublier.'); return d; }));
   let dernierJour = debut > 0 ? jourLisible(liste[debut - 1].t) : '';
   for (let k = debut; k < liste.length; k++) {
     const m = liste[k], j = jourLisible(m.t), suivant = liste[k + 1];
@@ -506,7 +540,7 @@ function afficherConversation() {
     ok.onclick = () => { store.ecrire('aideAppui', true); a.remove(); };
     a.appendChild(s); a.appendChild(ok); return a; }));
   if (envoisEnCours || enCoursDans(fil)) voulus.push(elementUnique('ecrit', () => { const e = document.createElement('div'); e.className = 'ecrit';
-    e.setAttribute('role', 'img'); e.setAttribute('aria-label', 'LIFE écrit'); e.innerHTML = '<i></i><i></i><i></i>'; return e; }));
+    e.setAttribute('role', 'img'); e.setAttribute('aria-label', 'LIFE écrit'); html(e, '<i></i><i></i><i></i>'); return e; }));
   // réconciliation : on ne touche qu'aux nœuds qui changent de place, apparaissent ou disparaissent
   const actif = document.activeElement, idActif = flux.contains(actif) && actif.dataset ? actif.dataset.id : null;
   let cur = flux.firstChild;
@@ -578,7 +612,7 @@ function afficherFils(vueAPart) {
     boutonsFils = {};
     FILS.forEach(([id, nom]) => {
       const b = document.createElement('button'); b.type = 'button';
-      b.innerHTML = svg(id) + '<span class="nom" aria-hidden="true"></span>';
+      html(b, svg(id) + '<span class="nom" aria-hidden="true"></span>');
       b.querySelector('.nom').textContent = NOM_COURT[id] || nom;
       b.classList.toggle('long', (NOM_COURT[id] || nom).length > 11); b.classList.toggle('moyen', (NOM_COURT[id] || nom).length > 8 && (NOM_COURT[id] || nom).length <= 11);
       b.onclick = () => choisirFil(id);
@@ -620,12 +654,12 @@ function afficherVues() {
   const sb = briefs.length ? briefs[briefs.length - 1].id + '|' + briefs[briefs.length - 1].texte : '';
   if (ouvBrief && sb !== sigBrief) { sigBrief = sb;
     const vb = $('vue-brief'); vb.textContent = ''; vb.appendChild(boutonRetour());
-    if (!briefs.length) vb.insertAdjacentHTML('beforeend', '<div class="vide"><strong>Pas encore de brief</strong>Il arrive chaque matin à 7 h 50.</div>');
+    if (!briefs.length) vb.insertAdjacentHTML('beforeend', POLITIQUE.createHTML('<div class="vide"><strong>Pas encore de brief</strong>Il arrive chaque matin à 7 h 50.</div>'));
     else vb.appendChild(carteSysteme(briefs[briefs.length - 1])); }
   const sm = maint.slice(-10).map(m => m.id).join();
   if (ouvMaint && sm !== sigMaint) { sigMaint = sm;
     const vm = $('vue-maintenance'); vm.textContent = ''; vm.appendChild(boutonRetour());
-    if (!maint.length) vm.insertAdjacentHTML('beforeend', '<div class="vide"><strong>Rien à signaler</strong>Le rapport du système et ses alertes arrivent ici.</div>');
+    if (!maint.length) vm.insertAdjacentHTML('beforeend', POLITIQUE.createHTML('<div class="vide"><strong>Rien à signaler</strong>Le rapport du système et ses alertes arrivent ici.</div>'));
     else maint.slice(-10).forEach(m => vm.appendChild(carteSysteme(m)));
     vm.scrollTop = vm.scrollHeight; }
 }
@@ -879,7 +913,7 @@ $('q').addEventListener('input', () => {   // résultats dans leur propre zone :
   if (q.length < 2) { zone.hidden = true; $('flux').hidden = false; afficher(); return; }
   zone.textContent = ''; zone.hidden = false; $('flux').hidden = true;
   const trouves = messages.filter(m => (m.texte || '').toLowerCase().includes(q)).slice(-40).reverse();
-  if (!trouves.length) { zone.innerHTML = '<div class="vide"><strong>Rien trouvé</strong>Essaie un autre mot.</div>'; return; }
+  if (!trouves.length) { html(zone, '<div class="vide"><strong>Rien trouvé</strong>Essaie un autre mot.</div>'); return; }
   trouves.forEach(m => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'bulle life resultat';
     const ou = document.createElement('span'); ou.className = 'ou';
@@ -939,8 +973,12 @@ $('garder').onclick = () => {   // adresse saisie ici par elle-même : elle n'es
   const a = $('adresse').value.trim();
   if (a !== adresse()) { store.effacer('curseur'); store.effacer('adresseDuLien'); }
   store.ecrire('cle', $('cle').value.trim()); store.ecrire('adresse', a);
-  const cl = $('cle-life').value.trim(); if (cl) store.ecrire('cleLife', cl); else store.effacer('cleLife');
-  $('dlg').close(); actualiser();
+  const cl = $('cle-life').value.trim();
+  if (cl !== store.lire('cleLife', '')) store.effacer('cleLifeServeur');   // nouvelle clé propre : la bascule recommence
+  if (cl) store.ecrire('cleLife', cl); else store.effacer('cleLife');
+  $('dlg').close();
+  if (hoteDe(a) !== HOTE_CSP) { location.reload(); return; }   // autre serveur : la règle de sécurité du lancement doit suivre
+  actualiser();
 };
 // Effacer cet appareil : seulement ce que LIFE garde ici (clés « life. » et caches « life- ») ; la carte et les autres apps
 // du même site ne sont pas touchées. Confirmation forte : retaper EFFACER.
@@ -973,17 +1011,43 @@ window.addEventListener('pagehide', confirmerSuppression);
 
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const DANS_CARTE = (() => { try { return window.top !== window && window.parent.location.pathname.indexOf('/carte-de-vie') === 0; } catch (e) { return false; } })();
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.34';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.35';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
-function lienConnexion() {
+// Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
+// le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
+// hasard), et le code ne porte que l'adresse, le numéro du paquet et la clé de déchiffrement. Le nouvel appareil retire
+// le paquet UNE SEULE FOIS, dans les 2 minutes : une photo du code, ou l'historique d'un lecteur, ne sert plus à rien
+// ensuite. Le serveur, lui, ne voit jamais la clé en clair. Avec un ancien serveur : l'ancien lien (clé dedans), signalé.
+const b64u = o => btoa(typeof o === 'string' ? unescape(encodeURIComponent(o)) : String.fromCharCode(...new Uint8Array(o))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const deb64u = t => { const b = t.replace(/-/g, '+').replace(/_/g, '/'); return atob(b + '==='.slice((b.length + 3) % 4)); };
+const octets = t => Uint8Array.from(deb64u(t), c => c.charCodeAt(0));
+async function lienConnexion() {
   const o = { a: adresse(), c: cle() }; if (store.lire('cleLife', '')) o.l = store.lire('cleLife', '');
-  const d = btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return location.origin + location.pathname + '#connexion=' + d;
+  if (!store.lire('transfert', false) || !(window.crypto && crypto.subtle)) return { lien: location.origin + location.pathname + '#connexion=' + b64u(JSON.stringify(o)), unique: false };
+  const k = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ck = await crypto.subtle.importKey('raw', k, 'AES-GCM', false, ['encrypt']);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, ck, new TextEncoder().encode(JSON.stringify({ c: o.c, l: o.l || '' }))));
+  const paquet = new Uint8Array(12 + ct.length); paquet.set(iv); paquet.set(ct, 12);
+  const id = nouvelId() + nouvelId();   // 28 caractères
+  await appel({ action: 'transfert_deposer', id, donnees: b64u(paquet) });
+  return { lien: location.origin + location.pathname + '#transfert=' + b64u(JSON.stringify({ a: o.a, i: id, k: b64u(k) })), unique: true };
 }
+async function retirerTransfert(n) {   // nouvel appareil : retire le paquet (une fois) et le déchiffre
+  const url = n.a.replace(/\/life\/?$/, '/life-transfert');
+  if (url === n.a) throw new Error('adresse inattendue');
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'transfert_retirer', id: n.transfert.i }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok || typeof j.donnees !== 'string') throw new Error(j.erreur || 'code inconnu, déjà utilisé ou expiré');
+  const p = octets(j.donnees), ck = await crypto.subtle.importKey('raw', octets(n.transfert.k), 'AES-GCM', false, ['decrypt']);
+  const o = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: p.slice(0, 12) }, ck, p.slice(12))));
+  if (typeof o.c !== 'string' || !o.c.trim()) throw new Error('code illisible');
+  return { c: o.c.trim(), l: typeof o.l === 'string' ? o.l.trim() : '' };
+}
+// presse-papiers vidé après un délai (lien ou clé copiés) ; sans effet si le navigateur le refuse
+const viderPressePapiers = ms => setTimeout(() => { try { if (document.hasFocus()) navigator.clipboard.writeText('').catch(() => {}); } catch (e) { /* */ } }, ms);
 function pretAConnecter() {
   if (adresse() && cle()) return true;
   etat('enregistre d\'abord l\'adresse et la clé'); return false;
@@ -992,13 +1056,16 @@ let qrCharge = null;
 $('montrer-qr').onclick = async () => {
   if (!pretAConnecter()) return;
   if (!$('qr').hidden) { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; return; }
-  qrCharge = qrCharge || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'qr.js'; s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
+  qrCharge = qrCharge || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = POLITIQUE.createScriptURL('qr.js'); s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
   try {
     await qrCharge;
-    const q = qrcode(0, 'M'); q.addData(lienConnexion()); q.make();
+    const l = await lienConnexion();
+    const q = qrcode(0, 'M'); q.addData(l.lien); q.make();
     $('qr').src = q.createDataURL(6, 2); $('qr').hidden = false; $('montrer-qr').textContent = 'Cacher le code';
+    $('qr').alt = l.unique ? 'Code de connexion, valable une fois pendant 2 minutes' : 'Code de connexion (il contient ta clé)';
+    etat(l.unique ? 'code valable une seule fois, pendant 2 minutes' : 'ce code contient ta clé (serveur à mettre à jour pour un code à usage unique)');
     setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; }, 120e3);
-  } catch (e) { qrCharge = null; etat('code indisponible hors ligne'); }
+  } catch (e) { qrCharge = null; etat('code indisponible : ' + raison(e)); }
 };
 // La clé ne s'affiche jamais : on la colle depuis le presse-papiers (copiée dans Ma carte de vie → Clé du lien) ou on la copie.
 $('coller-cle').onclick = async () => {
@@ -1011,7 +1078,7 @@ $('coller-cle').onclick = async () => {
 $('copier-cle').onclick = async () => {
   const v = $('cle').value.trim() || cle();
   if (!v) { $('copier-cle').textContent = 'Aucune clé'; }
-  else { try { await navigator.clipboard.writeText(v); $('copier-cle').textContent = 'Clé copiée ✓'; } catch (e) { $('copier-cle').textContent = 'Copie refusée'; } }
+  else { try { await navigator.clipboard.writeText(v); $('copier-cle').textContent = 'Clé copiée ✓'; viderPressePapiers(60e3); } catch (e) { $('copier-cle').textContent = 'Copie refusée'; } }
   setTimeout(() => { $('copier-cle').textContent = 'Copier la clé'; }, 2500);
 };
 $('tester').onclick = async () => {
@@ -1022,7 +1089,8 @@ $('tester').onclick = async () => {
 };
 $('copier-lien').onclick = async () => {
   if (!pretAConnecter()) return;
-  try { await navigator.clipboard.writeText(lienConnexion()); $('copier-lien').textContent = 'Lien copié ✓'; }
+  try { const l = await lienConnexion(); await navigator.clipboard.writeText(l.lien); viderPressePapiers(120e3);
+    $('copier-lien').textContent = l.unique ? 'Lien copié ✓ (une fois, 2 min)' : 'Lien copié ✓'; }
   catch (e) { $('copier-lien').textContent = 'Copie refusée'; }
   setTimeout(() => { $('copier-lien').textContent = 'Copier le lien'; }, 2500);
 };
@@ -1059,17 +1127,19 @@ function annonce(t) { setTimeout(() => bandeau(t, null, 5000), 1500); }
 let connexionEnAttente = null;
 const hoteDe = a => { try { return new URL(a).host.toLowerCase(); } catch (e) { return ''; } };
 function recevoirConnexion(ev) {
-  const m = location.hash.match(/^#connexion=([A-Za-z0-9_-]+)$/);
+  const m = location.hash.match(/^#(connexion|transfert)=([A-Za-z0-9_-]+)$/);
   if (!m) return;
   history.replaceState(null, '', location.pathname + location.search);
   let o;
   try {
-    const b = m[1].replace(/-/g, '+').replace(/_/g, '/');
-    o = JSON.parse(decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))));
-    if (!/^https:\/\/[^\s]+$/.test(o.a || '') || !hoteDe(o.a) || typeof o.c !== 'string' || !o.c.trim()) throw new Error('lien incomplet');
+    o = JSON.parse(decodeURIComponent(escape(deb64u(m[2]))));
+    if (!/^https:\/\/[^\s]+$/.test(o.a || '') || !hoteDe(o.a)) throw new Error('lien incomplet');
+    if (m[1] === 'transfert' ? !(/^[a-z0-9]{20,40}$/.test(o.i || '') && /^[A-Za-z0-9_-]{22}$/.test(o.k || '')) : (typeof o.c !== 'string' || !o.c.trim())) throw new Error('lien incomplet');
   } catch (e) { annonce('lien de connexion illisible'); return; }
-  const nouveau = { a: o.a, c: o.c.trim(), l: typeof o.l === 'string' ? o.l.trim() : '' }, hote = hoteDe(nouveau.a), actuel = adresse() ? hoteDe(adresse()) : '';
-  if (nouveau.a === adresse() && nouveau.c === cle() && (!nouveau.l || nouveau.l === store.lire('cleLife', ''))) { annonce('cet appareil est déjà connecté ✓'); return; }
+  // code à usage unique : la clé n'est pas dans le lien, elle sera retirée du serveur après confirmation
+  const nouveau = m[1] === 'transfert' ? { a: o.a, transfert: { i: o.i, k: o.k } } : { a: o.a, c: o.c.trim(), l: typeof o.l === 'string' ? o.l.trim() : '' };
+  const hote = hoteDe(nouveau.a), actuel = adresse() ? hoteDe(adresse()) : '';
+  if (!nouveau.transfert && nouveau.a === adresse() && nouveau.c === cle() && (!nouveau.l || nouveau.l === store.lire('cleLife', ''))) { annonce('cet appareil est déjà connecté ✓'); return; }
   const meme = actuel && actuel === hote, refuse = actuel && !meme;
   connexionEnAttente = refuse ? null : nouveau;
   $('cx-titre').textContent = refuse ? 'Lien refusé' : 'Connecter cet appareil ?';
@@ -1088,12 +1158,17 @@ function recevoirConnexion(ev) {
 $('cx-saisie').addEventListener('input', () => {
   $('cx-ok').disabled = !connexionEnAttente || $('cx-saisie').value.trim().toLowerCase() !== hoteDe(connexionEnAttente.a);
 });
-$('cx-ok').onclick = () => {
+$('cx-ok').onclick = async () => {
   const n = connexionEnAttente; if (!n) return;
   const actuel = adresse() ? hoteDe(adresse()) : '';
   if (actuel && actuel !== hoteDe(n.a)) return;   // jamais un autre serveur par un lien
   if (!actuel && $('cx-saisie').value.trim().toLowerCase() !== hoteDe(n.a)) return;
   connexionEnAttente = null; $('dlg-connexion').close();
+  if (n.transfert) {   // code à usage unique : la clé est retirée du serveur maintenant (une seule fois)
+    try { Object.assign(n, await retirerTransfert(n)); }
+    catch (e) { bandeau('Connexion impossible : ' + ((e && e.message) || 'code illisible') + '. Montre un nouveau code sur l\'autre appareil.', null, 9000, true);
+      if (!(cle() && adresse())) setTimeout(ouvrirReglages, 300); return; }
+  }
   if (!actuel) { store.ecrire('adresseDuLien', true); store.effacer('curseur'); }
   store.ecrire('adresse', n.a); store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l);
   annonce('appareil connecté ✓'); proposerInstallation(); actualiser(); retirerServeur();
@@ -1119,7 +1194,7 @@ if ('serviceWorker' in navigator) {
   };
   $('maj').onclick = () => { recharge = true; location.reload(); };
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (pageAvecSW) rechargerSiLibre(); });
-  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+  navigator.serviceWorker.register(POLITIQUE.createScriptURL('sw.js'), { updateViaCache: 'none' }).then(reg => {
     const verifier = () => reg.update().catch(() => {});
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') verifier(); });
     setInterval(verifier, 60 * 60e3);
