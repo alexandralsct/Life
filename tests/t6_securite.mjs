@@ -85,7 +85,7 @@ export const tests = [
       return caches.keys();
     });
     verif(r.includes('carte-copie') && r.includes('coulisses-copie'), 'les caches des autres apps du site sont gardés', r);
-    verif(!r.includes('life-V.0.0.1') && r.some(k => /^life-V\.0\.0\.\d+$/.test(k)), 'l\'ancienne copie de LIFE est supprimée, la nouvelle est là', r);
+    verif(!r.includes('life-V.0.0.1') && r.some(k => /^life-V(\.\d)+$/.test(k)), 'l\'ancienne copie de LIFE est supprimée, la nouvelle est là', r);
     await A.ctx.close();
   } }
 ];
