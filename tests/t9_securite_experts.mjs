@@ -46,12 +46,16 @@ export const tests = [
     verif(!JSON.stringify(S.memoire).includes('cle-'), 'le paquet gardé par le serveur est illisible sans le code', JSON.stringify(S.memoire).slice(0, 120));
     const chemin = lien.slice(st.base.length);
     const B = await ouvrir(nav, st, profil, S, { sansConnexion: true, chemin });
-    await B.page.fill('#cx-saisie', HOTE); await B.page.evaluate(() => document.getElementById('cx-ok').click());
+    // appareil neuf : l'app enregistre l'adresse et se relance (seconde règle CSP sur ce serveur), puis retire le code (V.0.0.3.9)
+    await B.page.fill('#cx-saisie', HOTE);
+    await Promise.all([B.page.waitForNavigation({ waitUntil: 'load' }), B.page.evaluate(() => document.getElementById('cx-ok').click())]);
     await attendre(async () => (await ls(B.page, 'cle')) !== null, 3000);
     verif((await ls(B.page, 'cle')) === 'cle-de-test-123456' && (await ls(B.page, 'cleLife')) === 'cle-propre-life-123456', 'le nouvel appareil a ses clés (retirées du serveur, déchiffrées)');
     const C = await ouvrir(nav, st, profil, S, { sansConnexion: true, chemin });
-    await C.page.fill('#cx-saisie', HOTE); await C.page.evaluate(() => document.getElementById('cx-ok').click()); await pause(600);
-    verif((await ls(C.page, 'cle')) === null && /déjà utilisé|expiré/.test(await C.page.textContent('#bandeau')), 'le même lien une seconde fois : refusé, rien d\'enregistré', await C.page.textContent('#bandeau'));
+    await C.page.fill('#cx-saisie', HOTE);
+    await Promise.all([C.page.waitForNavigation({ waitUntil: 'load' }), C.page.evaluate(() => document.getElementById('cx-ok').click())]);
+    await attendre(async () => /déjà utilisé|expiré/.test(await C.page.textContent('#bandeau')), 3000);
+    verif((await ls(C.page, 'cle')) === null && (await ls(C.page, 'adresse')) === null && /déjà utilisé|expiré/.test(await C.page.textContent('#bandeau')), 'le même lien une seconde fois : refusé, rien d\'enregistré (ni clé ni adresse)', await C.page.textContent('#bandeau'));
     await A.ctx.close(); await B.ctx.close(); await C.ctx.close();
     const S2 = fauxServeur({ version: 2 });   // serveur version 2 : l'ancien lien, et la page le dit
     const D = await ouvrir(nav, st, profil, S2);

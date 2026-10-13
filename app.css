@@ -73,7 +73,7 @@ button { font-family: inherit; }
 
 /* ---------- En-tête ---------- */
 header { position: relative; flex: none; display: flex; align-items: center; gap: 6px; padding: calc(env(safe-area-inset-top) + 8px) 16px 4px; }
-header h1 { margin: 0 auto 0 0; min-width: 0; font: 700 var(--t-3xl)/1 var(--display); letter-spacing: -.5px; }
+header h1 { margin: 0 auto 0 0; min-width: 0; font: 700 26px/1 var(--display); letter-spacing: -.5px; }
 header h1 small { display: block; font: 400 var(--t-xs)/1.2 var(--mono); letter-spacing: .5px; color: var(--encre-2); margin-top: 4px; text-transform: uppercase; white-space: nowrap; }
 header > button { position: relative; flex: none; display: grid; place-items: center; padding: 0; width: var(--cible); height: var(--cible); border-radius: 50%;
   border: 1.5px solid var(--trait); background: var(--surface); color: var(--encre); cursor: pointer; }
@@ -291,7 +291,7 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
 @media (max-width: 400px) { header h1 small .long { display: none; } }
 @media (max-width: 899px) and (max-height: 700px), (pointer: coarse) and (max-height: 700px), (pointer: none) and (max-height: 700px) {
   header { padding-top: calc(env(safe-area-inset-top) + 6px); padding-bottom: 4px; }
-  header h1 { font-size: var(--t-2xl); }
+  header h1 { font-size: 22px; }
   footer { padding-top: 6px; padding-bottom: calc(env(safe-area-inset-bottom) + 8px); }
 }
 @media (max-width: 899px) and (max-height: 520px), (pointer: coarse) and (max-height: 520px), (pointer: none) and (max-height: 520px) { header h1 small { display: none; } }
@@ -301,7 +301,7 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
 @media (min-width: 900px) and (pointer: fine) {
   body { max-width: 1040px; padding: 0 24px 24px; }
   header { padding: 20px 0 16px; gap: 8px; }
-  header h1 { font-size: var(--t-3xl); }
+  header h1 { font-size: 30px; }
   #menu { right: 0; }
   #app { flex-direction: row; align-items: stretch; gap: 24px; }
   /* colonne des fils, à gauche */
@@ -355,7 +355,9 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
     min-width: 0; padding: 6px 2px; gap: 4px; border: 1.5px solid var(--trait); border-radius: 16px; white-space: nowrap; }
   #barre-fils nav button svg { width: 27px; height: 27px; }
   /* noms des tuiles en capitales, tailles d'origine : choix de la propriétaire (« exactement comme avant »), préféré au 11 px.
-     SEULE exception à l'échelle de sept tailles (--t-xs à --t-3xl) de la charte commune, gardée volontairement. */
+     Exceptions à l'échelle de sept tailles (--t-xs à --t-3xl) de la charte commune, gardées volontairement :
+     ces tailles de tuiles et le titre LIFE de l'en-tête (26, 22 et 30 px), dont la disposition est figée au pixel
+     (test « tuiles exactement comme avant », référence V.0.0.28). */
   #barre-fils nav button .nom { display: block; text-transform: uppercase; font: 700 9.5px/1.1 var(--display); letter-spacing: 0; white-space: nowrap; }
   #barre-fils nav button.moyen .nom { font-size: 8.4px; }
   #barre-fils nav button.long .nom { font-size: 7.4px; letter-spacing: -.25px; }
