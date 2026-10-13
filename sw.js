@@ -1,5 +1,5 @@
 // LIFE — service worker : l'app s'ouvre même hors ligne (coquille en cache). Les messages ne passent jamais par le cache.
-const CACHE = 'life-V.0.0.22';   // changer cette valeur à chaque version : les appareils se mettent à jour d'eux-mêmes
+const CACHE = 'life-V.0.0.24';   // changer cette valeur à chaque version : les appareils se mettent à jour d'eux-mêmes
 const COQUILLE = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'qr.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(COQUILLE))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

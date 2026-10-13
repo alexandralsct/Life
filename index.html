@@ -86,20 +86,6 @@ nav button:active { transform: translate(2px, 2px); }
 #plier svg, #chercher svg { width: 20px; height: 20px; }
 #plier svg { transition: transform .2s; transform: rotate(180deg); }   /* ⌄ : voir tous les fils */
 #chercher .lib, #chercher kbd { display: none; }
-@media (max-width: 899px) {
-  /* grille complète, choisie avec ⌄ (mémorisée) : 4 ou 5 colonnes, libellés en 12 px qui peuvent passer à la ligne */
-  body.grille #barre-fils { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 8px; padding: 6px 16px 10px; }
-  body.grille nav { display: contents; -webkit-mask-image: none; mask-image: none; }
-  body.grille nav button .nom { white-space: nowrap; }
-  body.grille nav button.long .nom { letter-spacing: -.4px; font-size: min(12px, 3.05vw); }
-  body.grille #barre-fils { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
-  body.grille nav button { flex-direction: column; justify-content: center; height: 64px; padding: 6px 3px; gap: 4px; border-radius: var(--r-m);
-    white-space: normal; text-align: center; font-size: 12px; line-height: 1.1; }
-  body.grille nav button svg { width: 22px; height: 22px; }
-  body.grille nav button .badge { position: absolute; top: -7px; right: -7px; border: 1.5px solid var(--surface); line-height: 17px; }
-  body.grille #plier, body.grille #chercher { width: auto; height: 64px; border-radius: var(--r-m); }
-  body.grille #plier svg { transform: none; }
-}
 
 /* ---------- Conversation ---------- */
 #conv { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -312,6 +298,40 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
   .rapides button:hover, .retour:hover, dialog button:hover, header > button:not([aria-pressed="true"]):hover { transform: translate(-1px, -1px); box-shadow: var(--sh-1); }
 }
 #retour-carte[hidden] { display: none !important; }
+
+/* ===== APP TÉLÉPHONE (13/10) : les fils exactement comme avant — 5 tuiles carrées par rangée, puis une rangée
+   avec ⌄ au centre et la loupe à droite ; ⌄ les rétrécit en une rangée d'icônes. L'app ordinateur n'est pas concernée. ===== */
+@media (max-width: 899px), (pointer: coarse) {
+  #barre-fils { display: grid !important; grid-template-columns: 1fr auto 1fr !important; align-items: center; gap: 0 !important; padding: 0 16px 8px !important; }
+  #barre-fils nav { grid-column: 1 / -1; display: grid !important; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 16px 0;
+    margin: 0 !important; overflow: visible; -webkit-mask-image: none; mask-image: none; }
+  #barre-fils nav button { position: relative; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1; height: auto;
+    min-width: 0; padding: 6px 2px; gap: 4px; border: 1.5px solid var(--trait); border-radius: 16px; white-space: nowrap; }
+  #barre-fils nav button svg { width: 27px; height: 27px; }
+  #barre-fils nav button .nom { display: block; text-transform: uppercase; font: 700 9.5px/1.1 var(--display); letter-spacing: 0; white-space: nowrap; }
+  #barre-fils nav button.moyen .nom { font-size: 8.4px; }
+  #barre-fils nav button.long .nom { font-size: 7.4px; letter-spacing: -.25px; }
+  #barre-fils nav button .badge { position: absolute; top: -7px; right: -7px; }
+  #barre-fils #plier { grid-column: 2; margin: -8px 0 0; width: 46px; height: 20px; border: 1.5px solid var(--trait); border-radius: 999px; }
+  #barre-fils #plier svg { width: 16px; height: 16px; transform: none; }
+  #barre-fils #chercher { grid-column: 3; justify-self: end; margin: -8px 0 0; width: 28px; height: 28px; border: 0; }
+  #barre-fils #chercher svg { width: 18px; height: 18px; }
+  /* rétrécis : une rangée de 10 icônes, sans noms */
+  body:not(.grille) #barre-fils nav { grid-template-columns: repeat(10, 1fr); gap: 6px; padding: 8px 0 10px; }
+  body:not(.grille) #barre-fils nav button { aspect-ratio: 1; padding: 0; border-radius: 10px; }
+  body:not(.grille) #barre-fils nav button .nom { display: none; }
+  body:not(.grille) #barre-fils nav button svg { width: 20px; height: 20px; }
+  body:not(.grille) #barre-fils #plier svg { transform: rotate(180deg); }
+}
+/* écran peu haut, comme avant : tuiles moins hautes, puis sans noms */
+@media (max-width: 899px) and (max-height: 780px), (pointer: coarse) and (max-height: 780px) {
+  body.grille #barre-fils nav { gap: 6px; padding: 8px 0; }
+  body.grille #barre-fils nav button { aspect-ratio: auto; height: 54px; border-radius: 13px; gap: 3px; padding: 4px 2px; }
+  body.grille #barre-fils nav button svg { width: 22px; height: 22px; }
+}
+@media (max-width: 899px) and (max-height: 600px), (pointer: coarse) and (max-height: 600px) {
+  body.grille #barre-fils nav button { height: 40px; } body.grille #barre-fils nav button .nom { display: none; }
+}
 </style>
 </head>
 <body>
@@ -603,7 +623,7 @@ function afficher() {
     const b = document.createElement('button'), n = id === fil && !vueAPart ? 0 : nonLus(id);
     b.type = 'button';
     b.innerHTML = svg(id) + '<span class="nom"></span>' + (ESSAI_POINTS ? '<i class="point" style="background:' + COULEURS[id] + '"></i>' : '') + (n ? '<span class="badge" aria-hidden="true">' + (n > 99 ? '99+' : n) + '</span>' : '');
-    b.querySelector('.nom').textContent = COUPURES[id] || nom; b.classList.toggle('long', nom.length > 11);
+    b.querySelector('.nom').textContent = COUPURES[id] || nom; b.classList.toggle('long', nom.length > 11); b.classList.toggle('moyen', nom.length > 8 && nom.length <= 11);
     b.setAttribute('aria-pressed', String(id === fil && !vueAPart));   // Brief ou Maintenance ouverts : aucun fil n'est actif
     b.setAttribute('aria-label', nom + (n ? ', ' + n + ' nouveau' + (n > 1 ? 'x' : '') + ' message' + (n > 1 ? 's' : '') : ''));
     b.onclick = () => { fil = id; store.ecrire('fil', fil); document.body.classList.remove('brief', 'maintenance'); majVues(); afficher(); };
@@ -885,7 +905,7 @@ const DANS_CARTE = (() => { try { return window.top !== window && window.parent.
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.22';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.24';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
