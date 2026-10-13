@@ -112,13 +112,21 @@ function cleLife() { return store.lire('cleLife', '') || cle(); }
 // surtout pas inviter à coller la vraie clé : ce serveur n'est peut-être pas le bon.
 const adresseDuLien = () => !!store.lire('adresseDuLien', false);
 
-// Délai d'attente : 20 s ; 90 s pour les fils où l'IA réfléchit longtemps (Comité, Brainstorming, Experts).
-const DELAI = 20e3, DELAI_LONG = 90e3, TEXTE_MAX = 2000;
+// Délai d'attente : 60 s (audit expert de fiabilité, LC-1 : 20 s coupait des réponses normales) ; 90 s pour les fils où
+// l'IA réfléchit longtemps (Comité, Brainstorming, Experts).
+const DELAI = 60e3, DELAI_LONG = 90e3, TEXTE_MAX = 2000;
+// Après un délai dépassé, pendant GARDE_REESSAI (à compter du premier envoi), « Réessayer » commence par une relève :
+// le serveur a peut-être déjà le message (version 3 : il l'écrit avant l'IA). Avec le serveur version 2, qui n'écrit
+// qu'après l'IA, on ne renvoie pas tant que ce délai court : le message n'est jamais traité deux fois.
+const GARDE_REESSAI = 150e3;
 const delaiPour = f => ['comite', 'brainstorm', 'experts'].includes(f) ? DELAI_LONG : DELAI;
 // Contrat avec le serveur : un serveur à jour annonce sa version et ses fils dans chaque réponse.
 // Sans « version » (ancien serveur), l'app garde un mode compatible (filsForces, « depuis »).
 let versionServeur = store.lire('versionServeur', 0);
 const serveurAJour = () => versionServeur >= 2;
+// Envois dont le serveur a la demande mais pas encore la réponse (version 3 : « en_cours », ou délai dépassé) :
+// cid → { fil, t }. LIFE « écrit » dans ce fil, et l'app relit le fil quelques fois jusqu'à la réponse.
+let enCours = store.lire('enCours', {});
 let experts = store.lire('experts', []);   // identifiants des experts connus, donnés par le serveur (jamais dans ce code)
 function noterExperts(j) { if (j && Array.isArray(j.experts)) { experts = j.experts.map(String).filter(x => /^[a-z0-9_]{2,40}$/.test(x)); store.ecrire('experts', experts); } }
 function noterContrat(j) {
@@ -154,6 +162,7 @@ const cidDe = id => (/^L-([a-z0-9]{6,32})-[ab]$/i.exec(id || '') || [])[1] || ''
 
 // Fusion des messages reçus : chaque bulle provisoire ou locale n'est retirée que si le serveur renvoie SON message
 // (même cid ; avec un ancien serveur, même fil et même texte). Les autres envois en cours ne sont jamais touchés.
+let enCoursChange = false;
 function fusionner(nouveaux, retires) {
   const parId = new Map(messages.map(m => [m.id, m]));
   const partis = new Set((retires || []).map(String));   // suppressions faites sur un autre appareil
@@ -165,6 +174,7 @@ function fusionner(nouveaux, retires) {
     if (!serveurAJour() && filsForces[m.id]) m.fil = filsForces[m.id];
     parId.set(m.id, m);
     const c = cidDe(m.id); if (c) cids.add(c);
+    if (c && /-b$/.test(m.id) && enCours[c]) { delete enCours[c]; enCoursChange = true; }   // la réponse est arrivée
     if (m.auteur === 'moi') textes.add((m.fil || 'general') + '|' + m.texte);
   });
   [...parId.values()].forEach(m => {
@@ -175,7 +185,23 @@ function fusionner(nouveaux, retires) {
   messages = borner([...parId.values()].sort(ordre), PAR_FIL);
   garderMessages();
   if (partis.size) store.ecrire('epingles', epingles);
+  if (enCoursChange) { enCoursChange = false; store.ecrire('enCours', enCours); }
 }
+// Le serveur a la demande, pas encore la réponse : LIFE « écrit » dans ce fil, et l'app relit le fil à 20, 40, 60 puis
+// 120 s (4 exécutions au plus), jusqu'à la réponse. Au-delà de 10 minutes, on n'attend plus.
+const RELEVES_EN_COURS = [20e3, 40e3, 60e3, 120e3];
+let releveEnCours = null;
+function attendreReponse(cid, filCible) {
+  if (cid) { enCours[cid] = { fil: filCible, t: Date.now() }; store.ecrire('enCours', enCours); }
+  clearTimeout(releveEnCours);
+  const suivante = k => {
+    Object.keys(enCours).forEach(c => { if (Date.now() - (enCours[c].t || 0) > 600e3) delete enCours[c]; });
+    if (!Object.keys(enCours).length || k >= RELEVES_EN_COURS.length || DEMO) return;
+    releveEnCours = setTimeout(() => { actualiser().then(() => { afficher(); suivante(k + 1); }); }, RELEVES_EN_COURS[k]);
+  };
+  suivante(0);
+}
+const enCoursDans = f => Object.keys(enCours).some(c => enCours[c].fil === f && Date.now() - (enCours[c].t || 0) < 600e3);
 function ordre(a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : (a.id < b.id ? -1 : 1); }
 
 function heure(t) { return (t || '').slice(11, 16); }
@@ -372,7 +398,7 @@ function afficher() {
     b.addEventListener('pointerdown', () => { appui = setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate(15); } catch (e) { /* */ } actionsMessage(m, b); }, 550); });
     b.addEventListener('contextmenu', e => { e.preventDefault(); actionsMessage(m, b); });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => clearTimeout(appui)));
-    if (!suivant && m.auteur === 'life' && /\?\s*$/.test(m.texte) && !envoisEnCours) {   // elle peut répondre d'un toucher
+    if (!suivant && m.auteur === 'life' && /\?\s*$/.test(m.texte) && !envoisEnCours && !enCoursDans(fil)) {   // elle peut répondre d'un toucher
       const r = document.createElement('div'); r.className = 'rapides';
       ['Oui', 'Plus tard', 'Non merci'].forEach(t => { const x = document.createElement('button'); x.textContent = t;
         x.onclick = () => { $('saisie').value = t; envoyer(); }; r.appendChild(x); });
@@ -387,7 +413,7 @@ function afficher() {
     ok.onclick = () => { store.ecrire('aideAppui', true); a.remove(); };
     a.appendChild(s); a.appendChild(ok); zone.appendChild(a);
   }
-  if (envoisEnCours) { const e = document.createElement('div'); e.className = 'ecrit'; e.setAttribute('aria-label', 'LIFE écrit');
+  if (envoisEnCours || enCoursDans(fil)) { const e = document.createElement('div'); e.className = 'ecrit'; e.setAttribute('aria-label', 'LIFE écrit');
     e.innerHTML = '<i></i><i></i><i></i>'; zone.appendChild(e); }
   zone.scrollTop = zone.scrollHeight;
 }
@@ -434,7 +460,7 @@ function raison(e) {
   if (m === 'clé refusée') return adresseDuLien()
     ? 'le serveur « ' + hoteDe(adresse()) + ' », reçu par un lien, refuse la clé — ne lui donne pas ta clé : saisis toi-même l\'adresse dans les Réglages'
     : 'clé refusée — vérifie la clé dans les Réglages';
-  if (m === 'délai dépassé') return 'pas de réponse à temps (réseau lent ?) — le message est peut-être arrivé ; « Réessayer » ne le traitera pas deux fois';
+  if (m === 'délai dépassé') return 'pas de réponse à temps (réseau lent ?) — le message est peut-être arrivé : LIFE vérifie d\'elle-même, et « Réessayer » ne le traitera jamais deux fois';
   if (m === 'fil inconnu') return 'le serveur ne connaît pas ce fil — sa dernière version doit être installée puis publiée';
   if (/erreur 404/.test(m)) return 'serveur introuvable (404) — lien LIFE pas encore publié dans ton système ?';
   if (/^erreur \d/.test(m)) return 'le serveur répond mal (' + m + ')';
@@ -443,8 +469,13 @@ function raison(e) {
   return m.slice(0, 120) || 'hors ligne';
 }
 
-function heureLocale() { const d = new Date(), z = n => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds()); }
+// Heure de Paris, comme le serveur (audit expert LC-5) : en voyage, les bulles provisoires et les échanges experts se
+// rangent au bon endroit et comptent juste dans les non-lus.
+function heureLocale() {
+  try { return new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Paris' }).replace('T', ' ').slice(0, 19); }
+  catch (e) { const d = new Date(), z = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds()); }
+}
 const ACCENTS = /[\u0300-\u036f]/g;
 // « nom : question » ne vise un expert que si « nom » est un expert connu (liste donnée par le serveur) ;
 // sinon (« Rappel : … », ou liste encore inconnue) la question part entière et le système choisit l'expert.
@@ -477,8 +508,8 @@ function envoyer() {
   if (long) { dire(); envoi.then(ok => { if (ok) dire(); }); }   // redit après la réponse (qui efface le bandeau)
 }
 // Un envoi = un identifiant client (cid). Le même cid est renvoyé par « Réessayer » : le serveur ne traite jamais deux fois.
-async function expedier(texte, filCible, cid) {
-  const temp = { id: 'tmp-' + cid, cid, t: heureLocale(), auteur: 'moi', fil: filCible, texte, temp: true };
+async function expedier(texte, filCible, cid, parti) {
+  const temp = { id: 'tmp-' + cid, cid, t: heureLocale(), auteur: 'moi', fil: filCible, texte, temp: true, parti: parti || Date.now() };
   try { if (navigator.vibrate && !enCalme()) navigator.vibrate(12); } catch (e) { /* pas de vibreur */ }
   messages.push(temp); garderMessages();   // gardée sur l'appareil AVANT l'envoi (app fermée pendant l'attente : rien de perdu)
   envoisEnCours++; afficher();
@@ -514,26 +545,45 @@ async function expedier(texte, filCible, cid) {
     if (serveurAJour() && k !== null && Number.isInteger(j.curseur)) { majCurseur(j.curseur); derniereActu = Date.now(); if (j.plus) actualiser(); }
     etat('');
     if (j.tronque) bandeau('Le serveur a gardé les ' + j.tronque + ' premiers caractères de ce message.', null, 6000);
+    // version 3 : le serveur traite déjà ce message (un premier envoi est en cours) : rien n'est retraité, la réponse suit
+    if (j.en_cours) { attendreReponse(cid, filCible); bandeau('LIFE traite déjà ce message : sa réponse arrive.', null, 5000); }
     if (horsFil && filCible !== 'general') bandeau('Le serveur ne connaît pas encore le fil ' + ((FILS.find(x => x[0] === filCible) || [0, filCible])[1]) + ' : c\'est Général qui a répondu. La dernière version du serveur doit être installée puis publiée.', null, 9000);
     return true;
   } catch (e) {
     // la bulle reste (remise dans la liste si une fusion l'avait écartée), marquée « Non envoyé · Réessayer », gardée sur l'appareil
     let m = messages.find(x => x.cid === cid && !duServeur(x));
     if (!m) { m = temp; messages.push(m); messages.sort(ordre); }
-    m.temp = false; m.echec = true;
+    m.temp = false; m.echec = true; m.parti = temp.parti;
+    if (e.message === 'délai dépassé') m.delai = true;
     garderMessages();
     bandeau('Non envoyé : ' + raison(e), ['Réessayer', () => reessayer(m)], e.message === 'délai dépassé' ? 9000 : 5000);
-    if (e.message === 'délai dépassé' && serveurAJour()) setTimeout(actualiser, 30e3);   // la réponse a pu arriver entre-temps
+    if (e.message === 'délai dépassé' && serveurAJour()) attendreReponse(cid, filCible);   // la réponse a pu arriver entre-temps
     return false;
   } finally {
     envoisEnCours = Math.max(0, envoisEnCours - 1); afficher();
   }
 }
-function reessayer(m) {   // renvoie un message resté « Non envoyé », dans son fil, avec le même cid, sans toucher à la saisie
-  messages = messages.filter(x => x !== m && x.id !== m.id); garderMessages();
+// Renvoie un message resté « Non envoyé », dans son fil, avec le même cid, sans toucher à la saisie.
+// Après un délai dépassé (le serveur a peut-être le message) : d'abord une relève ; s'il l'a, rien n'est renvoyé.
+const arrive = cid => !!cid && messages.some(x => duServeur(x) && cidDe(x.id) === cid);
+let reessaiEnCours = false;
+async function reessayer(m) {
   if (m.fil && m.fil !== fil) { fil = m.fil; store.ecrire('fil', fil); }
   if (enVueAPart()) { document.body.classList.remove('brief', 'maintenance'); majVues(); }
-  expedier(m.texte, m.fil || fil, m.cid || nouvelId());
+  if (m.delai && serveurAJour() && m.cid && Date.now() - (m.parti || 0) < GARDE_REESSAI) {
+    if (reessaiEnCours) return; reessaiEnCours = true;
+    try { await actualiser(); } finally { reessaiEnCours = false; }
+    if (arrive(m.cid)) { afficher(); bandeau('Ton message était bien arrivé : rien n\'a été renvoyé.', null, 5000);
+      if (!messages.some(x => duServeur(x) && x.id === 'L-' + m.cid + '-b')) attendreReponse(m.cid, m.fil || fil);
+      return; }
+    if (versionServeur < 3) {   // serveur version 2 : il écrit après l'IA ; renvoyer maintenant risquerait un second traitement
+      const s = Math.ceil((GARDE_REESSAI - (Date.now() - (m.parti || 0))) / 1000);
+      bandeau('LIFE traite peut-être encore ce message : réessaie dans ' + s + ' s (il ne sera jamais traité deux fois).', null, 6000);
+      return;
+    }
+  }
+  messages = messages.filter(x => x !== m && x.id !== m.id); garderMessages();
+  expedier(m.texte, m.fil || fil, m.cid || nouvelId(), m.parti);
 }
 
 function ajuster() {
@@ -688,7 +738,7 @@ const DANS_CARTE = (() => { try { return window.top !== window && window.parent.
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.30';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.31';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const o = { a: adresse(), c: cle() }; if (store.lire('cleLife', '')) o.l = store.lire('cleLife', '');
@@ -853,5 +903,5 @@ if (DEMO) {
   afficher();
 } else {
   afficher();
-  if (cle() && adresse()) { actualiser(); retirerServeur(); } else if (!connexionEnAttente) ouvrirReglages();
+  if (cle() && adresse()) { actualiser(); retirerServeur(); if (Object.keys(enCours).length) attendreReponse(); } else if (!connexionEnAttente) ouvrirReglages();
 }

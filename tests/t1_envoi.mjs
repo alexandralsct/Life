@@ -36,24 +36,61 @@ export const tests = [
     verif(b.some(x => x.texte === 'interrompu' && /echec/.test(x.classe)), 'bulle « interrompu » retrouvée, marquée Non envoyé', b);
     await ctx.close();
   } },
-  { nom: 'Délai d\'attente de 20 s, puis Réessayer sans second traitement (idempotence par cid)', f: async ({ nav, st, profil, verif }) => {
-    const S = fauxServeur(); S.retardApres = c => c.action === 'envoyer' ? 40000 : 0;
-    const { page, ctx } = await ouvrir(nav, st, profil, S, { avantChargement: (c, p) => p.clock.install() });
-    await ecrire(page, 'lent'); await pause(400);
-    verif((await moi(page)).some(b => b.texte === 'lent' && /attente/.test(b.classe)), 'en attente au départ');
-    await page.clock.fastForward(19000); await pause(200);
-    verif(!(await page.$('.reessayer')), 'pas encore abandonné à 19 s');
+  // Audit expert de fiabilité (LC-1, scénario course.mjs) : ordre RÉEL du workflow (lecture → cid → demande écrite →
+  // IA lente → réponse écrite). « Réessayer » pendant que l'IA travaille ne doit jamais faire traiter le message deux fois.
+  { nom: 'Course (serveur version 3, ordre réel) : délai de 60 s dépassé puis Réessayer pendant que l\'IA travaille → un seul traitement', f: async ({ nav, st, profil, verif }) => {
+    const S = fauxServeur({ retardIA: c => c.action === 'envoyer' ? 5000 : 0 });
+    const { page, ctx, erreurs } = await ouvrir(nav, st, profil, S, { avantChargement: (c, p) => p.clock.install() });
+    await ecrire(page, 'question lente'); await pause(400);
+    await page.clock.fastForward(59000); await pause(200);
+    verif(!(await page.$('.reessayer')), 'pas encore abandonné à 59 s (délai porté de 20 à 60 s)');
     await page.clock.fastForward(2000); await pause(400);
-    verif(await page.$('.reessayer'), 'abandon à 20 s : « Non envoyé · Réessayer »');
-    const txt = await page.textContent('#bandeau');
-    verif(/pas de réponse à temps/.test(txt), 'le bandeau dit que le délai est dépassé', txt);
-    verif(S.traitements === 1, 'le serveur a traité le message une fois', S.traitements);
-    S.retardApres = 0;
-    await page.evaluate(() => document.querySelector('.reessayer').click()); await pause(700);
-    verif(S.traitements === 1, 'Réessayer : le serveur reconnaît le cid et ne retraite pas', S.traitements);
+    verif(await page.$('.reessayer'), 'abandon à 60 s : « Non envoyé · Réessayer »');
+    await page.evaluate(() => document.querySelector('.reessayer').click()); await pause(800);   // l'IA travaille encore
+    verif(S.appels.filter(a => a.corps.action === 'envoyer').length === 1, 'Réessayer n\'a pas renvoyé le message (le serveur l\'avait déjà)', S.appels.map(a => a.corps.action));
+    verif(/bien arrivé/.test(await page.textContent('#bandeau')), 'le bandeau dit que le message était arrivé');
+    verif(await page.$('.ecrit'), 'LIFE « écrit » en attendant la réponse');
+    await pause(5000);   // l'IA finit
+    await page.clock.fastForward(21000); await pause(800);   // relève automatique
     const b = await bulles(page);
-    verif(b.filter(x => x.texte === 'lent').length === 1 && b.some(x => /Réponse \(general\) : lent/.test(x.texte)), 'une seule bulle et la réponse', b);
-    verif(S.feuille.filter(l => l.auteur === 'moi').length === 1, 'un seul enregistrement côté serveur', S.feuille.length);
+    verif(S.traitements === 1, 'un seul traitement par le serveur', S.traitements);
+    const ids = S.feuille.map(l => l.id);
+    verif(ids.length === 2 && new Set(ids).size === 2 && ids[0].endsWith('-a') && ids[1].endsWith('-b'), 'deux lignes dans le classeur, identifiants distincts (demande puis réponse)', ids);
+    verif(b.filter(x => x.texte === 'question lente').length === 1 && b.filter(x => /^Réponse/.test(x.texte)).length === 1, 'une bulle et une réponse', b);
+    verif(!(await page.$('.ecrit')), 'plus de « LIFE écrit » une fois la réponse arrivée');
+    verif(!erreurs.length, 'aucune erreur JavaScript', erreurs);
+    await ctx.close();
+  } },
+  { nom: 'Course (serveur version 3) : app fermée pendant l\'envoi, Réessayer pendant l\'IA → « en cours », jamais un second traitement', f: async ({ nav, st, profil, verif }) => {
+    const S = fauxServeur({ retardIA: c => c.action === 'envoyer' ? 6000 : 0 });
+    const { page, ctx } = await ouvrir(nav, st, profil, S, { avantChargement: (c, p) => p.clock.install() });
+    await ecrire(page, 'interrompu'); await pause(500);
+    S.coupe = c => c.action === 'fil';   // au retour, la relève ne passe pas (réseau instable)
+    await page.reload(); await pause(900);
+    verif(await page.$('.reessayer'), 'au retour : « Non envoyé · Réessayer »');
+    S.coupe = false;
+    await page.evaluate(() => document.querySelector('.reessayer').click()); await pause(900);
+    const envois = S.appels.filter(a => a.corps.action === 'envoyer');
+    verif(envois.length === 2 && envois[0].corps.cid === envois[1].corps.cid, 'renvoyé avec le même cid', envois.map(a => a.corps.cid));
+    verif(!(await page.$('.reessayer')) && /traite déjà/.test(await page.textContent('#bandeau')), 'le serveur répond « en cours » : bulle envoyée, rien à renvoyer');
+    await pause(6000); await page.clock.fastForward(21000); await pause(800);
+    verif(S.traitements === 1 && S.feuille.length === 2, 'un seul traitement, deux lignes', { t: S.traitements, l: S.feuille.map(l => l.id) });
+    const b = await bulles(page);
+    verif(b.filter(x => x.texte === 'interrompu').length === 1 && b.some(x => /^Réponse \(general\) : interrompu/.test(x.texte)), 'une bulle et la réponse', b);
+    await ctx.close();
+  } },
+  { nom: 'Course (serveur version 2, encore publié) : Réessayer pendant l\'IA ne renvoie pas → un seul traitement', f: async ({ nav, st, profil, verif }) => {
+    const S = fauxServeur({ version: 2, retardIA: c => c.action === 'envoyer' ? 5000 : 0 });
+    const { page, ctx } = await ouvrir(nav, st, profil, S, { avantChargement: (c, p) => p.clock.install() });
+    await ecrire(page, 'question lente'); await pause(400);
+    await page.clock.fastForward(61000); await pause(400);
+    await page.evaluate(() => document.querySelector('.reessayer').click()); await pause(800);
+    verif(S.appels.filter(a => a.corps.action === 'envoyer').length === 1, 'pas de second envoi pendant le délai de garde', S.appels.map(a => a.corps.action));
+    verif(/réessaie dans \d+ s/.test(await page.textContent('#bandeau')), 'le bandeau dit d\'attendre', await page.textContent('#bandeau'));
+    await pause(5000); await page.clock.fastForward(21000); await pause(800);
+    verif(S.traitements === 1 && S.feuille.filter(l => l.auteur === 'moi').length === 1, 'un seul traitement', S.traitements);
+    const b = await bulles(page);
+    verif(b.filter(x => x.texte === 'question lente').length === 1 && !(await page.$('.reessayer')), 'la bulle est confirmée par la relève', b);
     await ctx.close();
   } },
   { nom: 'Texte de plus de 2 000 caractères : un seul enregistrement, coupé et signalé', f: async ({ nav, st, profil, verif }) => {

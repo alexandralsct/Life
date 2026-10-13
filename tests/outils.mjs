@@ -36,20 +36,24 @@ export function serveurStatique(racine = RACINE) {
 }
 
 // ---------- faux serveur des messages ----------
-// Version 2 (à jour) : curseur, pagination, cid idempotent, version et fils dans chaque réponse, retraits propagés.
+// Version 3 (par défaut) : la demande (« -a ») est écrite AVANT l'IA, la réponse (« -b ») après (ordre réel du workflow) ;
+// un second envoi du même cid pendant l'IA reçoit « en_cours » ; curseur sur la colonne seq (repli : numéro de ligne) ;
+// lecture ratée = ok:false. version: 2 : le serveur publié avant (vérification du cid, IA, puis écriture des deux lignes).
 // ancien: true : l'ancien serveur (sans version : fil inconnu rangé dans « general », « depuis » strict, 80 messages au plus).
 const FILS_V2 = ['general', 'travail', 'metamorphose', 'patrimoine', 'voyage', 'quotidien', 'experts', 'comite', 'brainstorm', 'coach'];
 function fonctionsInternes(o) {
-  const F = {};
+  const F = {}, V = o.version === 2 ? 2 : 3;
   const t = v => v === undefined || v === null ? '' : String(v).trim();
   const visible = m => t(m.id) && t(m.texte) && t(m.statut) !== 'retire' && t(m.statut) !== 'retrait';
   const msg = m => ({ id: t(m.id), t: t(m.horodatage), auteur: t(m.auteur), fil: t(m.fil), texte: t(m.texte), source: t(m.source) });
   const curs = v => { const n = Number(v); return v !== '' && v !== null && v !== undefined && Number.isInteger(n) && n >= 0 ? n : -1; };
-  F.contratLife = x => Object.assign({ version: 2, fils: FILS_V2 }, o.experts ? { experts: o.experts } : {}, x);
+  const seqDe = v => { const n = Number(v); return V >= 3 && v !== '' && v != null && Number.isInteger(n) && n >= 1e12 ? n : 0; };
+  F.contratLife = x => Object.assign({ version: V, fils: FILS_V2 }, o.experts ? { experts: o.experts } : {}, V >= 3 && o.transfert !== false ? { transfert: true } : {}, x);
   F.lireDemandeLife = c => {
     c = c || {}; const action = t(c.action), filBrut = t(c.fil).toLowerCase(), fil = filBrut || 'general';
     if (action === 'fil') return filBrut && !FILS_V2.includes(filBrut) ? { erreur: 'fil inconnu' } : { action, fil: filBrut, depuis: t(c.depuis).slice(0, 19), curseur: curs(c.curseur) };
     if (action === 'retirer') { const ids = (c.ids || []).map(t).filter(i => /^[\w-]{1,60}$/.test(i)).slice(0, 400); return ids.length ? { action, ids } : { erreur: 'rien à retirer' }; }
+    if (action === 'transfert_deposer' && V >= 3) return /^[a-z0-9]{20,40}$/.test(t(c.id)) && /^[A-Za-z0-9_-]{20,4000}$/.test(t(c.donnees)) ? { action, id: t(c.id), donnees: t(c.donnees) } : { erreur: 'transfert illisible' };
     if (action !== 'envoyer') return { erreur: 'action inconnue' };
     if (!FILS_V2.includes(fil)) return { erreur: 'fil inconnu' };
     const texte = t(c.texte).slice(0, 2000); if (!texte) return { erreur: 'message vide' };
@@ -57,9 +61,13 @@ function fonctionsInternes(o) {
     if (/^[a-z0-9]{6,32}$/i.test(t(c.cid))) d.cid = t(c.cid); if (curs(c.curseur) >= 0) d.curseur = curs(c.curseur);
     return d;
   };
+  F.lPositions = lignes => { let base = 0, dec = 0;
+    return lignes.map((m, i) => { const s = seqDe(m.seq); if (s) { base = s; dec = 0; return { m, p: s }; }
+      if (!base) return { m, p: Number(m.row_number) > 0 ? Number(m.row_number) : i + 2 }; dec++; return { m, p: base + dec }; }); };
   F.pageFil = (lignes, d, max = 200) => {
-    const L = lignes.map((m, i) => ({ m, p: Number(m.row_number) > 0 ? Number(m.row_number) : i + 2 })).sort((a, b) => a.p - b.p);
-    const fin = L.length ? L[L.length - 1].p : 0, k = curs(d.curseur); let debut;
+    const L = F.lPositions(lignes).sort((a, b) => a.p - b.p);
+    const fin = L.length ? L[L.length - 1].p : 0; let k = curs(d.curseur), debut, reinit = false;
+    if (V >= 3 && k > fin) { reinit = true; k = -1; }
     if (k >= 0) debut = k;
     else if (d.depuis) { const x = L.find(e => visible(e.m) && t(e.m.horodatage) >= d.depuis); debut = x ? x.p - 1 : fin; }
     else { const v = L.filter(e => visible(e.m)).slice(-80)[0]; debut = v ? v.p - 1 : fin; }
@@ -72,31 +80,46 @@ function fonctionsInternes(o) {
       if (!visible(e.m) || (d.fil && t(e.m.fil) !== d.fil)) continue;
       messages.push(msg(e.m));
     }
-    return F.contratLife({ ok: true, messages, retires, curseur: Math.max(curseur, debut), plus });
+    return F.contratLife(Object.assign({ ok: true, messages, retires, curseur: Math.max(curseur, debut), plus }, reinit ? { reinit: true } : {}));
   };
+  F.seqSuivante = (lignes, ms) => Math.max(Math.floor(ms) * 1000, Math.max(0, ...F.lPositions(lignes).map(e => e.p)) + 1);
   F.lignesEchangeLife = (d, rep, h, ms) => { const b = 'L-' + (d.cid || ms);
     return [{ id: b + '-a', horodatage: h, auteur: 'moi', fil: d.fil, texte: d.texte, source: 'app', statut: '' },
             { id: b + '-b', horodatage: h, auteur: 'life', fil: d.fil, texte: rep.reponse, source: 'app', statut: rep.statut }]; };
-  F.dejaTraite = (lignes, d) => { if (!d.cid) return null; const l = lignes.filter(m => m.id === 'L-' + d.cid + '-a' || m.id === 'L-' + d.cid + '-b');
-    return l.length ? F.contratLife({ ok: true, deja: true, messages: l.map(msg), statut: 'SUCCÈS' }) : null; };
+  F.lignesEchangeSeq = (d, rep, h, ms, avant) => { const lg = F.lignesEchangeLife(d, rep, h, ms), s = F.seqSuivante(avant, ms);
+    lg[0].seq = String(s); lg[1].seq = String(s + 1); return lg; };
+  F.ligneDemande = (d, h, ms, avant) => F.lignesEchangeSeq(d, { reponse: '', statut: '' }, h, ms, avant)[0];
+  F.demandeAEcrire = (lignes, d) => !d.cid || !lignes.some(m => t(m.id) === 'L-' + d.cid + '-a');
+  F.dejaTraite = (lignes, d, maintenant) => { if (!d.cid) return null;
+    const la = lignes.filter(m => m.id === 'L-' + d.cid + '-a'), lb = lignes.filter(m => m.id === 'L-' + d.cid + '-b');
+    if (V < 3) { const l = la.concat(lb); return l.length ? F.contratLife({ ok: true, deja: true, messages: l.map(msg), statut: 'SUCCÈS' }) : null; }
+    if (lb.length) return F.contratLife({ ok: true, deja: true, messages: la.slice(0, 1).concat(lb.slice(0, 1)).map(msg), statut: 'SUCCÈS' });
+    if (!la.length) return null;
+    return F.contratLife({ ok: true, en_cours: true, messages: [msg(la[0])], statut: 'EN_COURS' }); };
   F.reponseEnvoi = (avant, d, nouv, statut) => {
     const r = F.contratLife({ ok: true, messages: nouv.map(msg), statut }); if (d.tronque) r.tronque = 2000;
     if (curs(d.curseur) >= 0) { const p = F.pageFil(avant, { curseur: d.curseur }), vus = new Set(r.messages.map(m => m.id));
       r.messages = p.messages.filter(m => !vus.has(m.id)).concat(r.messages); r.retires = p.retires; r.curseur = p.curseur; r.plus = p.plus; }
     return r;
   };
-  F.ligneRetrait = (ids, h, ms) => ({ id: 'R-' + ms, horodatage: h, auteur: 'systeme', fil: '_retrait', texte: ids.join(' '), source: 'app', statut: 'retrait' });
+  F.ligneRetrait = (ids, h, ms) => Object.assign({ id: 'R-' + ms, horodatage: h, auteur: 'systeme', fil: '_retrait', texte: ids.join(' '), source: 'app', statut: 'retrait' }, V >= 3 ? { seq: String(Math.floor(ms) * 1000) } : {});
+  F.deposerTransfert = (E, d, ms) => { E.transferts = E.transferts || {}; E.transferts[d.id] = { d: d.donnees, exp: ms + 120000 }; return F.contratLife({ ok: true, expire: 120 }); };
+  F.retirerTransfert = (E, c, ms) => { const x = (E.transferts || {})[t(c.id)]; if (E.transferts) delete E.transferts[t(c.id)];
+    return x && x.exp > ms ? { ok: true, donnees: x.d } : { ok: false, erreur: 'code inconnu, déjà utilisé ou expiré' }; };
   return F;
 }
 function fonctionsReelles(fichier, o) {
   const ctx = {}; vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(fichier, 'utf8') + (o.experts ? '\nvar LIFE_EXPERTS = ' + JSON.stringify(o.experts) + ';' : ''), ctx);
+  vm.runInContext(fs.readFileSync(fichier, 'utf8') + (o.experts ? '\nvar LIFE_EXPERTS = ' + JSON.stringify(o.experts) + ';' : '') + '\nvar LIFE_TRANSFERT = true;', ctx);
   return ctx;
 }
 const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type,x-cle-app', 'access-control-allow-methods': 'POST' };
 export function fauxServeur(o = {}) {
-  const F = !o.ancien && process.env.LIFE_SERVEUR_JS ? fonctionsReelles(process.env.LIFE_SERVEUR_JS, o) : fonctionsInternes(o);
-  const S = { feuille: [], appels: [], traitements: 0, retard: o.retard || 0, statut: 200, coupe: false, ancien: !!o.ancien, n: 0, F,
+  // les vraies fonctions du serveur (LIFE_SERVEUR_JS) pour la version 3 ; la copie interne pour la version 2 et l'ancien serveur
+  const reel = !o.ancien && o.version !== 2 && process.env.LIFE_SERVEUR_JS;
+  const F = reel ? fonctionsReelles(process.env.LIFE_SERVEUR_JS, o) : fonctionsInternes(o);
+  const S = { feuille: [], appels: [], traitements: 0, retard: o.retard || 0, retardIA: o.retardIA || 0, statut: 200, coupe: false, ancien: !!o.ancien, n: 0, F,
+              version: o.ancien ? 0 : o.version === 2 ? 2 : 3, memoire: {}, lectureRatee: false, cles: o.cles || null,
               pageMax: o.pageMax || 200, echecRetrait: false, filsAnciens: o.filsAnciens || ['general', 'travail', 'metamorphose', 'patrimoine', 'voyage', 'quotidien', 'experts', 'comite', 'brainstorm', 'coach'] };
   S.heure = (decalage = 0) => new Date(Date.now() + decalage).toLocaleString('sv-SE', { timeZone: 'Europe/Paris' }).slice(0, 19);
   S.ajouter = (l) => { S.feuille.push(Object.assign({ source: 'envois', statut: '', auteur: 'systeme' }, l)); S.feuille.forEach((m, i) => { m.row_number = i + 2; }); };
@@ -111,34 +134,52 @@ export function fauxServeur(o = {}) {
     if (retard) await pause(retard);
     if (typeof S.coupe === 'function' ? S.coupe(corps) : S.coupe) return route.abort('internetdisconnected').catch(() => {});
     if (S.statut !== 200) return route.fulfill({ status: S.statut, headers: cors, body: '{}' }).catch(() => {});
+    // clés acceptées par le webhook /life (identifiant d'en-tête du serveur) : par défaut, toutes
+    if (S.cles && /\/life$/.test(new URL(req.url()).pathname) && !S.cles.includes(appel.cle)) return route.fulfill({ status: 403, headers: cors, body: '{}' }).catch(() => {});
     const rep = await S.reponse(corps, req.url());
-    // retardApres : le serveur a fait le travail, mais sa réponse traîne (cas de l'idempotence)
+    // retardApres : le serveur a fait le travail, mais sa réponse traîne
     const apres = typeof S.retardApres === 'function' ? S.retardApres(corps) : S.retardApres;
     if (apres) await pause(apres);
     return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify(rep) }).catch(() => {});
   };
   S.reponse = async (corps, url) => {
     if (url.includes('/app-lien')) return S.experts(corps, S);
-    if (S.repondre) { const x = S.repondre(corps, S); if (x) return x; }
-    return S.ancien ? S.reponseAncienne(corps) : S.reponseV2(corps);
+    if (url.includes('/life-transfert')) return S.version >= 3 ? F.retirerTransfert(S.memoire, corps, Date.now()) : { ok: false, erreur: 'introuvable' };
+    if (S.repondre) { const x = await S.repondre(corps, S); if (x) return x; }
+    return S.ancien ? S.reponseAncienne(corps) : S.reponseServeur(corps);
   };
-  S.reponseV2 = corps => {
+  const echouee = () => F.contratLife({ ok: false, erreur: 'lecture du classeur impossible : réessaie dans une minute' });
+  // Ordre réel du workflow : lecture du classeur → vérification du cid → (v3 : écriture de la demande) → IA → écriture → réponse
+  S.reponseServeur = async corps => {
     const d = F.lireDemandeLife(corps);
     if (d.erreur) return F.contratLife({ ok: false, erreur: d.erreur });
-    if (d.action === 'fil') return F.pageFil(S.feuille, d, S.pageMax);
+    if (d.action === 'transfert_deposer') return F.deposerTransfert(S.memoire, d, Date.now());
+    if (d.action === 'fil') return S.lectureRatee && S.version >= 3 ? echouee() : F.pageFil(S.lectureRatee ? [] : S.feuille, d, S.pageMax);
     if (d.action === 'retirer') {
       if (S.echecRetrait) return F.contratLife({ ok: false, erreur: 'écriture impossible : rien n\'a été retiré' });
       S.feuille.forEach(l => { if (d.ids.includes(l.id)) l.statut = 'retire'; });
       S.ajouter(F.ligneRetrait(d.ids, S.heure(), Date.now() + (S.n++)));
       return F.contratLife({ ok: true, retires: d.ids.length });
     }
+    if (S.lectureRatee && S.version >= 3) return echouee();
     const avant = S.feuille.map(l => Object.assign({}, l));
-    const deja = F.dejaTraite(avant, d); if (deja) return deja;
+    const deja = F.dejaTraite(avant, d, S.heure()); if (deja) return deja;
+    let amorce = null;
+    if (S.version >= 3 && F.demandeAEcrire(avant, d)) { amorce = F.ligneDemande(d, S.heure(), Date.now() + (S.n++), avant); S.ajouter(amorce); }
+    const ia = typeof S.retardIA === 'function' ? S.retardIA(corps) : S.retardIA;
+    if (ia) await pause(ia);   // l'IA réfléchit (en vrai : 20 à 90 s)
     S.traitements++;
-    const lignes = F.lignesEchangeLife(d, { reponse: 'Réponse (' + d.fil + ') : ' + d.texte.slice(0, 30), statut: 'SUCCÈS' }, S.heure(), Date.now() + (S.n++));
+    const rep = { reponse: 'Réponse (' + d.fil + ') : ' + d.texte.slice(0, 30), statut: 'SUCCÈS' };
+    if (S.version >= 3) {
+      const lg = F.lignesEchangeSeq(d, rep, S.heure(), Date.now() + (S.n++), avant.concat(amorce ? [amorce] : []));
+      S.ajouter(lg[1]);
+      return F.reponseEnvoi(avant, d, lg, 'SUCCÈS');
+    }
+    const lignes = F.lignesEchangeLife(d, rep, S.heure(), Date.now() + (S.n++));
     lignes.forEach(l => S.ajouter(l));
     return F.reponseEnvoi(avant, d, lignes, 'SUCCÈS');
   };
+  S.reponseV2 = S.reponseServeur;
   S.reponseAncienne = corps => {   // l'ancien serveur, tel qu'il était avant le 13/10
     const t = v => v === undefined || v === null ? '' : String(v).trim();
     const action = t(corps.action); let fil = t(corps.fil).toLowerCase() || 'general';

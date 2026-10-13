@@ -71,7 +71,7 @@ export const tests = [
     const S = fauxServeur();
     S.repondre = (c, S) => c.action === 'envoyer' && c.fil === 'coach' ? S.F.contratLife({ ok: false, erreur: 'fil inconnu' }) : null;
     const { page, ctx } = await ouvrir(nav, st, profil, S, { init: { filsForces: { 'L-1-a': 'coach' } } });
-    verif((await ls(page, 'versionServeur')) === 2, 'version 2 notée');
+    verif((await ls(page, 'versionServeur')) === 3, 'version 3 notée');
     verif((await ls(page, 'filsForces')) === null, 'table filsForces purgée dès que le serveur est à jour');
     await choisirFil(page, 'Coach'); await ecrire(page, 'fil pas publié'); await pause(500);
     const t = await page.textContent('#bandeau');
@@ -93,7 +93,51 @@ export const tests = [
     verif(Object.keys(ff).length === 2 && Object.values(ff).every(f => f === 'brainstorm'), 'table bornée aux messages présents (2 au lieu de 902)', Object.keys(ff).length);
     S.ancien = false;   // le serveur est publié
     await actualiser(page); await pause(400);
-    verif((await ls(page, 'filsForces')) === null && (await ls(page, 'versionServeur')) === 2, 'serveur à jour : table purgée');
+    verif((await ls(page, 'filsForces')) === null && (await ls(page, 'versionServeur')) === 3, 'serveur à jour : table purgée');
+    await ctx.close();
+  } },
+  // Audit expert de fiabilité LC-2 : le curseur ne dépend plus du numéro de ligne du classeur (colonne seq).
+  { nom: 'Curseur (serveur version 3) : ligne effacée, archivage et tri du classeur ne font sauter aucun message', f: async ({ nav, st, profil, verif }) => {
+    const S = fauxServeur(); const { page, ctx } = await ouvrir(nav, st, profil, S);
+    for (const t of ['un', 'deux', 'trois']) { await ecrire(page, t); await pause(400); }
+    await actualiser(page); await pause(300);
+    const renum = () => S.feuille.forEach((m, i) => { m.row_number = i + 2; });
+    S.feuille.splice(1, 1); renum();                                   // une ligne effacée à la main au-dessus du curseur
+    S.ajouter({ id: 'S-x-0', horodatage: S.heure(), fil: 'general', texte: 'après effacement' });   // écrit par un autre workflow (sans seq)
+    await actualiser(page); await pause(300);
+    S.feuille = S.feuille.slice(-1); renum();                          // archivage : les anciennes lignes partent ailleurs
+    await ecrire(page, 'quatre'); await pause(400);
+    S.feuille.reverse(); renum();                                      // tri du classeur
+    S.ajouter({ id: 'S-y-0', horodatage: S.heure(), fil: 'general', texte: 'après tri', seq: String(Date.now() * 1000 + 999) });
+    await actualiser(page); await pause(300);
+    const l = await ids(page);
+    verif(['S-x-0', 'S-y-0'].every(i => l.includes(i)) && l.filter(i => /^L-.*-b$/.test(i)).length === 4, 'tous les messages reçus (4 réponses, 2 messages du système)', l);
+    await ctx.close();
+  } },
+  { nom: 'Curseur (serveur version 3) : au-delà de la fin du classeur → reinit, reprise depuis le dernier message', f: async ({ nav, st, profil, verif }) => {
+    const S = fauxServeur();
+    const { page, ctx } = await ouvrir(nav, st, profil, S, { init: { versionServeur: 3, curseur: { a: 'https://essai.exemple.cloud/webhook/life', k: 5000 },
+      messages: [{ id: 'S-0-0', t: '2026-10-13 09:00:00', auteur: 'systeme', fil: 'general', texte: 'ancien' }] } });
+    S.ajouter({ id: 'S-1-0', horodatage: S.heure(), fil: 'general', texte: 'nouveau après archivage' });
+    await actualiser(page); await pause(400);
+    verif((await ids(page)).includes('S-1-0'), 'le message est reçu malgré un curseur périmé');
+    verif((await ls(page, 'curseur')).k < 5000, 'le curseur est repris du serveur', await ls(page, 'curseur'));
+    await ctx.close();
+  } },
+  // LC-3 : une lecture ratée du classeur ne répond jamais « ok » vide ; l'app garde son curseur et le dit.
+  { nom: 'Lecture du classeur ratée (serveur version 3) : ok:false, curseur gardé, rien de perdu', f: async ({ nav, st, profil, verif }) => {
+    const S = fauxServeur(); const { page, ctx } = await ouvrir(nav, st, profil, S);
+    S.ajouter({ id: 'S-1-0', horodatage: S.heure(), fil: 'general', texte: 'premier' });
+    await actualiser(page); await pause(300);
+    const k = await ls(page, 'curseur');
+    S.lectureRatee = true; S.ajouter({ id: 'S-2-0', horodatage: S.heure(), fil: 'general', texte: 'second' });
+    await actualiser(page); await pause(300);
+    verif(/lecture du classeur impossible/.test(await page.textContent('#bandeau')), 'l\'échec est dit', await page.textContent('#bandeau'));
+    verif(JSON.stringify(await ls(page, 'curseur')) === JSON.stringify(k), 'curseur inchangé', await ls(page, 'curseur'));
+    await ecrire(page, 'pendant la panne'); await pause(500);
+    verif(S.traitements === 0 && (await bulles(page)).some(b => /echec/.test(b.classe)), 'envoi : rien de traité, bulle « Non envoyé »');
+    S.lectureRatee = false; await actualiser(page); await pause(300);
+    verif((await ids(page)).includes('S-2-0'), 'à la lecture suivante, le message est reçu');
     await ctx.close();
   } },
   { nom: 'Quota : un envoi apporte aussi les nouveaux messages, sans appel « fil » en plus', f: async ({ nav, st, profil, verif }) => {
