@@ -12,3 +12,6 @@ est sa copie neutre. Avant chaque commit : `MOTS_FICHIER=<liste privée> bash te
 LIFE existe en deux versions pensées séparément, comme deux produits : l'**app téléphone** (une colonne, fils en rangée)
 et l'**app ordinateur** (≥ 900 px à la souris : fils en liste à gauche, conversation à droite). Une modification vaut pour
 l'app où elle est demandée ; rien n'est reporté de l'une sur l'autre sans le décider. Tests et captures : les deux, séparément.
+
+## Numéro de version
+Un chiffre par position : V.0.0.3.7, puis V.0.0.3.8, V.0.0.3.9, V.0.0.4.0… (`VERSION` dans app.js et `CACHE` dans sw.js, ensemble).
