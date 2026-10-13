@@ -90,6 +90,9 @@ nav button:active { transform: translate(2px, 2px); }
   /* grille complète, choisie avec ⌄ (mémorisée) : 4 ou 5 colonnes, libellés en 12 px qui peuvent passer à la ligne */
   body.grille #barre-fils { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 8px; padding: 6px 16px 10px; }
   body.grille nav { display: contents; -webkit-mask-image: none; mask-image: none; }
+  body.grille nav button .nom { white-space: nowrap; }
+  body.grille nav button.long .nom { letter-spacing: -.4px; font-size: min(12px, 3.05vw); }
+  body.grille #barre-fils { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
   body.grille nav button { flex-direction: column; justify-content: center; height: 64px; padding: 6px 3px; gap: 4px; border-radius: var(--r-m);
     white-space: normal; text-align: center; font-size: 12px; line-height: 1.1; }
   body.grille nav button svg { width: 22px; height: 22px; }
@@ -308,17 +311,19 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
   #menu button { min-height: 40px; padding: 10px 20px; }
   .rapides button:hover, .retour:hover, dialog button:hover, header > button:not([aria-pressed="true"]):hover { transform: translate(-1px, -1px); box-shadow: var(--sh-1); }
 }
+#retour-carte[hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <div id="ouverture" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.5 6.5l2.5 2.5M15 15l2.5 2.5M6.5 17.5L9 15M15 9l2.5-2.5"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg></div>
 <header>
+  <button id="retour-carte" hidden title="Revenir à Ma carte de vie" aria-label="Revenir à Ma carte de vie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
   <h1>LIFE<small><span class="long">ta messagerie · </span><span id="ver-haut"></span></small></h1>
   <button id="brief" title="Brief du jour" aria-label="Brief du jour" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z"/><path d="M16 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-4 0"/><path d="M7.5 8h5M7.5 11.5h5M7.5 15h3"/></svg></button>
   <button id="maintenance" title="Maintenance" aria-label="Maintenance" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></button>
   <button id="theme" title="Jour / nuit" aria-label="Jour ou nuit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
   <button id="plus" title="Plus" aria-label="Plus d'options" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
-  <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="reglages" role="menuitem">Réglages (clé du lien)</button><button id="effacer-fil" role="menuitem">Effacer ce fil</button></div>
+  <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="vers-carte" role="menuitem">Ma carte de vie</button><button id="reglages" role="menuitem">Réglages (clé du lien)</button><button id="effacer-fil" role="menuitem">Effacer ce fil</button></div>
 </header>
 <div id="app">
   <div id="barre-fils">
@@ -388,7 +393,7 @@ const COULEURS = { general: '#002FA7', travail: '#2f5fd8', metamorphose: '#6c8fe
   voyage: '#8fb0f0', experts: '#3a4fb0', comite: '#2a3f9a', brainstorm: '#5f86e8', coach: '#a9c0f2' };
 const svg = id => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONES[id] + '</svg>';
 const $ = id => document.getElementById(id);
-const COUPURES = { brainstorm: 'Brain­storming' };   // dans la grille, le nom long passe à la ligne au lieu de rétrécir
+const COUPURES = {};   // « Brainstorming » sur une seule ligne (demande du 13/10)   // dans la grille, le nom long passe à la ligne au lieu de rétrécir
 // Brief et Maintenance : des vues à part ; quand l'une est ouverte, aucun fil n'est marqué actif.
 const enVueAPart = () => document.body.classList.contains('brief') || document.body.classList.contains('maintenance');
 function majVues() {
@@ -598,7 +603,7 @@ function afficher() {
     const b = document.createElement('button'), n = id === fil && !vueAPart ? 0 : nonLus(id);
     b.type = 'button';
     b.innerHTML = svg(id) + '<span class="nom"></span>' + (ESSAI_POINTS ? '<i class="point" style="background:' + COULEURS[id] + '"></i>' : '') + (n ? '<span class="badge" aria-hidden="true">' + (n > 99 ? '99+' : n) + '</span>' : '');
-    b.querySelector('.nom').textContent = COUPURES[id] || nom;
+    b.querySelector('.nom').textContent = COUPURES[id] || nom; b.classList.toggle('long', nom.length > 11);
     b.setAttribute('aria-pressed', String(id === fil && !vueAPart));   // Brief ou Maintenance ouverts : aucun fil n'est actif
     b.setAttribute('aria-label', nom + (n ? ', ' + n + ' nouveau' + (n > 1 ? 'x' : '') + ' message' + (n > 1 ? 's' : '') : ''));
     b.onclick = () => { fil = id; store.ecrire('fil', fil); document.body.classList.remove('brief', 'maintenance'); majVues(); afficher(); };
@@ -781,7 +786,7 @@ $('brief').onclick = () => vue(document.body.classList.contains('brief') ? null 
 $('maintenance').onclick = () => vue(document.body.classList.contains('maintenance') ? null : 'maintenance');
 // Téléphone : les fils sur une rangée qui défile ; la grille complète s'ouvre avec ⌄ (choix gardé sur l'appareil).
 // Pendant la saisie, la grille se range pour laisser la place à la conversation.
-let grille = store.lire('grille', false), enSaisie = false;
+let grille = store.lire('grille2', true), enSaisie = false;   // tuiles à icônes par défaut (13/10)
 function majGrille() {
   const g = grille && !enSaisie, t = g ? 'Replier les fils' : 'Voir tous les fils';
   document.body.classList.toggle('grille', g);
@@ -790,7 +795,7 @@ function majGrille() {
 majGrille();
 $('saisie').addEventListener('focus', () => { enSaisie = true; majGrille(); });
 $('saisie').addEventListener('blur', () => { enSaisie = false; majGrille(); });
-$('plier').onclick = () => { grille = !grille; store.ecrire('grille', grille); majGrille(); };
+$('plier').onclick = () => { grille = !grille; store.ecrire('grille2', grille); majGrille(); };
 $('saisie').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); envoyer(); } });
 $('envoyer').onclick = envoyer;
 function ouvrirRecherche() { if (enVueAPart()) vue(null); $('recherche').hidden = false; $('q').focus(); $('q').select(); }
@@ -876,7 +881,11 @@ window.addEventListener('pagehide', confirmerSuppression);
 
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.21';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const DANS_CARTE = (() => { try { return window.top !== window && window.parent.location.pathname.indexOf('/carte-de-vie') === 0; } catch (e) { return false; } })();
+if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
+  $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
+$('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
+const VERSION = 'V.0.0.22';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
