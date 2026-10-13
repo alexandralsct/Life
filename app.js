@@ -75,13 +75,16 @@ let messages = store.lire('messages', []);   // copie locale : l'app s'ouvre tou
 messages.forEach(m => { if (m.temp) { m.temp = false; m.echec = true; } });
 let vus = store.lire('vus', {});              // fil → horodatage du dernier message lu
 // Nouveaux messages d'un fil : ceux de LIFE ou du système arrivés après la dernière visite du fil.
-function nonLus(id) { const v = vus[id] || ''; return messages.filter(m => (m.fil || 'general') === id && m.auteur !== 'moi' && !m.temp && m.t > v && !(m.auteur === 'systeme' && /^☀️/.test(m.texte || ''))).length; }
 function marquerLu(id) {
-  const l = messages.filter(m => (m.fil || 'general') === id);
-  if (l.length) { vus[id] = l[l.length - 1].t; store.ecrire('vus', vus); }
+  for (let i = messages.length - 1; i >= 0; i--) if ((messages[i].fil || 'general') === id) {
+    if (vus[id] !== messages[i].t) { vus[id] = messages[i].t; store.ecrire('vus', vus); }
+    return;
+  }
 }
-function pastilleAppli() {   // le petit numéro sur l'icône de l'app (Android, app installée)
-  const total = FILS.reduce((n, [id]) => n + (id === fil && document.visibilityState === 'visible' ? 0 : nonLus(id)), 0);
+let pastille = -1;
+function pastilleAppli(c) {   // le petit numéro sur l'icône de l'app (Android, app installée) ; c : non-lus par fil
+  const total = FILS.reduce((n, [id]) => n + (id === fil && document.visibilityState === 'visible' ? 0 : (c[id] || 0)), 0);
+  if (total === pastille) return; pastille = total;
   try { if (navigator.setAppBadge) total ? navigator.setAppBadge(total) : navigator.clearAppBadge(); } catch (e) { /* non pris en charge */ }
 }
 
@@ -168,10 +171,11 @@ function fusionner(nouveaux, retires) {
   const partis = new Set((retires || []).map(String));   // suppressions faites sur un autre appareil
   partis.forEach(id => parId.delete(id));
   if (partis.size) Object.keys(epingles).forEach(f => { epingles[f] = (epingles[f] || []).filter(i => !partis.has(i)); });
-  const cids = new Set(), textes = new Set();
+  const cids = new Set(), textes = new Set(), arrives = [];
   (nouveaux || []).forEach(m => {
     if (!m || !m.id || supprimes.has(m.id) || partis.has(m.id)) return;
     if (!serveurAJour() && filsForces[m.id]) m.fil = filsForces[m.id];
+    if (!parId.has(m.id)) arrives.push(m);
     parId.set(m.id, m);
     const c = cidDe(m.id); if (c) cids.add(c);
     if (c && /-b$/.test(m.id) && enCours[c]) { delete enCours[c]; enCoursChange = true; }   // la réponse est arrivée
@@ -186,6 +190,7 @@ function fusionner(nouveaux, retires) {
   garderMessages();
   if (partis.size) store.ecrire('epingles', epingles);
   if (enCoursChange) { enCoursChange = false; store.ecrire('enCours', enCours); }
+  if (arrives.length) annoncer(arrives);
 }
 // Le serveur a la demande, pas encore la réponse : LIFE « écrit » dans ce fil, et l'app relit le fil à 20, 40, 60 puis
 // 120 s (4 exécutions au plus), jusqu'à la réponse. Au-delà de 10 minutes, on n'attend plus.
@@ -301,121 +306,292 @@ function annulerSuppression() {
   epingles = avant.epingles; store.ecrire('epingles', epingles);
   afficher(); bandeau('Rétabli', null, 3000);
 }
-function fermerFeuilles() { document.querySelectorAll('.feuille-msg').forEach(x => x.remove()); }
+// ---------- Feuille d'actions d'un message (appui long, clic droit, ou clavier : Entrée, Maj+F10, touche Menu) ----------
+// Un vrai menu (role="menu") : flèches haut / bas, Début / Fin, Échap ferme et rend le focus au message.
+let feuilleOuverte = null;   // { f, b } : la feuille et la bulle d'où elle vient
+function fermerFeuilles(rendreFocus) {
+  const o = feuilleOuverte; feuilleOuverte = null;
+  document.querySelectorAll('.feuille-msg').forEach(x => x.remove());
+  document.querySelectorAll('#flux .ouverte').forEach(x => x.classList.remove('ouverte'));
+  if (o && rendreFocus && o.b.isConnected) o.b.focus({ preventScroll: true });
+}
+function naviguerMenu(e, items, fermer) {   // flèches dans un menu (WAI-ARIA « menu »)
+  const i = items.indexOf(document.activeElement);
+  let j = null;
+  if (e.key === 'ArrowDown') j = (i + 1) % items.length;
+  else if (e.key === 'ArrowUp') j = (i - 1 + items.length) % items.length;
+  else if (e.key === 'Home') j = 0;
+  else if (e.key === 'End') j = items.length - 1;
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(true); return; }
+  else if (e.key === 'Tab') { fermer(false); return; }
+  if (j !== null) { e.preventDefault(); items[j].focus(); }
+}
 function actionsMessage(m, b) {
   fermerFeuilles();
-  if (!store.lire('aideAppui', false)) store.ecrire('aideAppui', true);   // le geste est connu : plus d'indice
+  if (!store.lire('aideAppui', false)) { store.ecrire('aideAppui', true); const a = document.querySelector('#flux .aide'); if (a) a.remove(); }
   const f = document.createElement('div'); f.className = 'feuille-msg'; f.setAttribute('role', 'menu');
-  const bt = (t, fn) => { const x = document.createElement('button'); x.type = 'button'; x.setAttribute('role', 'menuitem'); x.textContent = t;
-    x.onclick = e => { e.stopPropagation(); f.remove(); fn(); }; f.appendChild(x); };
+  f.setAttribute('aria-label', 'Actions sur ce message');
+  const bt = (t, fn) => { const x = document.createElement('button'); x.type = 'button'; x.setAttribute('role', 'menuitem'); x.tabIndex = -1; x.textContent = t;
+    x.onclick = e => { e.stopPropagation(); fermerFeuilles(true); fn(); }; f.appendChild(x); };
   const ep = (epingles[m.fil || 'general'] || []).includes(m.id);
   bt(ep ? 'Désépingler' : 'Épingler', () => epingler(m));
   bt('Copier', () => { try { navigator.clipboard.writeText(m.texte || '').then(() => bandeau('Copié', null, 2500), () => {}); } catch (e) { /* refusé */ } });
   bt('Supprimer', () => supprimer([m.id], 'Message supprimé'));
-  b.appendChild(f); f.querySelector('button').focus({ preventScroll: true });
-  setTimeout(() => document.addEventListener('click', () => f.remove(), { once: true }), 0);
-}   // fil → [id]
-function epingler(m) {
+  f.addEventListener('keydown', e => naviguerMenu(e, [...f.querySelectorAll('button')], fermerFeuilles));
+  f.addEventListener('pointerdown', e => e.stopPropagation());
+  b.appendChild(f); feuilleOuverte = { f, b };
+  b.classList.add('ouverte'); if (b.parentNode.classList.contains('ligne-life')) b.parentNode.classList.add('ouverte');
+  f.querySelector('button').focus({ preventScroll: true });
+  setTimeout(() => document.addEventListener('click', () => { if (feuilleOuverte && feuilleOuverte.f === f) fermerFeuilles(); }, { once: true }), 0);
+}
+function epingler(m) {   // fil → [id], 3 au plus
   const f = m.fil || 'general', l = epingles[f] || [];
   epingles[f] = l.includes(m.id) ? l.filter(x => x !== m.id) : [m.id].concat(l).slice(0, 3);
   store.ecrire('epingles', epingles);
   try { if (navigator.vibrate) navigator.vibrate(20); } catch (e) { /* pas de vibreur */ }
   afficher();
 }
+let sigEpingles = '';
 function afficherEpingles() {
-  const z = $('epingles'); z.innerHTML = '';
-  if (document.body.classList.contains('brief') || document.body.classList.contains('maintenance')) return;
-  (epingles[fil] || []).map(id => messages.find(m => m.id === id)).filter(Boolean).forEach(m => {
+  const z = $('epingles');
+  const l = enVueAPart() ? [] : (epingles[fil] || []).map(id => messages.find(m => m.id === id)).filter(Boolean);
+  const sig = l.map(m => m.id + '\u0001' + m.texte).join('\u0002');
+  if (sig === sigEpingles) return;
+  sigEpingles = sig; z.textContent = '';
+  l.forEach(m => {
     const d = document.createElement('div'); d.className = 'epingle';
-    d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 5 3 3H7l3-3zM12 15v5"/></svg><span></span><button aria-label="Désépingler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+    d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 5 3 3H7l3-3zM12 15v5"/></svg><span></span><button type="button" aria-label="Désépingler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
     d.querySelector('span').textContent = sobre(m.texte.split('\n')[0]);
     d.querySelector('button').onclick = () => epingler(m);
     z.appendChild(d);
   });
 }
-function afficher() {
-  afficherEpingles();
-  $('saisie').placeholder = fil === 'experts' ? 'Ta question — ou « notaire : … » pour un expert précis' : fil === 'comite' ? 'Ta décision à prendre — /direct, /fiche, /vite, /comite' : fil === 'brainstorm' ? 'Un besoin, une idée : je pars dans tous les sens' : 'Écris à LIFE…';
-  const nav = $('fils'), vueAPart = enVueAPart();
-  nav.innerHTML = '';
-  if (document.visibilityState !== 'hidden' && !vueAPart) marquerLu(fil);   // le fil ouvert est lu
-  FILS.forEach(([id, nom]) => {
-    const b = document.createElement('button'), n = id === fil && !vueAPart ? 0 : nonLus(id);
-    b.type = 'button';
-    b.innerHTML = svg(id) + '<span class="nom"></span>' + (n ? '<span class="badge" aria-hidden="true">' + (n > 99 ? '99+' : n) + '</span>' : '');
-    b.querySelector('.nom').textContent = nom; b.classList.toggle('long', nom.length > 11); b.classList.toggle('moyen', nom.length > 8 && nom.length <= 11);
-    b.setAttribute('aria-pressed', String(id === fil && !vueAPart));   // Brief ou Maintenance ouverts : aucun fil n'est actif
-    b.setAttribute('aria-label', nom + (n ? ', ' + n + ' nouveau' + (n > 1 ? 'x' : '') + ' message' + (n > 1 ? 's' : '') : ''));
-    b.onclick = () => { fil = id; store.ecrire('fil', fil); document.body.classList.remove('brief', 'maintenance'); majVues(); afficher(); };
-    nav.appendChild(b);
-  });
-  pastilleAppli();
-  const zone = $('messages'); zone.innerHTML = '';
-  const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
-  const briefs = messages.filter(estBrief);
-  const vb = $('vue-brief'); vb.innerHTML = ''; vb.appendChild(boutonRetour());
-  if (!briefs.length) vb.insertAdjacentHTML('beforeend', '<div class="vide"><strong>Pas encore de brief</strong>Il arrive chaque matin à 7 h 50.</div>');
-  else vb.appendChild(carteSysteme(briefs[briefs.length - 1]));
-  // Brief et Maintenance : lus quand on ouvre leur section ; sinon un petit numéro sur leur bouton.
-  if (document.body.classList.contains('brief') && briefs.length) { vus.brief = briefs[briefs.length - 1].t; store.ecrire('vus', vus); }
-  const maint = messages.filter(m => m.fil === 'systeme');
-  if (document.body.classList.contains('maintenance') && maint.length) { vus.systeme = maint[maint.length - 1].t; store.ecrire('vus', vus); }
-  [['brief', briefs.filter(m => m.t > (vus.brief || '')).length], ['maintenance', maint.filter(m => m.t > (vus.systeme || '')).length]].forEach(([id, n]) => {
-    const b = $(id), old = b.querySelector('.badge'); if (old) old.remove();
-    if (n) { const x = document.createElement('span'); x.className = 'badge'; x.textContent = n > 9 ? '9+' : n; b.appendChild(x); }
-  });
-  const vm = $('vue-maintenance'); vm.innerHTML = ''; vm.appendChild(boutonRetour());
-  if (!maint.length) vm.insertAdjacentHTML('beforeend', '<div class="vide"><strong>Rien à signaler</strong>Le rapport du système et ses alertes arrivent ici.</div>');
-  else maint.slice(-10).forEach(m => vm.appendChild(carteSysteme(m)));
-  if (document.body.classList.contains('maintenance')) vm.scrollTop = vm.scrollHeight;
-  const liste = messages.filter(m => (m.fil || 'general') === fil && !estBrief(m));
-  if (!liste.length) {
-    zone.innerHTML = '<div class="vide"><strong>Rien ici pour l\'instant</strong>Écris à LIFE : une question, une idée, une chose à ne pas oublier.</div>';
-    return;
+
+// ---------- Rendu incrémental (audit expert performance LT1) ----------
+// Avant : toute la barre des fils, les deux vues et TOUTES les bulles (4 écouteurs chacune) étaient reconstruites à chaque
+// action. Maintenant : les tuiles sont créées une fois et seulement mises à jour ; les bulles sont gardées par
+// identifiant et ne sont refaites que si elles changent ; seules les FENETRE dernières bulles du fil sont dans la page
+// (« Messages plus anciens » en ajoute autant) ; un seul écouteur, délégué, pour toute la conversation.
+const FENETRE = 40, FENETRE_CAR = 12000;   // 40 bulles au plus, et environ 12 000 caractères (au moins 8 bulles)
+const fenetre = {};            // fil → nombre de bulles affichées (fixé au premier affichage du fil, puis « plus anciens »)
+const rendus = new Map();      // clé → { el, sig }
+let filAffiche = null, focusFil = null;
+const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
+// Nom affiché sur la tuile du téléphone quand le nom complet ne tient pas à 11 px (le nom complet reste celui lu à voix haute).
+const NOM_COURT = {};
+const nomFil = id => (FILS.find(f => f[0] === id) || ['', id === 'systeme' ? 'Maintenance' : 'Général'])[1];
+function comptesNonLus() {   // une seule passe sur les messages (avant : une par fil)
+  const c = {};
+  for (const m of messages) { const f = m.fil || 'general';
+    if (m.auteur !== 'moi' && !m.temp && m.t > (vus[f] || '') && !estBrief(m)) c[f] = (c[f] || 0) + 1; }
+  return c;
+}
+function heureParlee(t) { const h = heure(t); return h ? h.replace(':', ' h ') : ''; }
+function auteurLisible(m) { return m.auteur === 'moi' ? 'Toi' : m.auteur === 'systeme' ? 'Information' : 'LIFE'; }
+function creerBulle(m, finDeGroupe) {
+  const b = document.createElement('div');
+  b.className = 'bulle ' + (m.auteur === 'moi' ? 'moi' : m.auteur === 'systeme' ? 'systeme info' : 'life') + (m.temp ? ' attente' : '') + (m.echec ? ' echec' : '');
+  if (m.auteur === 'systeme') { remplirCarte(b, m.texte); b.dataset.etiquette = 'Info · ' + nomFil(m.fil || 'general'); }
+  else b.textContent = m.auteur === 'moi' ? m.texte : sobre(m.texte);   // texte brut : jamais interprété comme du HTML
+  // au clavier : chaque message est un « article » atteignable (flèches), avec ses actions (Entrée, Maj+F10, touche Menu)
+  b.dataset.id = m.id; b.tabIndex = -1; b.setAttribute('role', 'article');
+  b.setAttribute('aria-label', auteurLisible(m) + (m.temp ? ', envoi en cours' : m.echec ? ', non envoyé' : (heure(m.t) ? ', ' + heureParlee(m.t) : '')));
+  if (m.echec) {   // envoi raté : la bulle le dit, et se renvoie d'un toucher
+    const r = document.createElement('button'); r.type = 'button'; r.className = 'reessayer'; r.dataset.action = 'reessayer'; r.textContent = 'Non envoyé · Réessayer';
+    b.appendChild(r);
+  } else if (m.temp || finDeGroupe) {   // l'heure une fois par groupe de messages rapprochés
+    const h = document.createElement('span'); h.className = 'heure'; h.textContent = m.temp ? 'envoi…' : heure(m.t); b.appendChild(h);
   }
-  let dernierJour = '';
-  liste.forEach((m, k) => {
-    const j = jourLisible(m.t);
-    if (j && j !== dernierJour) { const s = document.createElement('div'); s.className = 'jour'; s.textContent = j; zone.appendChild(s); dernierJour = j; }
-    const b = document.createElement('div');
-    b.className = 'bulle ' + (m.auteur === 'moi' ? 'moi' : m.auteur === 'systeme' ? 'systeme info' : 'life') + (m.temp ? ' attente' : '') + (m.echec ? ' echec' : '');
-    if (m.auteur === 'systeme') { remplirCarte(b, m.texte); b.dataset.etiquette = 'Info · ' + (FILS.find(f => f[0] === (m.fil || 'general')) || ['', ''])[1]; }
-    else b.textContent = m.auteur === 'moi' ? m.texte : sobre(m.texte);   // texte brut : jamais interprété comme du HTML
-    const suivant = liste[k + 1];
+  if (m.auteur !== 'life') return b;
+  const l = document.createElement('div'); l.className = 'ligne-life';   // avatar de LIFE, une fois par groupe
+  const a = document.createElement('span'); a.className = 'avatar' + (finDeGroupe ? '' : ' vide'); a.setAttribute('aria-hidden', 'true'); a.innerHTML = AVATAR;
+  l.appendChild(a); l.appendChild(b); return l;
+}
+function element(cle, sig, fabriquer) {   // élément gardé (clé), refait seulement si sa signature change
+  const r = rendus.get(cle);
+  if (r && r.sig === sig) return r.el;
+  const el = fabriquer(); rendus.set(cle, { el, sig }); return el;
+}
+const unique = {};   // éléments uniques de la conversation : vide, aide, « écrit », plus anciens
+function elementUnique(nom, fabriquer) { return unique[nom] || (unique[nom] = fabriquer()); }
+const bulleDe = el => el && el.closest ? el.closest('#flux .bulle[data-id]') : null;
+const messageDe = b => b && messages.find(m => m.id === b.dataset.id);
+function afficherConversation() {
+  if (!$('recherche').hidden && $('q').value.trim().length >= 2) return;   // résultats de recherche à l'écran
+  const zone = $('messages'), flux = $('flux');
+  const liste = messages.filter(m => (m.fil || 'general') === fil && !estBrief(m));
+  const nouveauFil = filAffiche !== fil; filAffiche = fil;
+  const enBas = nouveauFil || zone.scrollHeight - zone.scrollTop - zone.clientHeight < 120;
+  const hautAvant = zone.scrollHeight - zone.scrollTop;
+  if (!fenetre[fil]) { let n = 0, car = 0;
+    while (n < liste.length && n < FENETRE && (n < 8 || car < FENETRE_CAR)) { car += (liste[liste.length - 1 - n].texte || '').length; n++; }
+    fenetre[fil] = Math.max(n, 8); }
+  const n = fenetre[fil], debut = Math.max(0, liste.length - n);
+  const voulus = [];
+  if (debut > 0) voulus.push(elementUnique('anciens', () => { const b = document.createElement('button'); b.type = 'button'; b.className = 'anciens';
+    b.textContent = 'Messages plus anciens'; b.onclick = () => plusAnciens(true); return b; }));
+  if (!liste.length) voulus.push(elementUnique('vide', () => { const d = document.createElement('div'); d.className = 'vide';
+    d.innerHTML = '<strong>Rien ici pour l\'instant</strong>Écris à LIFE : une question, une idée, une chose à ne pas oublier.'; return d; }));
+  let dernierJour = debut > 0 ? jourLisible(liste[debut - 1].t) : '';
+  for (let k = debut; k < liste.length; k++) {
+    const m = liste[k], j = jourLisible(m.t), suivant = liste[k + 1];
+    if (j && j !== dernierJour) { voulus.push(element('jour|' + fil + '|' + j + '|' + (m.t || '').slice(0, 10), j, () => {
+      const s = document.createElement('div'); s.className = 'jour'; s.setAttribute('role', 'separator'); s.setAttribute('aria-label', j); s.textContent = j; return s; })); dernierJour = j; }
     const finDeGroupe = !suivant || suivant.auteur !== m.auteur || (suivant.t || '').slice(0, 15) !== (m.t || '').slice(0, 15);
-    if (m.echec) {   // envoi raté : la bulle le dit, et se renvoie d'un toucher
-      const r = document.createElement('button'); r.type = 'button'; r.className = 'reessayer'; r.textContent = 'Non envoyé · Réessayer';
-      r.onclick = e => { e.stopPropagation(); reessayer(m); }; b.appendChild(r);
-    } else if (m.temp || finDeGroupe) {   // l'heure une fois par groupe de messages rapprochés
-      const h = document.createElement('span'); h.className = 'heure'; h.textContent = m.temp ? 'envoi…' : heure(m.t); b.appendChild(h);
-    }
-    if (m.auteur === 'life') {   // avatar de LIFE, une fois par groupe
-      const l = document.createElement('div'); l.className = 'ligne-life';
-      const a = document.createElement('span'); a.className = 'avatar' + (finDeGroupe ? '' : ' vide'); a.innerHTML = AVATAR;
-      l.appendChild(a); l.appendChild(b); zone.appendChild(l);
-    } else zone.appendChild(b);
-    let appui = null;   // appui long (0,6 s) : épingler en haut du fil
-    b.addEventListener('pointerdown', () => { appui = setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate(15); } catch (e) { /* */ } actionsMessage(m, b); }, 550); });
-    b.addEventListener('contextmenu', e => { e.preventDefault(); actionsMessage(m, b); });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => clearTimeout(appui)));
-    if (!suivant && m.auteur === 'life' && /\?\s*$/.test(m.texte) && !envoisEnCours && !enCoursDans(fil)) {   // elle peut répondre d'un toucher
-      const r = document.createElement('div'); r.className = 'rapides';
-      ['Oui', 'Plus tard', 'Non merci'].forEach(t => { const x = document.createElement('button'); x.textContent = t;
-        x.onclick = () => { $('saisie').value = t; envoyer(); }; r.appendChild(x); });
-      zone.appendChild(r);
-    }
-  });
-  if (!store.lire('aideAppui', false)) {   // indice discret, jusqu'à ce qu'il soit lu ou que le geste soit utilisé
+    voulus.push(element('m|' + m.id, [m.texte, m.temp ? 1 : 0, m.echec ? 1 : 0, finDeGroupe ? 1 : 0, m.t, m.auteur, m.fil].join('\u0001'), () => creerBulle(m, finDeGroupe)));
+    if (!suivant && m.auteur === 'life' && /\?\s*$/.test(m.texte) && !envoisEnCours && !enCoursDans(fil))   // elle peut répondre d'un toucher
+      voulus.push(element('rapides|' + m.id, '', () => { const r = document.createElement('div'); r.className = 'rapides'; r.setAttribute('role', 'group'); r.setAttribute('aria-label', 'Réponses rapides');
+        ['Oui', 'Plus tard', 'Non merci'].forEach(t => { const x = document.createElement('button'); x.type = 'button'; x.dataset.rapide = t; x.textContent = t; r.appendChild(x); }); return r; }));
+  }
+  if (!store.lire('aideAppui', false)) voulus.push(elementUnique('aide', () => {   // indice discret, jusqu'à ce qu'il soit lu ou que le geste soit utilisé
     const a = document.createElement('div'); a.className = 'aide';
     const s = document.createElement('span');
-    s.textContent = (matchMedia('(pointer: fine)').matches ? 'Clic droit' : 'Appui long') + ' sur un message : épingler, copier ou supprimer.';
+    s.textContent = (matchMedia('(pointer: fine)').matches ? 'Clic droit (ou Entrée au clavier)' : 'Appui long') + ' sur un message : épingler, copier ou supprimer.';
     const ok = document.createElement('button'); ok.type = 'button'; ok.textContent = 'Compris';
     ok.onclick = () => { store.ecrire('aideAppui', true); a.remove(); };
-    a.appendChild(s); a.appendChild(ok); zone.appendChild(a);
+    a.appendChild(s); a.appendChild(ok); return a; }));
+  if (envoisEnCours || enCoursDans(fil)) voulus.push(elementUnique('ecrit', () => { const e = document.createElement('div'); e.className = 'ecrit';
+    e.setAttribute('role', 'img'); e.setAttribute('aria-label', 'LIFE écrit'); e.innerHTML = '<i></i><i></i><i></i>'; return e; }));
+  // réconciliation : on ne touche qu'aux nœuds qui changent de place, apparaissent ou disparaissent
+  const actif = document.activeElement, idActif = flux.contains(actif) && actif.dataset ? actif.dataset.id : null;
+  let cur = flux.firstChild;
+  for (const el of voulus) { if (el === cur) cur = cur.nextSibling; else flux.insertBefore(el, cur); }
+  while (cur) { const nx = cur.nextSibling; flux.removeChild(cur); cur = nx; }
+  if (rendus.size > messages.length + 200) { const vivants = new Set(messages.map(m => 'm|' + m.id));   // ménage du cache
+    [...rendus.keys()].forEach(k => { if (k.startsWith('m|') && !vivants.has(k)) rendus.delete(k); }); }
+  // un seul message dans l'ordre de tabulation (le dernier, ou celui qui avait le focus) ; les flèches parcourent les autres
+  const bl = [...flux.querySelectorAll('.bulle[data-id]')];
+  const garde = (idActif && bl.find(x => x.dataset.id === idActif)) || (focusFil === fil && bl.find(x => x.tabIndex === 0)) || bl[bl.length - 1];
+  bl.forEach(x => { const t = x === garde ? 0 : -1; if (x.tabIndex !== t) x.tabIndex = t; });
+  focusFil = fil;
+  if (idActif && garde && document.activeElement !== garde && garde.dataset.id === idActif) garde.focus({ preventScroll: true });
+  if (enBas) zone.scrollTop = zone.scrollHeight; else zone.scrollTop = zone.scrollHeight - hautAvant;
+}
+function plusAnciens(focus) {   // ajoute FENETRE bulles plus anciennes, sans faire sauter la lecture
+  const zone = $('messages'), avant = zone.scrollHeight - zone.scrollTop;
+  fenetre[fil] = (fenetre[fil] || FENETRE) + FENETRE; afficherConversation();
+  zone.scrollTop = zone.scrollHeight - avant;
+  if (focus) { const b = $('flux').querySelector('.bulle[data-id]'); if (b) { [...$('flux').querySelectorAll('.bulle[data-id]')].forEach(x => { x.tabIndex = x === b ? 0 : -1; }); b.focus(); } }
+}
+// Un seul écouteur pour toute la conversation (avant : 4 par bulle).
+(function brancherConversation() {
+  const flux = $('flux'); let appui = null, depart = null;
+  const annuler = () => { clearTimeout(appui); appui = null; };
+  flux.addEventListener('pointerdown', e => {
+    const b = bulleDe(e.target); if (!b || e.target.closest('button')) return;
+    depart = [e.clientX, e.clientY];
+    appui = setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate(15); } catch (x) { /* */ } const m = messageDe(b); if (m) actionsMessage(m, b); }, 550);   // appui long
+  });
+  flux.addEventListener('pointermove', e => { if (appui && depart && Math.hypot(e.clientX - depart[0], e.clientY - depart[1]) > 10) annuler(); });
+  ['pointerup', 'pointercancel', 'pointerout'].forEach(ev => flux.addEventListener(ev, annuler));
+  $('messages').addEventListener('scroll', annuler, { passive: true });
+  flux.addEventListener('contextmenu', e => { const b = bulleDe(e.target), m = messageDe(b); if (!m) return; e.preventDefault(); actionsMessage(m, b); });
+  flux.addEventListener('click', e => {
+    const r = e.target.closest('[data-action="reessayer"]');
+    if (r) { e.stopPropagation(); const m = messageDe(bulleDe(r)); if (m) reessayer(m); return; }
+    const q = e.target.closest('[data-rapide]');
+    if (q) { $('saisie').value = q.dataset.rapide; envoyer(); }
+  });
+  flux.addEventListener('focusin', e => { const b = e.target.classList && e.target.classList.contains('bulle') ? e.target : null;
+    if (b) flux.querySelectorAll('.bulle[tabindex="0"]').forEach(x => { if (x !== b) x.tabIndex = -1; }), b.tabIndex = 0; });
+  flux.addEventListener('keydown', e => {   // clavier : flèches, Début / Fin, Page préc. / suiv. ; Entrée, Maj+F10 ou Menu : actions
+    const b = e.target.classList && e.target.classList.contains('bulle') ? e.target : null; if (!b) return;
+    const bl = [...flux.querySelectorAll('.bulle[data-id]')], i = bl.indexOf(b);
+    let j = null;
+    if (e.key === 'ArrowDown') j = i + 1; else if (e.key === 'ArrowUp') j = i - 1;
+    else if (e.key === 'PageDown') j = i + 5; else if (e.key === 'PageUp') j = i - 5;
+    else if (e.key === 'Home') j = 0; else if (e.key === 'End') j = bl.length - 1;
+    else if (e.key === 'Enter' || e.key === ' ' || e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+      e.preventDefault(); const m = messageDe(b); if (m) actionsMessage(m, b); return; }
+    if (j === null) return;
+    e.preventDefault();
+    if (j < 0 && flux.querySelector('.anciens')) { plusAnciens(true); return; }
+    const c = bl[Math.max(0, Math.min(bl.length - 1, j))];
+    if (c) { b.tabIndex = -1; c.tabIndex = 0; c.focus(); }
+  });
+  // en remontant jusqu'en haut, les messages plus anciens arrivent d'eux-mêmes
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(l => { if (l.some(x => x.isIntersecting) && document.querySelector('#flux .anciens')) plusAnciens(false); }, { root: $('messages'), rootMargin: '200px 0px 0px 0px' });
+    const veiller = () => { const a = unique.anciens; if (a && !a._vu) { io.observe(a); a._vu = true; } };
+    new MutationObserver(veiller).observe(flux, { childList: true });
   }
-  if (envoisEnCours || enCoursDans(fil)) { const e = document.createElement('div'); e.className = 'ecrit'; e.setAttribute('aria-label', 'LIFE écrit');
-    e.innerHTML = '<i></i><i></i><i></i>'; zone.appendChild(e); }
-  zone.scrollTop = zone.scrollHeight;
+})();
+let boutonsFils = null;
+function afficherFils(vueAPart) {
+  const nav = $('fils');
+  if (!boutonsFils) {   // créées une fois
+    boutonsFils = {};
+    FILS.forEach(([id, nom]) => {
+      const b = document.createElement('button'); b.type = 'button';
+      b.innerHTML = svg(id) + '<span class="nom" aria-hidden="true"></span>';
+      b.querySelector('.nom').textContent = NOM_COURT[id] || nom;
+      b.classList.toggle('long', (NOM_COURT[id] || nom).length > 11); b.classList.toggle('moyen', (NOM_COURT[id] || nom).length > 8 && (NOM_COURT[id] || nom).length <= 11);
+      b.onclick = () => choisirFil(id);
+      nav.appendChild(b); boutonsFils[id] = b;
+    });
+  }
+  const c = comptesNonLus();
+  FILS.forEach(([id, nom]) => {
+    const b = boutonsFils[id], actif = id === fil && !vueAPart, n = actif ? 0 : (c[id] || 0), sig = n + '|' + actif;
+    if (b._sig === sig) return; b._sig = sig;
+    let x = b.querySelector('.badge');
+    if (n && !x) { x = document.createElement('span'); x.className = 'badge'; x.setAttribute('aria-hidden', 'true'); b.appendChild(x); }
+    if (x) { if (n) x.textContent = n > 99 ? '99+' : n; else x.remove(); }
+    b.setAttribute('aria-pressed', String(actif));   // Brief ou Maintenance ouverts : aucun fil n'est actif
+    b.setAttribute('aria-label', nom + (n ? ', ' + n + ' nouveau' + (n > 1 ? 'x' : '') + ' message' + (n > 1 ? 's' : '') : ''));
+  });
+  return c;
+}
+function choisirFil(id) {
+  fil = id; store.ecrire('fil', fil);
+  if (!$('recherche').hidden) { $('recherche').hidden = true; $('q').value = ''; $('resultats').hidden = true; $('flux').hidden = false; }
+  document.body.classList.remove('brief', 'maintenance'); majVues(); afficher();
+}
+let sigBrief = null, sigMaint = null;
+function afficherVues() {
+  const briefs = messages.filter(estBrief), maint = messages.filter(m => m.fil === 'systeme');
+  const ouvBrief = document.body.classList.contains('brief'), ouvMaint = document.body.classList.contains('maintenance');
+  // Brief et Maintenance : lus quand on ouvre leur section ; sinon un petit numéro sur leur bouton.
+  if (ouvBrief && briefs.length && vus.brief !== briefs[briefs.length - 1].t) { vus.brief = briefs[briefs.length - 1].t; store.ecrire('vus', vus); }
+  if (ouvMaint && maint.length && vus.systeme !== maint[maint.length - 1].t) { vus.systeme = maint[maint.length - 1].t; store.ecrire('vus', vus); }
+  [['brief', briefs.filter(m => m.t > (vus.brief || '')).length], ['maintenance', maint.filter(m => m.t > (vus.systeme || '')).length]].forEach(([id, n]) => {
+    const b = $(id); let x = b.querySelector('.badge');
+    if (!n) { if (x) x.remove(); return; }
+    if (!x) { x = document.createElement('span'); x.className = 'badge'; x.setAttribute('aria-hidden', 'true'); b.appendChild(x); }
+    x.textContent = n > 9 ? '9+' : n;
+    b.setAttribute('aria-label', (id === 'brief' ? 'Brief du jour' : 'Maintenance') + ', ' + n + ' nouveau' + (n > 1 ? 'x' : ''));
+  });
+  // contenu des vues : construit seulement quand on les ouvre, et refait seulement s'il a changé
+  const sb = briefs.length ? briefs[briefs.length - 1].id + '|' + briefs[briefs.length - 1].texte : '';
+  if (ouvBrief && sb !== sigBrief) { sigBrief = sb;
+    const vb = $('vue-brief'); vb.textContent = ''; vb.appendChild(boutonRetour());
+    if (!briefs.length) vb.insertAdjacentHTML('beforeend', '<div class="vide"><strong>Pas encore de brief</strong>Il arrive chaque matin à 7 h 50.</div>');
+    else vb.appendChild(carteSysteme(briefs[briefs.length - 1])); }
+  const sm = maint.slice(-10).map(m => m.id).join();
+  if (ouvMaint && sm !== sigMaint) { sigMaint = sm;
+    const vm = $('vue-maintenance'); vm.textContent = ''; vm.appendChild(boutonRetour());
+    if (!maint.length) vm.insertAdjacentHTML('beforeend', '<div class="vide"><strong>Rien à signaler</strong>Le rapport du système et ses alertes arrivent ici.</div>');
+    else maint.slice(-10).forEach(m => vm.appendChild(carteSysteme(m)));
+    vm.scrollTop = vm.scrollHeight; }
+}
+const PLACEHOLDERS = { experts: 'Ta question — ou « notaire : … » pour un expert précis', comite: 'Ta décision à prendre — /direct, /fiche, /vite, /comite', brainstorm: 'Un besoin, une idée : je pars dans tous les sens' };
+function afficher() {
+  const vueAPart = enVueAPart();
+  const p = PLACEHOLDERS[fil] || 'Écris à LIFE…'; if ($('saisie').placeholder !== p) $('saisie').placeholder = p;
+  if (document.visibilityState !== 'hidden' && !vueAPart) marquerLu(fil);   // le fil ouvert est lu
+  const c = afficherFils(vueAPart);
+  pastilleAppli(c);
+  afficherEpingles(); afficherVues();
+  $('flux').setAttribute('aria-label', 'Messages du fil ' + nomFil(fil));
+  if (!vueAPart) afficherConversation();
+}
+// Annonce des nouveaux messages pour les lecteurs d'écran : une zone à part (avant : toute la conversation était
+// « vivante » et relue à chaque reconstruction).
+function annoncer(nouveaux) {
+  const l = nouveaux.filter(m => m.auteur !== 'moi' && !m.local); if (!l.length) return;
+  const dernier = l[l.length - 1], z = $('annonce');
+  const t = l.length > 3 ? l.length + ' nouveaux messages' : auteurLisible(dernier) + ' (' + nomFil(dernier.fil || 'general') + ') : ' + String(dernier.texte || '').slice(0, 240);
+  z.textContent = ''; setTimeout(() => { z.textContent = t; }, 50);
 }
 
 let envoisEnCours = 0;   // LIFE écrit (trois points) tant qu'au moins un envoi attend sa réponse
@@ -625,7 +801,7 @@ $('plier').onclick = () => { grille = !grille; store.ecrire('grille2', grille); 
 $('saisie').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); envoyer(); } });
 $('envoyer').onclick = envoyer;
 function ouvrirRecherche() { if (enVueAPart()) vue(null); $('recherche').hidden = false; $('q').focus(); $('q').select(); }
-function fermerRecherche() { $('recherche').hidden = true; $('q').value = ''; afficher(); }
+function fermerRecherche() { $('recherche').hidden = true; $('q').value = ''; $('resultats').hidden = true; $('flux').hidden = false; afficher(); }
 $('chercher').onclick = () => { if ($('recherche').hidden) ouvrirRecherche(); else fermerRecherche(); };
 $('fermer-recherche').onclick = fermerRecherche;
 // Raccourcis (ordinateur surtout) : Ctrl/⌘ + K = rechercher ; Échap = fermer ce qui est ouvert ;
@@ -642,22 +818,23 @@ document.addEventListener('keydown', e => {
   if (!$('recherche').hidden) { fermerRecherche(); $('chercher').focus(); return; }
   if (enVueAPart()) { vue(null); $('saisie').focus(); }
 });
-$('q').addEventListener('input', () => {
-  const q = $('q').value.trim().toLowerCase(), zone = $('messages');
-  if (q.length < 2) { afficher(); return; }
-  zone.innerHTML = '';
+$('q').addEventListener('input', () => {   // résultats dans leur propre zone : la conversation gardée reste intacte
+  const q = $('q').value.trim().toLowerCase(), zone = $('resultats');
+  if (q.length < 2) { zone.hidden = true; $('flux').hidden = false; afficher(); return; }
+  zone.textContent = ''; zone.hidden = false; $('flux').hidden = true;
   const trouves = messages.filter(m => (m.texte || '').toLowerCase().includes(q)).slice(-40).reverse();
   if (!trouves.length) { zone.innerHTML = '<div class="vide"><strong>Rien trouvé</strong>Essaie un autre mot.</div>'; return; }
   trouves.forEach(m => {
-    const b = document.createElement('div'); b.className = 'bulle life resultat';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'bulle life resultat';
     const ou = document.createElement('span'); ou.className = 'ou';
-    ou.textContent = (m.fil === 'systeme' ? 'Maintenance' : (FILS.find(f => f[0] === (m.fil || 'general')) || ['', 'Général'])[1]) + ' · ' + jourLisible(m.t);
+    ou.textContent = nomFil(m.fil || 'general') + ' · ' + jourLisible(m.t);
     b.appendChild(ou);
     const t = m.texte, i = t.toLowerCase().indexOf(q), debut = Math.max(0, i - 60);
     b.appendChild(document.createTextNode((debut ? '…' : '') + t.slice(debut, i)));
     const mk = document.createElement('mark'); mk.textContent = t.slice(i, i + q.length); b.appendChild(mk);
     b.appendChild(document.createTextNode(t.slice(i + q.length, i + q.length + 120) + '…'));
-    b.onclick = () => { $('recherche').hidden = true; $('q').value = ''; if (m.fil !== 'systeme') { fil = m.fil || 'general'; store.ecrire('fil', fil); afficher(); } else vue('maintenance'); };
+    b.onclick = () => { $('recherche').hidden = true; $('q').value = ''; zone.hidden = true; $('flux').hidden = false;
+      if (m.fil !== 'systeme') choisirFil(m.fil || 'general'); else vue('maintenance'); };
     zone.appendChild(b);
   });
 });
@@ -738,7 +915,7 @@ const DANS_CARTE = (() => { try { return window.top !== window && window.parent.
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.31';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.32';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const o = { a: adresse(), c: cle() }; if (store.lire('cleLife', '')) o.l = store.lire('cleLife', '');

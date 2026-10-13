@@ -85,6 +85,18 @@ nav button:active { transform: translate(2px, 2px); }
 #conv { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 main { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 16px;
   background: var(--plateau); border-top: 1.5px solid var(--trait); }
+/* La conversation : #flux (messages du fil) et #resultats (recherche) ; rendu incrémental, voir app.js */
+#flux, #resultats { flex: 1 0 auto; display: flex; flex-direction: column; gap: 16px; }
+#flux[hidden], #resultats[hidden] { display: none; }
+.anciens { align-self: center; min-height: var(--cible); padding: 0 16px; border: 1.5px dashed var(--trait-doux); border-radius: var(--r-p);
+  background: none; color: var(--encre); font: 500 13px var(--mono); cursor: pointer; }
+/* bulles hors de l'écran : ni mise en page ni dessin tant qu'on n'y arrive pas (taille retenue une fois vue) */
+#flux > .bulle, #flux > .ligne-life { content-visibility: auto; contain-intrinsic-size: auto 120px; }
+#flux > .ouverte { content-visibility: visible; z-index: 3; }   /* feuille d'actions ouverte : rien n'est rogné */
+.bulle[role="article"]:focus-visible { outline: 3px solid var(--trait); outline-offset: 3px; }
+.resultat { text-align: left; width: 100%; max-width: none; color: var(--encre); font: inherit; font-size: 14.5px; }
+/* texte lu par les lecteurs d'écran seulement */
+.lecteur { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .jour { align-self: center; color: var(--encre-2); font: 400 12px var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
   margin: 14px 0 0; padding: 3px 10px; border: 1.5px solid var(--trait-doux); border-radius: var(--r-p); }
 .bulle { position: relative; max-width: 84%; padding: 12px 16px; border-radius: var(--r-m); white-space: pre-wrap; overflow-wrap: break-word;
