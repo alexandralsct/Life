@@ -14,24 +14,24 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<div id="ouverture" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.5 6.5l2.5 2.5M15 15l2.5 2.5M6.5 17.5L9 15M15 9l2.5-2.5"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg></div>
+<div id="ouverture" aria-hidden="true"><svg viewBox="79 79 354 354" fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round"><path d="M256 96v86M256 330v86M96 256h86M330 256h86M143 143l54 54M315 315l54 54M143 369l54-54M315 197l54-54"/></svg></div>
 <header>
   <button id="retour-carte" hidden title="Revenir à Ma carte de vie" aria-label="Revenir à Ma carte de vie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
   <h1>LIFE<small><span class="long">ta messagerie · </span><span id="ver-haut"></span></small></h1>
-  <button id="brief" title="Brief du jour" aria-label="Brief du jour" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z"/><path d="M16 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-4 0"/><path d="M7.5 8h5M7.5 11.5h5M7.5 15h3"/></svg></button>
-  <button id="maintenance" title="Maintenance" aria-label="Maintenance" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></button>
-  <button id="theme" title="Jour / nuit" aria-label="Jour ou nuit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
-  <button id="plus" title="Plus" aria-label="Plus d'options" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
+  <button id="brief" title="Brief du jour" aria-label="Brief du jour" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z"/><path d="M16 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-4 0"/><path d="M7.5 8h5M7.5 11.5h5M7.5 15h3"/></svg></button>
+  <button id="maintenance" title="Maintenance" aria-label="Maintenance" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></button>
+  <button id="theme" title="Jour / nuit" aria-label="Jour ou nuit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+  <button id="plus" title="Plus" aria-label="Plus d'options" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
   <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="vers-carte" role="menuitem">Ma carte de vie</button><button id="reglages" role="menuitem">Réglages (clé du lien)</button><button id="effacer-fil" role="menuitem">Effacer ce fil</button></div>
 </header>
 <div id="app">
   <div id="barre-fils">
     <nav id="fils" aria-label="Fils"></nav>
-    <button id="plier" aria-label="Voir tous les fils" title="Voir tous les fils" aria-expanded="false" aria-controls="fils"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
-    <button id="chercher" aria-label="Rechercher" title="Rechercher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span class="lib">Rechercher</span><kbd id="raccourci">Ctrl K</kbd></button>
+    <button id="plier" aria-label="Voir tous les fils" title="Voir tous les fils" aria-expanded="false" aria-controls="fils"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+    <button id="chercher" aria-label="Rechercher" title="Rechercher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span class="lib">Rechercher</span><kbd id="raccourci">Ctrl K</kbd></button>
   </div>
   <div id="conv">
-    <div id="recherche" role="search" hidden><input id="q" type="search" placeholder="Rechercher dans mes messages…" autocomplete="off" aria-label="Rechercher dans mes messages"><button id="fermer-recherche" aria-label="Fermer la recherche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div id="recherche" role="search" hidden><input id="q" type="search" placeholder="Rechercher dans mes messages…" autocomplete="off" aria-label="Rechercher dans mes messages"><button id="fermer-recherche" aria-label="Fermer la recherche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div id="epingles"></div>
     <div id="tirer" aria-hidden="true">relâche pour actualiser</div>
     <main id="messages" aria-label="Conversation"><section id="flux" aria-label="Messages"></section><div id="resultats" role="region" aria-label="Résultats de la recherche" hidden></div></main>
@@ -39,9 +39,9 @@
     <section id="vue-maintenance" aria-label="Maintenance"></section>
     <footer>
       <div id="bandeau" role="status" aria-live="polite" hidden></div>
-      <button class="rond" id="micro" title="Dicter" aria-label="Dicter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></button>
+      <button class="rond" id="micro" title="Dicter" aria-label="Dicter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></button>
       <textarea id="saisie" rows="1" placeholder="Écris à LIFE…" aria-label="Message"></textarea>
-      <button class="rond" id="envoyer" title="Envoyer" aria-label="Envoyer" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/></svg></button>
+      <button class="rond" id="envoyer" title="Envoyer" aria-label="Envoyer" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/></svg></button>
     </footer>
   </div>
 </div>
