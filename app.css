@@ -317,11 +317,12 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
   #barre-fils nav { grid-column: 1 / -1; display: grid !important; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 16px 0;
     margin: 0 !important; }
   #barre-fils nav button { position: relative; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1; height: auto;
-    min-width: 0; padding: 6px 0; gap: 4px; border: 1.5px solid var(--trait); border-radius: 16px; white-space: nowrap; }
+    min-width: 0; padding: 6px 2px; gap: 4px; border: 1.5px solid var(--trait); border-radius: 16px; white-space: nowrap; }
   #barre-fils nav button svg { width: 27px; height: 27px; }
-  /* noms lisibles : 11 px au moins (audit expert accessibilité LT3 ; avant : 9,5, 8,4 et 7,4 px en capitales) ; la tuile ne
-     change ni de taille ni de place. Les noms trop longs ont un nom court (Brainstorm) ; le nom complet est lu à voix haute. */
-  #barre-fils nav button .nom { display: block; font: 600 11px/1.1 var(--display); letter-spacing: -.3px; white-space: nowrap; max-width: 100%; }
+  /* noms des tuiles en capitales, tailles d'origine : choix de la propriétaire (« exactement comme avant »), préféré au 11 px */
+  #barre-fils nav button .nom { display: block; text-transform: uppercase; font: 700 9.5px/1.1 var(--display); letter-spacing: 0; white-space: nowrap; }
+  #barre-fils nav button.moyen .nom { font-size: 8.4px; }
+  #barre-fils nav button.long .nom { font-size: 7.4px; letter-spacing: -.25px; }
   #barre-fils nav button .badge { position: absolute; top: -7px; right: -7px; }
   #barre-fils #plier { grid-column: 2; margin: -8px 0 0; width: 46px; height: 20px; border: 1.5px solid var(--trait); border-radius: 999px; }
   #barre-fils #plier svg { width: 16px; height: 16px; transform: none; }

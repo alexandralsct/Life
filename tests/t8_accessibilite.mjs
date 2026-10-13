@@ -107,6 +107,8 @@ export const tests = [
         const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
         for (let n = w.nextNode(); n; n = w.nextNode()) { const e = n.parentElement; if (!n.textContent.trim() || !e || !e.getClientRects().length) continue;
           const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || e.closest('[hidden], .lecteur, #ouverture')) continue;
+          // noms des tuiles du téléphone : capitales aux tailles d'origine, choix de la propriétaire (préféré au 11 px)
+          if (e.matches('#barre-fils nav button .nom')) continue;
           if (parseFloat(cs.fontSize) < 11) petits.push(n.textContent.trim().slice(0, 20) + ' (' + cs.fontSize + ')'); }
         [...document.querySelectorAll('button')].filter(b => b.getClientRects().length && !b.closest('[hidden]')).forEach(b => {
           if (!(b.getAttribute('aria-label') || b.textContent.trim())) sansNom.push(b.id || b.className); });

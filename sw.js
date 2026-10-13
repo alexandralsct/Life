@@ -1,5 +1,5 @@
 // LIFE — service worker : l'app s'ouvre même hors ligne (coquille en cache). Les messages ne passent jamais par le cache.
-const CACHE = 'life-V.0.0.35';   // changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
+const CACHE = 'life-V.0.0.36';   // changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
 const COQUILLE = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'qr.js',
   'fonts/instrument-sans.woff2', 'fonts/plex-mono-400.woff2', 'fonts/plex-mono-400-italique.woff2', 'fonts/plex-mono-500.woff2',
   'fonts/plex-mono-600.woff2', 'fonts/plex-mono-700.woff2'];
@@ -9,8 +9,8 @@ const COQUILLE = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest
 // Recalculées par « node tests/empreintes.mjs » ; vérifiées par le garde-fou.
 const EMPREINTES = {
   'index.html': '81bd8589b4f27e82945f3f691daf23a9e037481d4e6c19dc379f7fa9d189cf9e',
-  'app.js': '1407c126a453e97234ac14bad1a7be7248aac697af66023048b6d353ce1b4352',
-  'app.css': '863d323e039d494d5333a5c745d7793e96c461d1d3ec8726700e0328bde73917',
+  'app.js': 'c907fc1e29254f18bee3cebd2660e9d037bd49f9ff4435db37f5cea4519096bc',
+  'app.css': 'd35757b54c647a2e0996209af61915e149cbb3fc85c848e00ef24cdd205064b0',
   'manifest.webmanifest': 'be68195c0fc770e4d0624da67eb50f3d08ae944a207e1918dfbd12c136078b00',
   'icon.svg': '3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35',
   'icon-192.png': 'e99334a6b4cec7dfd82972c3cdda40bd6506d80abb1ab6d24dcc60edde6c0ffd',

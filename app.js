@@ -467,7 +467,7 @@ const rendus = new Map();      // clé → { el, sig }
 let filAffiche = null, focusFil = null;
 const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
 // Nom affiché sur la tuile du téléphone quand le nom complet ne tient pas à 11 px (le nom complet reste celui lu à voix haute).
-const NOM_COURT = { brainstorm: 'Brainstorm' };
+const NOM_COURT = {};
 const nomFil = id => (FILS.find(f => f[0] === id) || ['', id === 'systeme' ? 'Maintenance' : 'Général'])[1];
 function comptesNonLus() {   // une seule passe sur les messages (avant : une par fil)
   const c = {};
@@ -1014,7 +1014,7 @@ window.addEventListener('pagehide', confirmerSuppression);
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.35';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.36';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
