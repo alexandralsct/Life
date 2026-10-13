@@ -100,11 +100,17 @@ function bandeau(texte, action, duree, important) {   // important : une actuali
 function etat(t) { const z = $('bandeau'); if (t) bandeau(t); else if (!z.querySelector('button') && !(z.dataset.important && !z.hidden)) bandeau(''); }   // sans texte : efface, sauf un « Annuler » en cours
 function ouvrirReglages() {
   $('accueil').hidden = !!(cle() && adresse());   // premier lancement : une phrase d'accueil avant la connexion
-  $('cle').value = cle(); $('adresse').value = adresse();
+  $('cle').value = cle(); $('cle-life').value = store.lire('cleLife', ''); $('adresse').value = adresse();
   if (!$('dlg').open) $('dlg').showModal();
 }
-// Sans clé propre, LIFE reprend la clé du lien de Ma carte de vie (même site, même stockage) : une seule clé à coller.
+// Clé du lien : sans clé enregistrée ici, LIFE reprend celle de Ma carte de vie (même site, même stockage).
 function cle() { const c = store.lire('cle', ''); if (c) return c; try { return (localStorage.getItem('carte-de-vie-lien') || '').trim(); } catch (e) { return ''; } }
+// Clé propre à LIFE (facultative, réglage séparé) : si elle existe, le serveur de LIFE la reçoit à la place de la clé du
+// lien ; le circuit des experts (lien de l'app) garde la clé du lien. Sans elle : comportement d'avant.
+function cleLife() { return store.lire('cleLife', '') || cle(); }
+// L'adresse vient-elle d'un lien de connexion (et non d'une saisie dans les Réglages) ? Alors un refus de clé ne doit
+// surtout pas inviter à coller la vraie clé : ce serveur n'est peut-être pas le bon.
+const adresseDuLien = () => !!store.lire('adresseDuLien', false);
 
 // Délai d'attente : 20 s ; 90 s pour les fils où l'IA réfléchit longtemps (Comité, Brainstorming, Experts).
 const DELAI = 20e3, DELAI_LONG = 90e3, TEXTE_MAX = 2000;
@@ -123,11 +129,12 @@ function noterContrat(j) {
   noterExperts(j);
 }
 async function appel(corps, o = {}) {
-  if (!cle() || !adresse()) { ouvrirReglages(); throw new Error('clé ou adresse manquante'); }
+  const k = o.url ? cle() : cleLife();
+  if (!k || !adresse()) { ouvrirReglages(); throw new Error('clé ou adresse manquante'); }
   const ac = new AbortController(), minuterie = setTimeout(() => ac.abort(), o.delai || DELAI);
   try {
     let r;
-    try { r = await fetch(o.url || adresse(), { method: 'POST', headers: { 'content-type': 'application/json', 'x-cle-app': cle() },
+    try { r = await fetch(o.url || adresse(), { method: 'POST', headers: { 'content-type': 'application/json', 'x-cle-app': k },
                                                body: JSON.stringify(corps), signal: ac.signal }); }
     catch (e) { if (ac.signal.aborted) throw new Error('délai dépassé'); throw e; }
     if (r.status === 403 || r.status === 401) throw new Error('clé refusée');
@@ -424,7 +431,9 @@ function actualiser() {
 function raison(e) {
   const m = (e && e.message) || '';
   if (/manquante/.test(m)) return 'pas connectée : adresse ou clé manquante';
-  if (m === 'clé refusée') return 'clé refusée — vérifie les réglages';
+  if (m === 'clé refusée') return adresseDuLien()
+    ? 'le serveur « ' + hoteDe(adresse()) + ' », reçu par un lien, refuse la clé — ne lui donne pas ta clé : saisis toi-même l\'adresse dans les Réglages'
+    : 'clé refusée — vérifie la clé dans les Réglages';
   if (m === 'délai dépassé') return 'pas de réponse à temps (réseau lent ?) — le message est peut-être arrivé ; « Réessayer » ne le traitera pas deux fois';
   if (m === 'fil inconnu') return 'le serveur ne connaît pas ce fil — sa dernière version doit être installée puis publiée';
   if (/erreur 404/.test(m)) return 'serveur introuvable (404) — lien LIFE pas encore publié dans ton système ?';
@@ -513,7 +522,7 @@ async function expedier(texte, filCible, cid) {
     if (!m) { m = temp; messages.push(m); messages.sort(ordre); }
     m.temp = false; m.echec = true;
     garderMessages();
-    bandeau(e.message === 'clé refusée' ? 'Non envoyé : clé refusée, vérifie les réglages' : 'Non envoyé : ' + raison(e), ['Réessayer', () => reessayer(m)], e.message === 'délai dépassé' ? 9000 : 5000);
+    bandeau('Non envoyé : ' + raison(e), ['Réessayer', () => reessayer(m)], e.message === 'délai dépassé' ? 9000 : 5000);
     if (e.message === 'délai dépassé' && serveurAJour()) setTimeout(actualiser, 30e3);   // la réponse a pu arriver entre-temps
     return false;
   } finally {
@@ -637,7 +646,24 @@ function appliquerTheme(t) {
 let theme = store.lire('theme', 'auto'); appliquerTheme(theme);
 $('theme').onclick = e => { e.stopPropagation(); theme = { auto: 'jour', jour: 'nuit', nuit: 'auto' }[theme] || 'auto'; store.ecrire('theme', theme); appliquerTheme(theme); bandeau(THEMES[theme], null, 2500); };
 $('annuler').onclick = () => $('dlg').close();
-$('garder').onclick = () => { store.ecrire('cle', $('cle').value.trim()); store.ecrire('adresse', $('adresse').value.trim()); $('dlg').close(); actualiser(); };
+$('garder').onclick = () => {   // adresse saisie ici par elle-même : elle n'est plus « venue d'un lien »
+  const a = $('adresse').value.trim();
+  if (a !== adresse()) { store.effacer('curseur'); store.effacer('adresseDuLien'); }
+  store.ecrire('cle', $('cle').value.trim()); store.ecrire('adresse', a);
+  const cl = $('cle-life').value.trim(); if (cl) store.ecrire('cleLife', cl); else store.effacer('cleLife');
+  $('dlg').close(); actualiser();
+};
+// Effacer cet appareil : seulement ce que LIFE garde ici (clés « life. » et caches « life- ») ; la carte et les autres apps
+// du même site ne sont pas touchées. Confirmation forte : retaper EFFACER.
+$('effacer-appareil').onclick = () => { $('ef-saisie').value = ''; $('ef-ok').disabled = true; $('dlg-effacer').showModal(); $('ef-saisie').focus(); };
+$('ef-saisie').addEventListener('input', () => { $('ef-ok').disabled = $('ef-saisie').value.trim().toUpperCase() !== 'EFFACER'; });
+$('ef-non').onclick = () => $('dlg-effacer').close();
+$('ef-ok').onclick = async () => {
+  if ($('ef-saisie').value.trim().toUpperCase() !== 'EFFACER') return;
+  try { Object.keys(localStorage).filter(k => k.startsWith('life.')).forEach(k => localStorage.removeItem(k)); } catch (e) { /* stockage indisponible */ }
+  try { for (const k of await caches.keys()) if (k.startsWith('life-')) await caches.delete(k); } catch (e) { /* pas de cache */ }
+  location.replace(location.pathname);
+};
 // Une actualisation = une exécution du serveur (quota). Après un envoi, les nouveaux messages arrivent dans la réponse :
 // pas d'appel en plus.
 //   APP TÉLÉPHONE : au retour dans l'app, pas plus d'une fois toutes les 5 minutes ; aucune relève en arrière-plan.
@@ -662,10 +688,11 @@ const DANS_CARTE = (() => { try { return window.top !== window && window.parent.
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.29';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.30';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
-  const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const o = { a: adresse(), c: cle() }; if (store.lire('cleLife', '')) o.l = store.lire('cleLife', '');
+  const d = btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   return location.origin + location.pathname + '#connexion=' + d;
 }
 function pretAConnecter() {
@@ -689,7 +716,7 @@ $('coller-cle').onclick = async () => {
   let v = ''; try { v = ((await navigator.clipboard.readText()) || '').trim(); } catch (e) { /* lecture refusée */ }
   if (!v) { $('cle').focus(); etat('colle la clé dans le champ (⌘V)'); return; }
   if (/\s/.test(v) || v.length < 12) { $('coller-cle').textContent = 'Pas une clé'; }
-  else { $('cle').value = v; store.ecrire('cle', v); $('coller-cle').textContent = 'Clé collée ✓'; }
+  else { $('cle').value = v; $('coller-cle').textContent = 'Clé collée ✓ — Enregistrer pour la garder'; }   // rien n'est enregistré ni validé ici
   setTimeout(() => { $('coller-cle').textContent = 'Coller la clé copiée'; }, 2500);
 };
 $('copier-cle').onclick = async () => {
@@ -750,34 +777,39 @@ function recevoirConnexion(ev) {
     o = JSON.parse(decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))));
     if (!/^https:\/\/[^\s]+$/.test(o.a || '') || !hoteDe(o.a) || typeof o.c !== 'string' || !o.c.trim()) throw new Error('lien incomplet');
   } catch (e) { annonce('lien de connexion illisible'); return; }
-  const nouveau = { a: o.a, c: o.c.trim() }, hote = hoteDe(nouveau.a), actuel = adresse() ? hoteDe(adresse()) : '';
-  if (nouveau.a === adresse() && nouveau.c === cle()) { annonce('cet appareil est déjà connecté ✓'); return; }
-  connexionEnAttente = nouveau;
-  const meme = actuel && actuel === hote;
+  const nouveau = { a: o.a, c: o.c.trim(), l: typeof o.l === 'string' ? o.l.trim() : '' }, hote = hoteDe(nouveau.a), actuel = adresse() ? hoteDe(adresse()) : '';
+  if (nouveau.a === adresse() && nouveau.c === cle() && (!nouveau.l || nouveau.l === store.lire('cleLife', ''))) { annonce('cet appareil est déjà connecté ✓'); return; }
+  const meme = actuel && actuel === hote, refuse = actuel && !meme;
+  connexionEnAttente = refuse ? null : nouveau;
+  $('cx-titre').textContent = refuse ? 'Lien refusé' : 'Connecter cet appareil ?';
   $('cx-hote').textContent = hote;
-  $('cx-avert').textContent = meme ? 'C\'est le serveur déjà enregistré sur cet appareil : seule la clé sera mise à jour.'
-    : actuel ? 'Attention : cet appareil est déjà relié au serveur « ' + actuel + ' ». Ce lien le remplacerait. Ne continue que si c\'est toi qui as créé ce lien.'
+  // Appareil déjà relié à un serveur : un lien ne peut JAMAIS en changer (refus par défaut) ; même serveur : un toucher.
+  $('cx-avert').textContent = refuse ? 'Cet appareil est relié au serveur « ' + actuel + ' ». Un lien ne peut pas le remplacer : rien n\'a changé. Pour changer de serveur, saisis toi-même l\'adresse dans les Réglages.'
+    : meme ? 'C\'est le serveur déjà enregistré sur cet appareil : seule la clé sera mise à jour.'
     : 'Ne continue que si c\'est toi qui as créé ce lien (code montré par ton autre appareil).';
-  $('cx-retaper').hidden = !!meme; $('cx-saisie').value = '';
-  $('cx-ok').disabled = !meme;
+  $('cx-retaper').hidden = !!actuel; $('cx-saisie').value = '';
+  $('cx-ok').hidden = !!refuse; $('cx-ok').disabled = !meme;
+  $('cx-non').textContent = refuse ? 'Fermer' : 'Refuser';
   if ($('dlg').open) $('dlg').close();
   if (!$('dlg-connexion').open) $('dlg-connexion').showModal();
-  if (!meme) $('cx-saisie').focus();
+  if (!actuel) $('cx-saisie').focus(); else $('cx-non').focus();   // par défaut : refuser
 }
 $('cx-saisie').addEventListener('input', () => {
   $('cx-ok').disabled = !connexionEnAttente || $('cx-saisie').value.trim().toLowerCase() !== hoteDe(connexionEnAttente.a);
 });
 $('cx-ok').onclick = () => {
   const n = connexionEnAttente; if (!n) return;
-  const meme = adresse() && hoteDe(adresse()) === hoteDe(n.a);
-  if (!meme && $('cx-saisie').value.trim().toLowerCase() !== hoteDe(n.a)) return;
+  const actuel = adresse() ? hoteDe(adresse()) : '';
+  if (actuel && actuel !== hoteDe(n.a)) return;   // jamais un autre serveur par un lien
+  if (!actuel && $('cx-saisie').value.trim().toLowerCase() !== hoteDe(n.a)) return;
   connexionEnAttente = null; $('dlg-connexion').close();
-  store.ecrire('adresse', n.a); store.ecrire('cle', n.c); store.effacer('curseur');
+  if (!actuel) { store.ecrire('adresseDuLien', true); store.effacer('curseur'); }
+  store.ecrire('adresse', n.a); store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l);
   annonce('appareil connecté ✓'); proposerInstallation(); actualiser(); retirerServeur();
 };
 $('cx-non').onclick = () => {
   connexionEnAttente = null; $('dlg-connexion').close();
-  bandeau('Lien de connexion refusé : rien n\'a changé sur cet appareil.', null, 5000);
+  bandeau('Lien de connexion ' + ($('cx-ok').hidden ? 'refusé' : 'ignoré') + ' : rien n\'a changé sur cet appareil.', null, 5000);
   if (!(cle() && adresse())) ouvrirReglages();
 };
 $('dlg-connexion').addEventListener('cancel', () => { connexionEnAttente = null; });

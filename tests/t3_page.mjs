@@ -25,6 +25,8 @@ const zones = page => page.evaluate(() => {
   return { cibles: cibles.map(z), tuilesVolees };
 });
 
+export const lien = (a, c) => '#connexion=' + Buffer.from(JSON.stringify({ a, c })).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
 export const tests = [
   { nom: 'App téléphone : tuiles exactement comme avant (412×915 et 360×640, grille et repliée), zones tactiles ≥ 44 px', profils: ['tel'], f: async ({ nav, st, verif }) => {
     for (const [nom, vp] of [['tel', { width: 412, height: 915 }], ['petit', { width: 360, height: 640 }]]) for (const plie of [false, true]) {
@@ -62,40 +64,36 @@ export const tests = [
       await A.ctx.close();
     }
   } },
-  { nom: 'Lien #connexion= : jamais de remplacement silencieux ; serveur différent → il faut retaper son nom', f: async ({ nav, st, profil, verif }) => {
-    const lien = (a, c) => '#connexion=' + Buffer.from(JSON.stringify({ a, c })).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  { nom: 'Lien #connexion= : jamais de remplacement silencieux ; un autre serveur est refusé d\'office', f: async ({ nav, st, profil, verif }) => {
     const S = fauxServeur();
-    // 1. appareil déjà connecté, lien vers un autre serveur
+    // 1. appareil déjà connecté, lien vers un autre serveur : refus par défaut, aucun moyen de l'accepter
     let A = await ouvrir(nav, st, profil, S, { chemin: lien('https://pirate.exemple.cloud/webhook/life', 'cle-piege-123456') });
-    verif(await A.page.evaluate(() => document.getElementById('dlg-connexion').open), 'une boîte de confirmation s\'ouvre');
-    verif((await A.page.textContent('#cx-hote')) === 'pirate.exemple.cloud', 'elle affiche le nom d\'hôte du serveur', await A.page.textContent('#cx-hote'));
-    verif(/déjà relié au serveur « essai\.exemple\.cloud »/.test(await A.page.textContent('#cx-avert')), 'elle prévient que la connexion actuelle serait remplacée');
-    verif((await ls(A.page, 'adresse')).includes('essai.exemple.cloud') && (await ls(A.page, 'cle')) === 'cle-de-test-123456', 'rien n\'a changé tant qu\'on n\'a pas confirmé');
-    verif(await A.page.evaluate(() => document.getElementById('cx-ok').disabled), '« Connecter » inactif sans le nom retapé');
-    await A.page.fill('#cx-saisie', 'autre.exemple.cloud');
-    verif(await A.page.evaluate(() => document.getElementById('cx-ok').disabled), 'un autre nom ne suffit pas');
-    await A.page.evaluate(() => document.getElementById('cx-non').click());
-    verif((await ls(A.page, 'adresse')).includes('essai.exemple.cloud'), 'Refuser : adresse inchangée');
+    const d = await A.page.evaluate(() => ({ ouvert: document.getElementById('dlg-connexion').open, titre: document.getElementById('cx-titre').textContent,
+      ok: !document.getElementById('cx-ok').hidden, retaper: !document.getElementById('cx-retaper').hidden, focus: document.activeElement.id }));
+    verif(d.ouvert && d.titre === 'Lien refusé' && !d.ok && !d.retaper && d.focus === 'cx-non', 'boîte « Lien refusé », sans bouton pour accepter', d);
+    verif((await A.page.textContent('#cx-hote')) === 'pirate.exemple.cloud', 'elle affiche le nom d\'hôte du lien', await A.page.textContent('#cx-hote'));
+    verif(/relié au serveur « essai\.exemple\.cloud »/.test(await A.page.textContent('#cx-avert')), 'elle dit à quel serveur l\'appareil reste relié');
+    await A.page.evaluate(() => document.getElementById('cx-ok').click());   // même forcé, le bouton caché ne fait rien
+    verif((await ls(A.page, 'adresse')).includes('essai.exemple.cloud') && (await ls(A.page, 'cle')) === 'cle-de-test-123456', 'adresse et clé inchangées');
     verif(!(await A.page.evaluate(() => location.hash)), 'le lien est effacé de la barre d\'adresse');
     await A.ctx.close();
-    // 2. même lien, nom retapé : accepté
-    A = await ouvrir(nav, st, profil, S, { chemin: lien('https://nouveau.exemple.cloud/webhook/life', 'cle-nouvelle-123456') });
+    // 2. même serveur, nouvelle clé : un toucher, « Refuser » par défaut
+    A = await ouvrir(nav, st, profil, S, { chemin: lien('https://essai.exemple.cloud/webhook/life', 'cle-renouvelee-123456') });
+    verif(await A.page.evaluate(() => document.getElementById('cx-retaper').hidden && !document.getElementById('cx-ok').disabled && document.activeElement.id === 'cx-non'), 'même serveur : confirmation d\'un toucher, Refuser par défaut');
+    verif((await ls(A.page, 'cle')) === 'cle-de-test-123456', 'rien de changé avant le toucher');
+    await A.page.evaluate(() => document.getElementById('cx-ok').click());
+    verif((await ls(A.page, 'cle')) === 'cle-renouvelee-123456' && !(await ls(A.page, 'adresseDuLien')), 'clé mise à jour après confirmation');
+    await A.ctx.close();
+    // 3. appareil neuf : confirmation, nom du serveur à retaper, pas de boîte des réglages par-dessus
+    A = await ouvrir(nav, st, profil, S, { sansConnexion: true, chemin: lien('https://nouveau.exemple.cloud/webhook/life', 'cle-nouvelle-123456') });
+    const e = await A.page.evaluate(() => ({ cx: document.getElementById('dlg-connexion').open, reglages: document.getElementById('dlg').open, retaper: !document.getElementById('cx-retaper').hidden }));
+    verif(e.cx && !e.reglages && e.retaper, 'appareil neuf : confirmation avec le nom à retaper, sans autre boîte', e);
+    verif((await ls(A.page, 'adresse')) === null, 'rien d\'enregistré avant confirmation');
+    await A.page.fill('#cx-saisie', 'autre.exemple.cloud');
+    verif(await A.page.evaluate(() => document.getElementById('cx-ok').disabled), 'un autre nom ne suffit pas');
     await A.page.fill('#cx-saisie', 'Nouveau.Exemple.cloud ');
     await A.page.evaluate(() => document.getElementById('cx-ok').click());
-    verif((await ls(A.page, 'adresse')) === 'https://nouveau.exemple.cloud/webhook/life' && (await ls(A.page, 'cle')) === 'cle-nouvelle-123456', 'nom retapé : connexion remplacée');
-    await A.ctx.close();
-    // 3. même serveur, nouvelle clé : un toucher suffit
-    A = await ouvrir(nav, st, profil, S, { chemin: lien('https://essai.exemple.cloud/webhook/life', 'cle-renouvelee-123456') });
-    verif(await A.page.evaluate(() => document.getElementById('cx-retaper').hidden && !document.getElementById('cx-ok').disabled), 'même serveur : pas besoin de retaper');
-    verif((await ls(A.page, 'cle')) === 'cle-de-test-123456', 'toujours rien de changé avant le toucher');
-    await A.page.evaluate(() => document.getElementById('cx-ok').click());
-    verif((await ls(A.page, 'cle')) === 'cle-renouvelee-123456', 'clé mise à jour après confirmation');
-    await A.ctx.close();
-    // 4. appareil neuf : confirmation aussi, et pas de boîte des réglages par-dessus
-    A = await ouvrir(nav, st, profil, S, { sansConnexion: true, chemin: lien('https://essai.exemple.cloud/webhook/life', 'cle-de-test-123456') });
-    const etat = await A.page.evaluate(() => ({ cx: document.getElementById('dlg-connexion').open, reglages: document.getElementById('dlg').open, retaper: !document.getElementById('cx-retaper').hidden }));
-    verif(etat.cx && !etat.reglages && etat.retaper, 'appareil neuf : confirmation avec le nom à retaper, sans autre boîte', etat);
-    verif((await ls(A.page, 'adresse')) === null, 'rien d\'enregistré avant confirmation');
+    verif((await ls(A.page, 'adresse')) === 'https://nouveau.exemple.cloud/webhook/life' && (await ls(A.page, 'adresseDuLien')) === true, 'nom retapé : connecté, adresse marquée « venue d\'un lien »');
     await A.ctx.close();
   } },
   { nom: 'Sécurité : CSP sans « unsafe-inline », aucun script ni style dans la page, aucune violation', f: async ({ nav, st, profil, verif }) => {

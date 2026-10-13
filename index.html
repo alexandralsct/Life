@@ -51,6 +51,7 @@
   <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil.</p>
   <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (commence par https://)" aria-label="Adresse du lien">
   <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien" aria-label="Clé du lien">
+  <input id="cle-life" type="password" autocomplete="off" placeholder="Clé propre à LIFE (facultatif)" aria-label="Clé propre à LIFE, facultative">
   <div class="rang cle-bt"><button id="coller-cle">Coller la clé copiée</button><button id="copier-cle">Copier la clé</button></div>
   <menu><button value="annuler" id="annuler">Annuler</button><button class="principal" id="garder">Enregistrer</button></menu>
   <div class="appareil">
@@ -59,7 +60,19 @@
     <div class="rang"><button id="tester">Tester la connexion</button><button id="montrer-qr">Montrer le code (téléphone)</button><button id="copier-lien">Copier le lien</button></div>
     <img id="qr" alt="Code de connexion" hidden>
   </div>
+  <div class="appareil">
+    <h3>Effacer cet appareil</h3>
+    <p>Retire de cet appareil tout ce que LIFE y garde (adresse, clés, messages, réglages, copie hors ligne). Rien n'est effacé sur le serveur ni dans Ma carte de vie.</p>
+    <div class="rang"><button id="effacer-appareil">Effacer cet appareil…</button></div>
+  </div>
   <p class="version" id="version"></p>
+</dialog>
+<dialog id="dlg-effacer" aria-labelledby="ef-titre">
+  <h2 id="ef-titre">Effacer LIFE de cet appareil ?</h2>
+  <p>L'adresse, les clés, les messages gardés ici et les suppressions pas encore envoyées seront perdus sur cet appareil. Le serveur et Ma carte de vie ne changent pas.</p>
+  <label for="ef-saisie">Pour confirmer, tape EFFACER :</label>
+  <input id="ef-saisie" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
+  <menu><button id="ef-non">Annuler</button><button class="principal" id="ef-ok" disabled>Effacer</button></menu>
 </dialog>
 <dialog id="dlg-connexion" aria-labelledby="cx-titre">
   <h2 id="cx-titre">Connecter cet appareil ?</h2>

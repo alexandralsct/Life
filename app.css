@@ -209,7 +209,8 @@ dialog button { min-height: var(--cible); border: 1.5px solid var(--trait); bord
   background: var(--surface); color: var(--encre); }
 dialog button.principal { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
 dialog .hote { color: var(--encre); font: 700 17px/1.3 var(--mono); overflow-wrap: anywhere; }
-#cx-retaper[hidden] { display: none; }
+#cx-retaper[hidden], #cx-ok[hidden] { display: none; }
+dialog label { display: block; font-size: 14px; color: var(--encre-2); margin-bottom: 6px; }
 #cx-retaper label { display: block; font-size: 14px; color: var(--encre-2); margin-bottom: 6px; }
 dialog button:disabled { opacity: .45; cursor: default; box-shadow: none; }
 dialog .cle-bt { margin-top: 4px; }

@@ -106,7 +106,7 @@ export function fauxServeur(o = {}) {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     let corps = {}; try { corps = JSON.parse(req.postData() || '{}'); } catch (e) { /* illisible */ }
-    const appel = { url: req.url(), corps, t: Date.now() }; S.appels.push(appel);
+    const appel = { url: req.url(), corps, t: Date.now(), cle: req.headers()['x-cle-app'] }; S.appels.push(appel);
     const retard = typeof S.retard === 'function' ? S.retard(corps) : S.retard;
     if (retard) await pause(retard);
     if (typeof S.coupe === 'function' ? S.coupe(corps) : S.coupe) return route.abort('internetdisconnected').catch(() => {});
@@ -169,7 +169,7 @@ export async function navigateur() {
 export async function ouvrir(nav, statique, profil, S, o = {}) {
   const { nom, ...options } = profil;
   const ctx = await nav.newContext({ ...options, serviceWorkers: o.sw ? 'allow' : 'block' });
-  if (S) await ctx.route('https://essai.exemple.cloud/**', S.gerer);
+  if (S) await ctx.route(/^https:\/\/[a-z0-9.-]*exemple\.cloud\//, S.gerer);
   await ctx.addInitScript(([init, sans]) => {
     if (sessionStorage.getItem('__essai')) return; sessionStorage.setItem('__essai', '1');
     if (!sans) { localStorage.setItem('life.adresse', JSON.stringify('https://essai.exemple.cloud/webhook/life')); localStorage.setItem('life.cle', JSON.stringify('cle-de-test-123456')); }
