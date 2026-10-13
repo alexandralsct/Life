@@ -767,10 +767,13 @@ async function envoyer() {
     const j = await appel({ action: 'envoyer', texte, fil });
     const recus = j.messages || [];
     // l'échange reste dans le fil où tu as écrit, même si le serveur (pas encore à jour) l'a rangé ailleurs
+    // serveur pas à jour : il a rangé la réponse dans Général, donc c'est le cerveau de Général qui a répondu → on le dit
+    const horsFil = recus.some(m => m && m.auteur === 'life' && m.fil && m.fil !== fil && m.fil !== 'systeme');
     recus.forEach(m => { if (m && m.id && m.fil !== fil && m.fil !== 'systeme') { filsForces[m.id] = fil; m.fil = fil; } });
     store.ecrire('filsForces', filsForces);
     if (!recus.some(m => m.auteur === 'moi' && m.texte === texte)) recus.push(Object.assign({}, temp, { id: 'loc-' + Date.now(), temp: false, local: true }));
     fusionner(recus); etat('');
+    if (horsFil && fil !== 'general') bandeau('Le serveur ne connaît pas encore le fil ' + ((FILS.find(x => x[0] === fil) || [0, fil])[1]) + ' : c\'est Général qui a répondu. La dernière version du serveur doit être installée puis publiée.', null, 9000);
   } catch (e) {
     enAttente = false;
     temp.temp = false; temp.echec = true;   // la bulle reste, marquée « Non envoyé · Réessayer » (gardée sur l'appareil)
@@ -911,7 +914,7 @@ const DANS_CARTE = (() => { try { return window.top !== window && window.parent.
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.25';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.26';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
