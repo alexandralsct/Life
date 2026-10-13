@@ -317,11 +317,11 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
   #barre-fils nav { grid-column: 1 / -1; display: grid !important; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 16px 0;
     margin: 0 !important; }
   #barre-fils nav button { position: relative; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1; height: auto;
-    min-width: 0; padding: 6px 2px; gap: 4px; border: 1.5px solid var(--trait); border-radius: 16px; white-space: nowrap; }
+    min-width: 0; padding: 6px 0; gap: 4px; border: 1.5px solid var(--trait); border-radius: 16px; white-space: nowrap; }
   #barre-fils nav button svg { width: 27px; height: 27px; }
-  #barre-fils nav button .nom { display: block; text-transform: uppercase; font: 700 9.5px/1.1 var(--display); letter-spacing: 0; white-space: nowrap; }
-  #barre-fils nav button.moyen .nom { font-size: 8.4px; }
-  #barre-fils nav button.long .nom { font-size: 7.4px; letter-spacing: -.25px; }
+  /* noms lisibles : 11 px au moins (audit expert accessibilité LT3 ; avant : 9,5, 8,4 et 7,4 px en capitales) ; la tuile ne
+     change ni de taille ni de place. Les noms trop longs ont un nom court (Brainstorm) ; le nom complet est lu à voix haute. */
+  #barre-fils nav button .nom { display: block; font: 600 11px/1.1 var(--display); letter-spacing: -.3px; white-space: nowrap; max-width: 100%; }
   #barre-fils nav button .badge { position: absolute; top: -7px; right: -7px; }
   #barre-fils #plier { grid-column: 2; margin: -8px 0 0; width: 46px; height: 20px; border: 1.5px solid var(--trait); border-radius: 999px; }
   #barre-fils #plier svg { width: 16px; height: 16px; transform: none; }
@@ -334,32 +334,35 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
   body:not(.grille) #barre-fils nav button svg { width: 20px; height: 20px; }
   body:not(.grille) #barre-fils #plier svg { transform: rotate(180deg); }
 }
-/* APP TÉLÉPHONE : les ronds de l'en-tête plus serrés, calés à droite */
+/* APP TÉLÉPHONE : cibles de 44 px (audit expert accessibilité LT2, WCAG 2.5.5 / 2.5.8) SANS rien changer au dessin ni à la
+   disposition : chaque bouton (ronds de l'en-tête, ⌄, loupe) EST une boîte de 44 px ; le dessin visible (rond de 40 px,
+   pastille de 46×20, loupe de 28) est tracé à l'intérieur (::before), et des marges négatives rendent exactement la place
+   qu'il prenait avant. Variables : --zh (haut), --zb (bas), --zc (côtés) = ce que la cible ajoute autour du dessin. */
 @media (max-width: 899px), (pointer: coarse), (pointer: none) {
-  header { gap: 4px; }   /* 40 px + 4 px : chaque rond garde 44 px de zone tactile sans empiéter sur son voisin */
-  header > button { width: 40px; height: 40px; }
+  header { gap: 0; padding-right: 14px; }
+  header > button { width: 44px; height: 44px; margin: -2px 0; border: 0; background: none; isolation: isolate; }
+  header > button::before { content: ''; position: absolute; inset: 2px; z-index: -1; border-radius: 50%; border: 1.5px solid var(--trait); background: var(--surface); }
+  header > button[aria-pressed="true"] { background: none; box-shadow: none; }
+  header > button[aria-pressed="true"]::before { background: var(--plein); border-color: var(--plein); box-shadow: var(--sh-1); }
   header > button svg { width: 20px; height: 20px; }
-}
-/* APP TÉLÉPHONE : zones tactiles de 44 px au moins (audit du 13/10, T2) sans rien changer au dessin ni à la disposition :
-   un pseudo-élément transparent agrandit la zone sensible de l'en-tête, de ⌄ et de la loupe. */
-@media (max-width: 899px), (pointer: coarse), (pointer: none) {
-  header > button::after, #barre-fils #plier::after, #barre-fils #chercher::after { content: ''; position: absolute; }
-  header > button::after { inset: -3.5px; }   /* depuis l'intérieur du trait de 1,5 px : 40 + 4 = 44 px */
-  #barre-fils { position: relative; z-index: 2; }   /* la zone sensible peut mordre sur la marge haute de la conversation */
-  #barre-fils #plier, #barre-fils #chercher { position: relative; z-index: 1; }
-  /* de 44 px de haut : du bas des tuiles jusqu'à 44 px plus bas (sans jamais couvrir une tuile) */
-  #barre-fils #plier::after { inset: -11.5px -1px -15.5px; }
-  #barre-fils #chercher::after { inset: -8px; }
-  body:not(.grille) #barre-fils #plier::after { inset: -6.5px -1px -20.5px; }
-  body:not(.grille) #barre-fils #chercher::after { inset: -2px -8px -14px; }
+  header > button .badge { top: -4px; right: -4px; }
+  #barre-fils { position: relative; z-index: 2; }   /* la cible de ⌄ peut mordre sur le haut de la conversation (fils repliés) */
+  #barre-fils #plier, #barre-fils #chercher { position: relative; z-index: 1; box-sizing: border-box; isolation: isolate; }
+  #barre-fils #plier { --zh: 12px; --zb: 12px; --zc: 1px; width: calc(46px + 2 * var(--zc)); height: calc(20px + var(--zh) + var(--zb));
+    padding: var(--zh) var(--zc) var(--zb); margin: calc(-8px - var(--zh)) calc(-1 * var(--zc)) calc(-1 * var(--zb)); border: 0; background: none; }
+  #barre-fils #plier::before { content: ''; position: absolute; z-index: -1; inset: var(--zh) var(--zc) var(--zb); border: 1.5px solid var(--trait); border-radius: 999px; }
+  #barre-fils #chercher { --zh: 8px; --zb: 8px; --zc: 8px; width: calc(28px + 2 * var(--zc)); height: calc(28px + var(--zh) + var(--zb));
+    padding: var(--zh) var(--zc) var(--zb); margin: calc(-8px - var(--zh)) calc(-1 * var(--zc)) calc(-1 * var(--zb)); }
+  body:not(.grille) #barre-fils #plier { --zh: 6px; --zb: 18px; }
+  body:not(.grille) #barre-fils #chercher { --zh: 2px; --zb: 14px; }
 }
 @media (max-width: 899px) and (max-height: 780px), (pointer: coarse) and (max-height: 780px), (pointer: none) and (max-height: 780px) {
-  body.grille #barre-fils #plier::after { inset: -4.5px -1px -22.5px; }
-  body.grille #barre-fils #chercher::after { inset: 0 -8px -16px; }
+  body.grille #barre-fils #plier { --zh: 4px; --zb: 20px; }
+  body.grille #barre-fils #chercher { --zh: 0px; --zb: 16px; }
 }
 @media (max-width: 899px) and (max-height: 600px), (pointer: coarse) and (max-height: 600px), (pointer: none) and (max-height: 600px) {
-  body.grille #barre-fils #plier::after { inset: -0.5px -1px -26.5px; }
-  body.grille #barre-fils #chercher::after { inset: 0 -8px -16px; }
+  body.grille #barre-fils #plier { --zh: 0px; --zb: 24px; }
+  body.grille #barre-fils #chercher { --zh: 0px; --zb: 16px; }
 }
 /* écran peu haut, comme avant : tuiles moins hautes, puis sans noms */
 @media (max-width: 899px) and (max-height: 780px), (pointer: coarse) and (max-height: 780px), (pointer: none) and (max-height: 780px) {

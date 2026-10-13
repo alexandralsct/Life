@@ -5,10 +5,20 @@ import { fauxServeur, ouvrir, ls, pause, TEL, ORDI } from './outils.mjs';
 // Disposition de référence mesurée sur la V.0.0.28 (avant les corrections) : elle ne doit pas bouger d'un pixel.
 const REF = {"tel_grille":{"tuiles":[[16,72,70,70],[94,72,70,70],[171,72,70,70],[249,72,70,70],[326,72,70,70],[16,150,70,70],[94,150,70,70],[171,150,70,70],[249,150,70,70],[326,150,70,70]],"plier":[183,232,46,20],"chercher":[368,228,28,28],"entete":[[227,10,40,40],[270,10,40,40],[313,10,40,40],[356,10,40,40]],"main":[0,264,412,588]},"tel_replie":{"tuiles":[[16,64,33,33],[55,64,33,33],[93,64,33,33],[132,64,33,33],[170,64,33,33],[209,64,33,33],[248,64,33,33],[286,64,33,33],[325,64,33,33],[363,64,33,33]],"plier":[183,103,46,20],"chercher":[368,99,28,28],"entete":[[227,10,40,40],[270,10,40,40],[313,10,40,40],[356,10,40,40]],"main":[0,135,412,717]},"petit_grille":{"tuiles":[[16,58,61,54],[83,58,61,54],[150,58,61,54],[216,58,61,54],[283,58,61,54],[16,118,61,54],[83,118,61,54],[150,118,61,54],[216,118,61,54],[283,118,61,54]],"plier":[157,176,46,20],"chercher":[316,172,28,28],"entete":[[175,6,40,40],[218,6,40,40],[261,6,40,40],[304,6,40,40]],"main":[0,208,360,373]},"petit_replie":{"tuiles":[[16,58,27,27],[49,58,27,27],[83,58,27,27],[116,58,27,27],[150,58,27,27],[183,58,27,27],[216,58,27,27],[250,58,27,27],[283,58,27,27],[317,58,27,27]],"plier":[157,92,46,20],"chercher":[316,88,28,28],"entete":[[175,6,40,40],[218,6,40,40],[261,6,40,40],[304,6,40,40]],"main":[0,124,360,457]},"ordi_grille":{"tuiles":[[144,138,240,40],[144,182,240,40],[144,226,240,40],[144,270,240,40],[144,314,240,40],[144,358,240,40],[144,402,240,40],[144,446,240,40],[144,490,240,40],[144,534,240,40]],"plier":[0,0,0,0],"chercher":[144,86,240,40],"entete":[[952,24,40,40],[1000,24,40,40],[1048,24,40,40],[1096,24,40,40]],"main":[409,85,718,621]}};
 
+// Dessin VISIBLE de chaque élément : la boîte, moins ce que la cible tactile ajoute autour (::before tracé à l'intérieur,
+// ou marge intérieure) — depuis la V.0.0.33, ronds, ⌄ et loupe sont des boîtes de 44 px dont le dessin n'a pas bougé.
 const mesurer = page => page.evaluate(() => {
   const r = e => { const b = e.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)]; };
-  return { tuiles: [...document.querySelectorAll('#fils button')].map(r), plier: r(document.getElementById('plier')), chercher: r(document.getElementById('chercher')),
-    entete: [...document.querySelectorAll('header > button')].filter(b => b.offsetParent).map(r), main: r(document.querySelector('main')) };
+  const vis = e => { const b = e.getBoundingClientRect(), p = getComputedStyle(e, '::before'), c = getComputedStyle(e);
+    const [t, d, bo, g] = p.content !== 'none' && p.position === 'absolute' ? [p.top, p.right, p.bottom, p.left].map(parseFloat)
+      : [c.paddingTop, c.paddingRight, c.paddingBottom, c.paddingLeft].map(parseFloat);
+    return [Math.round(b.x + g), Math.round(b.y + t), Math.round(b.width - g - d), Math.round(b.height - t - bo)]; };
+  const ent = [...document.querySelectorAll('header > button')].filter(b => b.offsetParent);
+  const tel = !matchMedia('(min-width: 900px) and (pointer: fine)').matches;
+  return { tuiles: [...document.querySelectorAll('#fils button')].map(r), plier: tel ? vis(document.getElementById('plier')) : r(document.getElementById('plier')),
+    chercher: tel ? vis(document.getElementById('chercher')) : r(document.getElementById('chercher')),
+    entete: ent.map(tel ? vis : r), main: r(document.querySelector('main')),
+    boites: tel ? ent.concat([document.getElementById('plier'), document.getElementById('chercher')]).map(e => r(e).slice(2)) : [] };
 });
 // Zone sensible réelle (elementFromPoint) : largeur et hauteur de la zone qui atteint l'élément, en passant par son centre.
 const zones = page => page.evaluate(() => {
@@ -32,7 +42,8 @@ export const tests = [
     for (const [nom, vp] of [['tel', { width: 412, height: 915 }], ['petit', { width: 360, height: 640 }]]) for (const plie of [false, true]) {
       const A = await ouvrir(nav, st, { ...TEL, viewport: vp }, null, { chemin: '?demo', init: { grille2: !plie } });
       const cle = nom + (plie ? '_replie' : '_grille'), m = await mesurer(A.page);
-      const { entete, ...reste } = m, { entete: entRef, ...resteRef } = REF[cle];
+      const { entete, boites, ...reste } = m, { entete: entRef, ...resteRef } = REF[cle];
+      verif(boites.length === 6 && boites.every(([w, h]) => w >= 44 && h >= 44), cle + ' : ronds de l\'en-tête, ⌄ et loupe sont des cibles de 44 px au moins (boîte de l\'élément)', boites);
       verif(JSON.stringify(reste) === JSON.stringify(resteRef), cle + ' : tuiles, ⌄, loupe et conversation identiques à la V.0.0.28', m);
       // en-tête : mêmes ronds de 40 px, calés à droite comme avant ; écart porté de 3 à 4 px pour 44 px de zone chacun
       verif(entete.length === 4 && entete.every((e, i) => e[1] === entRef[i][1] && e[2] === 40 && e[3] === 40) && entete[3][0] === entRef[3][0]
@@ -46,7 +57,8 @@ export const tests = [
   { nom: 'App ordinateur : colonne des fils inchangée (1280 px, souris)', profils: ['ordi'], f: async ({ nav, st, verif }) => {
     const A = await ouvrir(nav, st, ORDI, null, { chemin: '?demo' });
     const m = await mesurer(A.page);
-    verif(JSON.stringify(m) === JSON.stringify(REF.ordi_grille), 'disposition identique à la V.0.0.28', m);
+    const { boites, ...mm } = m;
+    verif(JSON.stringify(mm) === JSON.stringify(REF.ordi_grille), 'disposition identique à la V.0.0.28', mm);
     const z = await zones(A.page);
     verif(z.cibles.filter(c => c[0] !== 'plier').every(([, w, h]) => w >= 24 && h >= 24), 'cibles de 24 px au moins à la souris', z.cibles);
     await A.ctx.close();

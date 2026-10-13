@@ -13,7 +13,7 @@ const prep = cpu => async (ctx, page) => {
   await page.addInitScript(() => { window.__lt = []; try { new PerformanceObserver(l => l.getEntries().forEach(e => window.__lt.push(e.duration))).observe({ type: 'longtask', buffered: true }); } catch (e) { /* */ } });
 };
 export const changeFil = (page, nom) => page.evaluate(async nom => {
-  const bt = [...document.querySelectorAll('#fils button')].find(b => b.querySelector('.nom').textContent.toLowerCase().startsWith(nom));
+  const bt = [...document.querySelectorAll('#fils button')].find(b => b.getAttribute('aria-label').toLowerCase().startsWith(nom));
   const t0 = performance.now(); bt.click();
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   return Math.round(performance.now() - t0);

@@ -28,10 +28,26 @@ function majVues() {
   $('maintenance').setAttribute('aria-pressed', String(document.body.classList.contains('maintenance')));
 }
 function vue(nom) {   // 'brief', 'maintenance', ou null pour revenir à la conversation
+  const avant = document.body.classList.contains('brief') ? 'brief' : document.body.classList.contains('maintenance') ? 'maintenance' : null;
+  const focusDedans = avant && $('vue-' + avant).contains(document.activeElement);
   document.body.classList.toggle('brief', nom === 'brief'); document.body.classList.toggle('maintenance', nom === 'maintenance');
   majVues(); afficher();
   if (nom) { const r = $(nom === 'brief' ? 'vue-brief' : 'vue-maintenance').querySelector('.retour'); if (r) r.focus({ preventScroll: true }); }
+  else if (focusDedans) $(avant).focus({ preventScroll: true });   // le focus revient au bouton qui avait ouvert la vue
 }
+// Boîtes de dialogue : le focus revient, à la fermeture, à ce qui les avait ouvertes (audit expert accessibilité LO2) ;
+// si c'était une entrée du menu « Plus » (refermé entre-temps), au bouton « Plus ».
+function ouvrirDialogue(d) {
+  if (d.open) return;
+  const o = document.activeElement; d._ouvreur = o && o !== document.body ? o : null;
+  d.showModal();
+}
+['dlg', 'dlg-effacer', 'dlg-connexion'].forEach(id => $(id).addEventListener('close', () => {
+  const o = $(id)._ouvreur; $(id)._ouvreur = null;
+  if (document.querySelector('dialog[open]')) return;
+  const cible = o && o.isConnected && o.offsetParent ? o : (o && o.closest && o.closest('#menu') ? $('plus') : null);
+  if (cible) cible.focus({ preventScroll: true });
+}));
 function boutonRetour() {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'retour';
   b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span>Conversation</span>';
@@ -104,7 +120,7 @@ function etat(t) { const z = $('bandeau'); if (t) bandeau(t); else if (!z.queryS
 function ouvrirReglages() {
   $('accueil').hidden = !!(cle() && adresse());   // premier lancement : une phrase d'accueil avant la connexion
   $('cle').value = cle(); $('cle-life').value = store.lire('cleLife', ''); $('adresse').value = adresse();
-  if (!$('dlg').open) $('dlg').showModal();
+  ouvrirDialogue($('dlg'));
 }
 // Clé du lien : sans clé enregistrée ici, LIFE reprend celle de Ma carte de vie (même site, même stockage).
 function cle() { const c = store.lire('cle', ''); if (c) return c; try { return (localStorage.getItem('carte-de-vie-lien') || '').trim(); } catch (e) { return ''; } }
@@ -378,7 +394,7 @@ const rendus = new Map();      // clé → { el, sig }
 let filAffiche = null, focusFil = null;
 const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
 // Nom affiché sur la tuile du téléphone quand le nom complet ne tient pas à 11 px (le nom complet reste celui lu à voix haute).
-const NOM_COURT = {};
+const NOM_COURT = { brainstorm: 'Brainstorm' };
 const nomFil = id => (FILS.find(f => f[0] === id) || ['', id === 'systeme' ? 'Maintenance' : 'Général'])[1];
 function comptesNonLus() {   // une seule passe sur les messages (avant : une par fil)
   const c = {};
@@ -812,9 +828,9 @@ $('chercher').title = 'Rechercher (' + (MAC ? '⌘' : 'Ctrl') + ' K)';
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key || '').toLowerCase() === 'k') { e.preventDefault(); ouvrirRecherche(); return; }
   if (e.key !== 'Escape' || $('dlg').open) return;   // la boîte des réglages se ferme d'elle-même
-  if (!$('installe').hidden) { $('installe').hidden = true; return; }
-  if (document.querySelector('.feuille-msg')) { fermerFeuilles(); return; }
-  if (!$('menu').hidden) { fermerMenu(); $('plus').focus(); return; }
+  if (!$('installe').hidden) { fermerInstalle(); return; }
+  if (document.querySelector('.feuille-msg')) { fermerFeuilles(true); return; }
+  if (!$('menu').hidden) { fermerMenu(true); return; }
   if (!$('recherche').hidden) { fermerRecherche(); $('chercher').focus(); return; }
   if (enVueAPart()) { vue(null); $('saisie').focus(); }
 });
@@ -844,9 +860,15 @@ const libelleCalme = () => { $('calme').textContent = 'Ne pas déranger 21 h –
 libelleCalme();
 $('calme').onclick = () => { calme = !calme; store.ecrire('calme', calme); libelleCalme(); };
 const enCalme = () => { const h = new Date().getHours(); return calme && (h >= 21 || h < 8); };
-function fermerMenu() { $('menu').hidden = true; $('plus').setAttribute('aria-expanded', 'false'); }
-$('plus').onclick = e => { e.stopPropagation(); const o = $('menu').hidden; $('menu').hidden = !o; $('plus').setAttribute('aria-expanded', String(o));
-  if (o) $('menu').querySelector('button').focus({ preventScroll: true }); };
+// Menu « Plus » : un vrai menu (WAI-ARIA) — flèches haut / bas, Début / Fin, Échap (focus rendu à « Plus »), Tab ferme.
+const itemsMenu = () => [...$('menu').querySelectorAll('[role="menuitem"]')].filter(b => !b.hidden);
+itemsMenu().forEach(b => { b.tabIndex = -1; });
+function fermerMenu(rendre) { if ($('menu').hidden) return; $('menu').hidden = true; $('plus').setAttribute('aria-expanded', 'false'); if (rendre === true) $('plus').focus(); }
+function ouvrirMenu(dernier) { $('menu').hidden = false; $('plus').setAttribute('aria-expanded', 'true');
+  const l = itemsMenu(); (dernier ? l[l.length - 1] : l[0]).focus({ preventScroll: true }); }
+$('plus').onclick = e => { e.stopPropagation(); if ($('menu').hidden) ouvrirMenu(); else fermerMenu(); };
+$('plus').addEventListener('keydown', e => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); ouvrirMenu(e.key === 'ArrowUp'); } });
+$('menu').addEventListener('keydown', e => naviguerMenu(e, itemsMenu(), fermerMenu));
 document.addEventListener('click', fermerMenu);
 $('actualiser').onclick = actualiser;
 // Effacer ce fil : tout de suite à l'écran, annulable 5 s (bandeau « Annuler ») avant de partir au serveur.
@@ -882,7 +904,7 @@ $('garder').onclick = () => {   // adresse saisie ici par elle-même : elle n'es
 };
 // Effacer cet appareil : seulement ce que LIFE garde ici (clés « life. » et caches « life- ») ; la carte et les autres apps
 // du même site ne sont pas touchées. Confirmation forte : retaper EFFACER.
-$('effacer-appareil').onclick = () => { $('ef-saisie').value = ''; $('ef-ok').disabled = true; $('dlg-effacer').showModal(); $('ef-saisie').focus(); };
+$('effacer-appareil').onclick = () => { $('ef-saisie').value = ''; $('ef-ok').disabled = true; ouvrirDialogue($('dlg-effacer')); $('ef-saisie').focus(); };
 $('ef-saisie').addEventListener('input', () => { $('ef-ok').disabled = $('ef-saisie').value.trim().toUpperCase() !== 'EFFACER'; });
 $('ef-non').onclick = () => $('dlg-effacer').close();
 $('ef-ok').onclick = async () => {
@@ -915,7 +937,7 @@ const DANS_CARTE = (() => { try { return window.top !== window && window.parent.
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.32';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.33';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const o = { a: adresse(), c: cle() }; if (store.lire('cleLife', '')) o.l = store.lire('cleLife', '');
@@ -978,7 +1000,8 @@ function proposerInstallation() {
       ? 'Pour l\'installer : touche Partager (le carré avec une flèche), puis « Sur l\'écran d\'accueil ».'
       : 'Pour l\'installer : menu ⋮ de Chrome → « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »). Pas la flèche ⬇, qui enregistre seulement la page.';
     $('installe-ok').hidden = !invitation;
-    $('installe').hidden = false;
+    $('installe')._ouvreur = document.activeElement !== document.body ? document.activeElement : null;
+    $('installe').hidden = false; ($('installe-ok').hidden ? $('installe-non') : $('installe-ok')).focus();
   }, 1200);   // laisse à Chrome le temps d'envoyer son invitation
 }
 $('installe-ok').onclick = async () => {
@@ -986,7 +1009,8 @@ $('installe-ok').onclick = async () => {
   invitation.prompt(); const r = await invitation.userChoice.catch(() => ({})); invitation = null;
   $('installe').hidden = true; if (r && r.outcome === 'accepted') annonce('installation en cours…');
 };
-$('installe-non').onclick = () => { $('installe').hidden = true; };
+function fermerInstalle() { $('installe').hidden = true; const o = $('installe')._ouvreur; if (o && o.isConnected && o.offsetParent) o.focus(); else $('saisie').focus(); }
+$('installe-non').onclick = fermerInstalle;
 // le message reste après la première actualisation, puis s'efface
 function annonce(t) { setTimeout(() => bandeau(t, null, 5000), 1500); }
 // Un lien reçu ne remplace JAMAIS l'adresse ni la clé sans confirmation : la boîte montre le serveur (son nom d'hôte).
@@ -1018,7 +1042,7 @@ function recevoirConnexion(ev) {
   $('cx-ok').hidden = !!refuse; $('cx-ok').disabled = !meme;
   $('cx-non').textContent = refuse ? 'Fermer' : 'Refuser';
   if ($('dlg').open) $('dlg').close();
-  if (!$('dlg-connexion').open) $('dlg-connexion').showModal();
+  ouvrirDialogue($('dlg-connexion'));
   if (!actuel) $('cx-saisie').focus(); else $('cx-non').focus();   // par défaut : refuser
 }
 $('cx-saisie').addEventListener('input', () => {

@@ -206,10 +206,10 @@ export async function navigateur() {
   return chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
 }
 // Ouvre LIFE déjà connectée au faux serveur. o.init : clés life.* à poser avant le chargement ; o.sansConnexion ;
-// o.chemin ; o.sw (service worker autorisé) ; o.avantChargement(ctx, page).
+// o.chemin ; o.sw (service worker autorisé) ; o.avantChargement(ctx, page) ; o.contexte (options du contexte, ex. bypassCSP).
 export async function ouvrir(nav, statique, profil, S, o = {}) {
   const { nom, ...options } = profil;
-  const ctx = await nav.newContext({ ...options, serviceWorkers: o.sw ? 'allow' : 'block' });
+  const ctx = await nav.newContext({ ...options, serviceWorkers: o.sw ? 'allow' : 'block', ...(o.contexte || {}) });
   if (S) await ctx.route(/^https:\/\/[a-z0-9.-]*exemple\.cloud\//, S.gerer);
   await ctx.addInitScript(([init, sans]) => {
     if (sessionStorage.getItem('__essai')) return; sessionStorage.setItem('__essai', '1');
@@ -226,7 +226,8 @@ export async function ouvrir(nav, statique, profil, S, o = {}) {
   return { ctx, page, erreurs, csp };
 }
 export async function ecrire(page, texte) { await page.fill('#saisie', texte); await page.evaluate(() => document.getElementById('envoyer').click()); }
-export async function choisirFil(page, nom) { await page.evaluate(n => [...document.querySelectorAll('#fils button')].find(b => b.querySelector('.nom').textContent === n).click(), nom); }
+// par le nom complet du fil (nom accessible de la tuile ; la tuile du téléphone peut montrer un nom court)
+export async function choisirFil(page, nom) { await page.evaluate(n => [...document.querySelectorAll('#fils button')].find(b => (b.getAttribute('aria-label') || '').split(',')[0] === n).click(), nom); }
 export const ls = (page, k) => page.evaluate(k => JSON.parse(localStorage.getItem('life.' + k) || 'null'), k);
 export const bulles = page => page.$$eval('#messages .bulle', l => l.map(x => ({ classe: x.className, texte: (x.firstChild && x.firstChild.textContent) || '' })));
 export async function actualiser(page) { await page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('actualiser').click(); }); }
