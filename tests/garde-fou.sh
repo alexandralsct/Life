@@ -13,7 +13,7 @@ if [ -z "$MOTS" ] && [ -n "${MOTS_FICHIER:-}" ] && [ -f "$MOTS_FICHIER" ]; then
   MOTS=$(grep -v '^\s*#' "$MOTS_FICHIER" | sed '/^\s*$/d' | paste -sd'|')
 fi
 if [ -z "$MOTS" ]; then echo "::error::Liste des mots privés absente (secret MOTS_INTERDITS, ou MOTS_FICHIER en local) : contrôle impossible."; exit 1; fi
-OK=${GF_OK:-'^(\.nojekyll|\.github/workflows/[^/]+\.yml|CLAUDE\.md|README\.md|index\.html|sw\.js|manifest\.webmanifest|icon\.svg|icon-(192|512)\.png|qr\.js|fonts/[a-z0-9-]+\.woff2|fonts/OFL-[A-Za-z]+\.txt|tests/[^/]+\.sh)$'}
+OK=${GF_OK:-'^(\.nojekyll|\.github/workflows/[^/]+\.yml|CLAUDE\.md|README\.md|index\.html|sw\.js|manifest\.webmanifest|icon\.svg|icon-(192|512)\.png|qr\.js|app\.js|app\.css|fonts/[a-z0-9-]+\.woff2|fonts/OFL-[A-Za-z]+\.txt|tests/[^/]+\.sh|tests/[^/]+\.mjs)$'}
 SECRETS='sk-ant-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|gh[ousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[abp]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY'
 EMAIL='[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(fr|com|net|org|archi|io)\b'
 ko=0; err(){ echo "::error::$1"; ko=1; }
@@ -46,5 +46,9 @@ e=$(git grep --cached -nIiE -- "$EMAIL" | grep -viE 'noreply|example\.|exemple\.
 [ -n "$e" ] && { err "Adresse e-mail trouvée :"; echo "$e"; }
 m=$(git grep --cached -lIiwE -- "$MOTS" || true)
 [ -n "$m" ] && { err "Mot privé trouvé dans :"; echo "$m"; }
+# la version affichée (app.js) et celle du cache (sw.js) vont ensemble : sinon les appareils ne se mettent pas à jour
+v=$(git show :app.js 2>/dev/null | grep -oE "const VERSION = 'V[.0-9]+'" | grep -oE "V[.0-9]+")
+c=$(git show :sw.js 2>/dev/null | grep -oE "const CACHE = 'life-V[.0-9]+'" | grep -oE "V[.0-9]+")
+[ -n "$v" ] && [ "$v" != "$c" ] && err "Version de app.js ($v) différente de celle du cache de sw.js ($c)"
 [ $ko = 0 ] && echo "Garde-fou : rien à signaler."
 exit $ko
