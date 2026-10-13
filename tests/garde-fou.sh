@@ -13,7 +13,7 @@ if [ -z "$MOTS" ] && [ -n "${MOTS_FICHIER:-}" ] && [ -f "$MOTS_FICHIER" ]; then
   MOTS=$(grep -v '^\s*#' "$MOTS_FICHIER" | sed '/^\s*$/d' | paste -sd'|')
 fi
 if [ -z "$MOTS" ]; then echo "::error::Liste des mots privés absente (secret MOTS_INTERDITS, ou MOTS_FICHIER en local) : contrôle impossible."; exit 1; fi
-OK=${GF_OK:-'^(\.nojekyll|\.github/workflows/[^/]+\.yml|CLAUDE\.md|README\.md|index\.html|sw\.js|manifest\.webmanifest|icon\.svg|icon-(192|512)\.png|qr\.js|tests/[^/]+\.sh)$'}
+OK=${GF_OK:-'^(\.nojekyll|\.github/workflows/[^/]+\.yml|CLAUDE\.md|README\.md|index\.html|sw\.js|manifest\.webmanifest|icon\.svg|icon-(192|512)\.png|qr\.js|fonts/[a-z0-9-]+\.woff2|fonts/OFL-[A-Za-z]+\.txt|tests/[^/]+\.sh)$'}
 SECRETS='sk-ant-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|gh[ousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[abp]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY'
 EMAIL='[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(fr|com|net|org|archi|io)\b'
 ko=0; err(){ echo "::error::$1"; ko=1; }
@@ -34,6 +34,12 @@ fi
 
 interdits=$(git ls-files | grep -Ev "$OK" || true)
 [ -n "$interdits" ] && { err "Fichiers non autorisés dans le dépôt public :"; echo "$interdits"; }
+# polices hébergées avec l'app (OFL, 13/10) : seuls ces fichiers-là, à l'octet près (empreintes SHA-256)
+POLICES="6219bc4bfdfc5d9b2201dcdf046218b122a758f932e25ed5f168f929b7ca2311 2665f5fbbb334780fa135c7f1dc6e2459061a2d6d44c32b7c1fdbc34cde65ede c36f509c0a8f9f85f29cb44bc8701d8a9e0b14c499e77a884f789ead7093a7ac a76f53ca6612e7b3828eec2311098675b7f9849ae4169a8bcef6302aec02a6c0 ad4580d8cb4b5f627c2d18457656732f7f7b070f7837fbc380e08054157e6f6c 9e1455e6e9c5866f607e464fffb7855486dcf575b7e69b83a3d234e587fce41b"
+for f in $(git ls-files 'fonts/*.woff2'); do
+  h=$(git cat-file -p ":$f" 2>/dev/null | sha256sum | cut -d' ' -f1)
+  case " $POLICES " in *" $h "*) ;; *) err "Police inconnue (empreinte non reconnue) : $f";; esac
+done
 s=$(git grep --cached -lIE -- "$SECRETS" || true)
 [ -n "$s" ] && { err "Un secret (clé, jeton) semble présent dans :"; echo "$s"; }
 e=$(git grep --cached -nIiE -- "$EMAIL" | grep -viE 'noreply|example\.|exemple\.' | cut -d: -f1,2 || true)
