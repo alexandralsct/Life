@@ -30,9 +30,10 @@ export const tests = [
   { nom: 'Performance : 400 longs messages, changement de fil rapide et démarrage sans longue tâche (rendu incrémental)', f: async ({ nav, st, profil, tel, verif }) => {
     const { page, ctx, demarrage, fils } = await mesurer(nav, st, profil, tel);
     console.log('      mesures ' + (tel ? 'téléphone ×4' : 'ordinateur ×1') + ' : démarrage ' + JSON.stringify(demarrage) + ' ; changements de fil (ms) ' + fils.join(', '));
-    const budget = tel ? 200 : 100;
+    // budgets doublés en CI (machine partagée, plus lente) : la mesure est imprimée dans le journal
+    const k = process.env.CI ? 2 : 1, budget = (tel ? 200 : 100) * k, tache = (tel ? 400 : 150) * k;
     verif(Math.max(...fils) < budget, 'changement de fil < ' + budget + ' ms', fils);
-    verif(demarrage.pire < (tel ? 400 : 150), 'plus longue tâche au démarrage < ' + (tel ? 400 : 150) + ' ms', demarrage);
+    verif(demarrage.pire < tache, 'plus longue tâche au démarrage < ' + tache + ' ms', demarrage);
     await ctx.close();
   } },
   { nom: 'Rendu incrémental : un nouveau message ne refait pas les autres bulles ; les plus anciens arrivent en remontant', f: async ({ nav, st, profil, verif }) => {

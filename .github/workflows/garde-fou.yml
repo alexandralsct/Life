@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fichiers autorisés, secrets, e-mails, mots de la liste privée (mots entiers)
+      - name: Fichiers autorisés, secrets, e-mails, auteur, mots de la liste privée (mots entiers et sous-chaînes), empreintes de sw.js
         # La liste est un secret du dépôt (Settings → Secrets and variables → Actions → MOTS_INTERDITS),
         # mots séparés par | ; elle n'apparaît jamais ici ni dans les journaux. Sans elle, le contrôle échoue.
         env:
@@ -32,7 +32,8 @@ jobs:
           3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35  icon.svg
           FIN
   historique:
-    # Chaque jour : tout l'historique public (lignes ajoutées et messages de commit) pour les secrets et les mots privés.
+    # Chaque jour : tout l'historique public (lignes ajoutées, messages, auteurs et adresses des commits, fichiers ajoutés)
+    # pour les secrets, les adresses e-mail et les mots privés (mots entiers et sous-chaînes).
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:

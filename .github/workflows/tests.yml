@@ -1,0 +1,33 @@
+# Suite de tests de LIFE (Playwright) à chaque envoi : l'app téléphone puis l'app ordinateur, séparément.
+# Aucun secret : le faux serveur des tests est dans tests/outils.mjs (aucune adresse ni clé réelle).
+# Chromium est installé par l'action (playwright install) ; axe-core est injecté hors réseau dans la page testée.
+name: Tests de LIFE (téléphone et ordinateur)
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Playwright et axe-core (versions fixées, sans fichier de paquets dans le dépôt)
+        run: npm install --no-save --no-package-lock --no-audit --no-fund playwright@1.56.1 axe-core@4.10.2
+      - name: Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Empreintes de la coquille (sw.js)
+        run: node tests/empreintes.mjs --verifier
+      - name: Suite complète (App téléphone, puis App ordinateur)
+        # budgets de performance doublés sur la machine de GitHub (plus lente et partagée) : les mesures sont imprimées
+        env:
+          CI: "true"
+        run: node tests/lancer.mjs
