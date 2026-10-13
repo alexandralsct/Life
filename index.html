@@ -338,7 +338,7 @@ async function appel(corps) {
 
 function fusionner(nouveaux) {
   const parId = new Map(messages.map(m => [m.id, m]));
-  nouveaux.forEach(m => { if (!supprimes.has(m.id)) parId.set(m.id, m); });
+  nouveaux.forEach(m => { if (supprimes.has(m.id)) return; if (filsForces[m.id]) m.fil = filsForces[m.id]; parId.set(m.id, m); });
   // une copie locale disparaît dès que le serveur renvoie le même message
   const duServeur = new Set(nouveaux.filter(m => m.auteur === 'moi' && !m.local).map(m => (m.fil || 'general') + '|' + m.texte));
   [...parId.values()].forEach(m => { if (m.local && !m.expert && duServeur.has((m.fil || 'general') + '|' + m.texte)) parId.delete(m.id); });
@@ -400,6 +400,7 @@ function carteSysteme(m) {
 let epingles = store.lire('epingles', {});
 // Suppression manuelle (appui long → Supprimer, ou ••• → Effacer ce fil) : retirée de l'appareil tout de suite, puis du serveur.
 let supprimes = new Set(store.lire('supprimes', []));
+let filsForces = store.lire('filsForces', {});   // id du message → fil où l'échange a eu lieu
 function supprimer(ids) {
   ids = ids.filter(Boolean); if (!ids.length) return;
   ids.forEach(i => supprimes.add(i)); store.ecrire('supprimes', [...supprimes].slice(-3000));
@@ -564,6 +565,9 @@ async function envoyer() {
     }
     const j = await appel({ action: 'envoyer', texte, fil });
     const recus = j.messages || [];
+    // l'échange reste dans le fil où tu as écrit, même si le serveur (pas encore à jour) l'a rangé ailleurs
+    recus.forEach(m => { if (m && m.id && m.fil !== fil && m.fil !== 'systeme') { filsForces[m.id] = fil; m.fil = fil; } });
+    store.ecrire('filsForces', filsForces);
     if (!recus.some(m => m.auteur === 'moi' && m.texte === texte)) recus.push(Object.assign({}, temp, { id: 'loc-' + Date.now(), temp: false, local: true }));
     fusionner(recus); etat('');
   } catch (e) {
@@ -673,7 +677,7 @@ try {
 } catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.19';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.20';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
