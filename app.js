@@ -1059,7 +1059,15 @@ window.addEventListener('pagehide', confirmerSuppression);
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.4.1';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+// Ma carte de vie peut PRÉPARER un message (jamais l'envoyer) : elle choisit le fil et remplit la saisie, la personne relit et
+// touche Envoyer. Seulement depuis la page qui contient LIFE, sur la même origine (cerveau « Ma mémoire » : oublie, pause…).
+if (DANS_CARTE) window.addEventListener('message', e => {
+  if (e.origin !== location.origin || e.source !== window.parent) return;
+  const d = e.data || {}; if (d.life !== 'preparer' || typeof d.texte !== 'string' || !d.texte.trim()) return;
+  choisirFil(FILS.some(x => x[0] === d.fil) ? d.fil : 'general');
+  const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
+if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
+const VERSION = 'V.0.0.4.2';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
