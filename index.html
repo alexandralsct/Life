@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="theme-color" content="#f6ecdc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#f5eee2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0e1830" media="(prefers-color-scheme: dark)">
 <title>LIFE</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -12,258 +12,342 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-/* LIFE — messagerie personnelle (2026-10-12), dans le langage visuel de Ma carte de vie : bleu Klein sur
-   crème, traits nets de 1,5 px, ombres décalées, pastilles. Aucune clé dans ce fichier : la clé du lien est saisie sur
-   l'appareil (Réglages) et gardée dans ce navigateur seulement. Le système répond par
-   le lien du système (adresse saisie sur l'appareil). */
+/* LIFE — messagerie personnelle, dans le langage visuel de Ma carte de vie : bleu Klein sur crème, traits nets de
+   1,5 px, ombres décalées sans flou, pastilles. Aucune clé dans ce fichier : l'adresse et la clé du lien sont saisies
+   sur l'appareil (Réglages) et gardées dans ce navigateur seulement.
+   Deux mises en page pensées séparément : TÉLÉPHONE (par défaut : une rangée de fils, cibles de 44 px) et
+   ORDINATEUR (à partir de 900 px : fils en colonne à gauche, conversation à droite ; cibles de 36 px à la souris). */
+/* Jetons communs avec Ma carte de vie (couleurs, rayons, ombres) */
 :root {
-  --bg: #f6ecdc; --board: #fbf4e8; --surface: #fffaf1;   /* ambiance C « chaleureux » */ --ink: #002FA7; --muted: rgba(0,47,167,.72);
-  --pale: #dbe3f3; --doux: #c9d6f0; --sh: #002FA7;
+  --fond: #F5EEE2; --plateau: #FAF5EC; --surface: #FEFAF3; --encre: #002FA7; --encre-2: #4768BD;
+  --trait: #002FA7; --trait-doux: #6F86C6; --accent: #002FA7; --sur-accent: #FDFAF4; --pale: #DBE3F3; --ombre: #C9D6F0;
+  --plein: var(--accent); --sur-plein: var(--sur-accent); --heure-moi: #C9D6F0;   /* aplat (bulle envoyée, fil choisi) */
+  --r-s: 8px; --r-m: 14px; --r-l: 24px; --r-p: 999px;
+  --sh-1: 2px 2px 0 var(--ombre); --sh-2: 4px 4px 0 var(--ombre); --sh-3: 4px 4px 0 var(--accent);
+  --cible: 44px;
   --display: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
-  --body: "IBM Plex Mono", ui-monospace, Menlo, monospace; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
-/* jour / nuit : automatique (réglage du téléphone), ou choisi avec le bouton ◐ de l'en-tête */
-:root[data-theme="nuit"] { --bg: #0e1830; --board: #122041; --surface: #172a52; --ink: #93b3f0; --muted: #9aabd4;
-          --pale: #29447f; --doux: #45598a; --sh: #070f22; }
+/* jour / nuit : automatique (réglage de l'appareil), ou choisi avec le bouton de l'en-tête */
+:root[data-theme="nuit"] {
+  --fond: #0E1830; --plateau: #122041; --surface: #172A52; --encre: #E3EAFF; --encre-2: #9AABD4;
+  --trait: #93B3F0; --trait-doux: #45598A; --accent: #2F55D4; --sur-accent: #FFFFFF; --pale: #29447F; --ombre: #070F22;
+  --plein: #93B3F0; --sur-plein: #0E1830; --heure-moi: #172A52;
+}
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="jour"]) { --bg: #0e1830; --board: #122041; --surface: #172a52; --ink: #93b3f0; --muted: #9aabd4;
-          --pale: #29447f; --doux: #45598a; --sh: #070f22; }
+  :root:not([data-theme="jour"]) {
+    --fond: #0E1830; --plateau: #122041; --surface: #172A52; --encre: #E3EAFF; --encre-2: #9AABD4;
+    --trait: #93B3F0; --trait-doux: #45598A; --accent: #2F55D4; --sur-accent: #FFFFFF; --pale: #29447F; --ombre: #070F22;
+    --plein: #93B3F0; --sur-plein: #0E1830; --heure-moi: #172A52;
+  }
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body); }
+/* Tout tient dans l'écran : la page ne défile jamais, seule la conversation défile. */
+html, body { margin: 0; height: 100%; background: var(--fond); color: var(--encre); font: 16px/1.45 var(--mono); overflow: hidden; overscroll-behavior: none; }
 body { display: flex; flex-direction: column; height: 100dvh; max-width: 760px; margin: 0 auto; }
-header { padding: calc(env(safe-area-inset-top) + 16px) 16px 8px; display: flex; align-items: center; gap: 8px; }
-header h1 { margin: 0; font: 700 30px/1 var(--display); letter-spacing: -.5px; }
-header h1 small { display: block; font: 400 12px/1.2 var(--mono); letter-spacing: .5px; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
-header .etat { color: var(--muted); font: 400 12px var(--mono); flex: 1; text-align: right; }
-header button { display: grid; place-items: center; padding: 0; width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--surface);
-  color: var(--ink); font-size: 18px; cursor: pointer; }
-header button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--sh); }
-nav { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 16px 16px 16px; }   /* les 8 fils visibles d'un coup */
+button { font-family: inherit; }
+
+/* ---------- En-tête ---------- */
+header { position: relative; flex: none; display: flex; align-items: center; gap: 6px; padding: calc(env(safe-area-inset-top) + 8px) 16px 4px; }
+header h1 { margin: 0 auto 0 0; min-width: 0; font: 700 26px/1 var(--display); letter-spacing: -.5px; }
+header h1 small { display: block; font: 400 12px/1.2 var(--mono); letter-spacing: .5px; color: var(--encre-2); margin-top: 4px; text-transform: uppercase; white-space: nowrap; }
+header > button { position: relative; flex: none; display: grid; place-items: center; padding: 0; width: var(--cible); height: var(--cible); border-radius: 50%;
+  border: 1.5px solid var(--trait); background: var(--surface); color: var(--encre); cursor: pointer; }
+header > button svg { width: 22px; height: 22px; }
+header > button:active { transform: translate(2px, 2px); }
+header > button[aria-pressed="true"] { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
+header > button .badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-p);
+  background: var(--plein); color: var(--sur-plein); border: 1.5px solid var(--surface); font: 600 12px/17px var(--mono); text-align: center; }
+header > button[aria-pressed="true"] .badge { display: none; }
+#menu { position: absolute; top: calc(100% + 2px); right: 16px; z-index: 12; display: flex; flex-direction: column; min-width: 240px;
+  background: var(--surface); border: 1.5px solid var(--trait); border-radius: var(--r-m); box-shadow: var(--sh-3); overflow: hidden; }
+#menu[hidden] { display: none; }
+#menu button { all: unset; box-sizing: border-box; cursor: pointer; min-height: 48px; padding: 14px 20px; font: 500 14px/20px var(--mono); color: var(--encre); }
+#menu button + button { border-top: 1px solid var(--trait-doux); }
+#menu #effacer-fil { margin-top: 6px; border-top: 1.5px solid var(--trait); }   /* action destructrice : en dernier, à part */
+
+/* ---------- Fils (téléphone : une rangée qui défile ; la grille complète derrière le bouton ⌄) ---------- */
+#app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#barre-fils { flex: none; display: flex; align-items: center; gap: 0; padding: 0 4px 4px 0; }
+nav { position: relative; flex: 1; min-width: 0; display: flex; gap: 8px; overflow-x: auto; padding: 4px 4px 4px 16px; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }   /* le bord estompé dit que la rangée défile */
 nav::-webkit-scrollbar { display: none; }
-nav button { position: relative; flex: none; border: 1.5px solid var(--ink); background: var(--surface); color: var(--ink);
-  border-radius: 16px; padding: 6px 2px; min-width: 0; aspect-ratio: 1; justify-content: center;   /* carrés */ font: 500 11.5px/1.1 var(--body); cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 4px; }
-nav button svg { width: 27px; height: 27px; }
-nav button > span.xlong { font-size: 7.4px !important; letter-spacing: -.25px !important; white-space: nowrap; }
-nav button > span:not(.badge) { hyphens: manual; overflow-wrap: normal; text-align: center; text-transform: uppercase; font: 700 9.5px/1.1 var(--display); letter-spacing: 0; -webkit-text-stroke: .25px currentColor; }   /* gras marqué */   /* libellés en capitales */
-nav button .badge { position: absolute; top: -7px; right: -7px; min-width: 21px; height: 21px; padding: 0 6px; border-radius: 999px;
-  background: var(--ink); color: var(--surface); border: 1.5px solid var(--surface); font: 600 12px/18px var(--mono); text-align: center;
-  box-shadow: 2px 2px 0 var(--doux); }
-nav button[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: 3px 3px 0 var(--doux); }
-main { flex: 1; overflow-y: auto; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 16px;
-  background: var(--board); border-top: 1.5px solid var(--ink); }
-.jour { align-self: center; color: var(--muted); font: 400 11px var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
-  margin: 14px 0 0; padding: 3px 10px; border: 1.5px solid var(--doux); border-radius: 999px; }
-.bulle { max-width: 84%; padding: 12px 16px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word;
-  font: 14.5px/1.55 "IBM Plex Mono", var(--mono);   /* typo d'éditeur de texte */
-  border: 1.5px solid var(--ink); }
-.bulle.moi { align-self: flex-end; background: var(--ink); color: var(--bg); border-bottom-right-radius: 4px; box-shadow: 4px 4px 0 var(--doux); }
-.bulle.life { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 4px; box-shadow: 2px 2px 0 var(--doux); }   /* trait gardé (essai sans trait annulé) */
-.bulle.systeme { align-self: stretch; max-width: none; background: var(--surface); border-radius: 14px; box-shadow: 4px 4px 0 var(--doux); }
-.bulle .heure { display: block; font: 400 11px var(--mono); color: var(--muted); margin-top: 8px; text-align: right; }
-.bulle.moi .heure { color: var(--doux); }
-.bulle.attente { color: var(--muted); }
-.vide { margin: auto; text-align: center; color: var(--muted); max-width: 290px; }
-.vide strong { display: block; font: 700 22px var(--display); color: var(--ink); margin-bottom: 6px; }
-footer { padding: 8px 16px calc(env(safe-area-inset-bottom) + 16px); display: flex; gap: 8px; align-items: flex-end;
-  border-top: 1.5px solid var(--ink); background: var(--bg); }
-textarea { flex: 1; resize: none; max-height: 140px; min-height: 46px; border: 1.5px solid var(--ink); border-radius: 23px;
-  padding: 11px 16px; font: 15px "IBM Plex Mono", var(--mono); background: var(--surface); color: var(--ink); outline: none; }
-textarea::placeholder { color: var(--muted); }
-.rond { width: 46px; height: 46px; border-radius: 50%; flex: none; font-size: 19px; cursor: pointer; display: grid; place-items: center;
-  border: 1.5px solid var(--ink); box-shadow: 3px 3px 0 var(--sh); }
-.rond:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--sh); }
-#micro { background: var(--surface); color: var(--ink); box-shadow: none; }
-#micro.actif { background: var(--ink); color: var(--surface); }
-#envoyer { background: var(--ink); color: var(--bg); }
-#envoyer:disabled { background: var(--doux); border-color: var(--doux); color: var(--surface); box-shadow: none; }
-dialog { border: 1.5px solid var(--ink); border-radius: 16px; padding: 22px; width: min(92vw, 420px); background: var(--surface);
-  color: var(--ink); box-shadow: 6px 6px 0 var(--sh); }
-dialog::backdrop { background: rgba(0,47,167,.18); }
-dialog h2 { margin: 0 0 8px; font: 700 22px var(--display); }
-dialog p { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
-dialog input { width: 100%; padding: 11px 12px; border-radius: 12px; border: 1.5px solid var(--ink); font: 15px var(--mono);
-  background: var(--bg); color: var(--ink); }
-dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 18px 0 0; }
-dialog button { border: 1.5px solid var(--ink); border-radius: 999px; padding: 8px 16px; font: 500 15px var(--body); cursor: pointer;
-  background: var(--surface); color: var(--ink); }
-dialog .cle-bt { margin-top: 8px; }
-dialog .cle-bt button { padding: 6px 12px; font-size: 13px; }
-dialog .appareil { border-top: 1.5px solid var(--doux); margin-top: 16px; padding-top: 14px; }
-dialog .appareil h3 { margin: 0 0 6px; font: 700 16px var(--display); }
-dialog .appareil .rang { display: flex; flex-wrap: wrap; gap: 8px; }
-#qr { display: block; width: 220px; max-width: 100%; margin: 12px auto 4px; background: #fff; padding: 10px; border-radius: 12px; border: 1.5px solid var(--ink); }
-#qr[hidden] { display: none; }
-#installe { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: rgba(0,47,167,.18); }
-#installe[hidden] { display: none; }
-#installe > div { background: var(--surface); color: var(--ink); border: 1.5px solid var(--ink); border-radius: 16px; padding: 22px; max-width: 360px; box-shadow: 6px 6px 0 var(--sh); }
-#installe h2 { margin: 0 0 8px; font: 700 22px var(--display); }
-#installe p { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
-#installe button { border: 1.5px solid var(--ink); border-radius: 999px; padding: 10px 18px; font: 500 15px var(--body); cursor: pointer; background: var(--surface); color: var(--ink); margin: 4px 6px 0 0; }
-#installe button.principal { background: var(--ink); color: var(--bg); box-shadow: 3px 3px 0 var(--doux); }
-#maj { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 84px); transform: translateX(-50%); z-index: 9;
-  border: 1.5px solid var(--ink); border-radius: 999px; padding: 9px 16px; font: 500 13px var(--mono); background: var(--ink); color: var(--bg);
-  box-shadow: 3px 3px 0 var(--doux); cursor: pointer; }
-#maj[hidden] { display: none; }
-dialog button.principal { background: var(--ink); color: var(--bg); box-shadow: 3px 3px 0 var(--doux); }
-.bulle.systeme .titre { display: block; font: 700 18px/1.25 var(--display); margin-bottom: 6px; }
-.bulle.systeme .section { display: block; font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
-  border-top: 1.5px solid var(--doux); padding-top: 8px; margin-top: 10px; }
-.ecrit { align-self: flex-start; display: flex; gap: 5px; padding: 14px 16px; border: 1.5px solid var(--ink); border-radius: 16px;
+nav button { position: relative; flex: none; display: inline-flex; align-items: center; gap: 6px; height: var(--cible); padding: 0 14px 0 11px;
+  border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre);
+  font: 600 13px/1.1 var(--display); white-space: nowrap; cursor: pointer; }
+nav button svg { width: 20px; height: 20px; flex: none; }
+nav button .nom { hyphens: manual; }
+nav button .badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-p); background: var(--plein); color: var(--sur-plein);
+  font: 600 12px/20px var(--mono); text-align: center; }
+nav button[aria-pressed="true"] { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
+nav button:active { transform: translate(2px, 2px); }
+#plier, #chercher { flex: none; display: grid; place-items: center; width: var(--cible); height: var(--cible); padding: 0; border: 0; border-radius: 50%;
+  background: none; color: var(--encre); cursor: pointer; }
+#plier svg, #chercher svg { width: 20px; height: 20px; }
+#plier svg { transition: transform .2s; transform: rotate(180deg); }   /* ⌄ : voir tous les fils */
+#chercher .lib, #chercher kbd { display: none; }
+@media (max-width: 899px) {
+  /* grille complète, choisie avec ⌄ (mémorisée) : 4 ou 5 colonnes, libellés en 12 px qui peuvent passer à la ligne */
+  body.grille #barre-fils { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 8px; padding: 6px 16px 10px; }
+  body.grille nav { display: contents; -webkit-mask-image: none; mask-image: none; }
+  body.grille nav button { flex-direction: column; justify-content: center; height: 64px; padding: 6px 3px; gap: 4px; border-radius: var(--r-m);
+    white-space: normal; text-align: center; font-size: 12px; line-height: 1.1; }
+  body.grille nav button svg { width: 22px; height: 22px; }
+  body.grille nav button .badge { position: absolute; top: -7px; right: -7px; border: 1.5px solid var(--surface); line-height: 17px; }
+  body.grille #plier, body.grille #chercher { width: auto; height: 64px; border-radius: var(--r-m); }
+  body.grille #plier svg { transform: none; }
+}
+
+/* ---------- Conversation ---------- */
+#conv { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+main { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 16px;
+  background: var(--plateau); border-top: 1.5px solid var(--trait); }
+.jour { align-self: center; color: var(--encre-2); font: 400 12px var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
+  margin: 14px 0 0; padding: 3px 10px; border: 1.5px solid var(--trait-doux); border-radius: var(--r-p); }
+.bulle { position: relative; max-width: 84%; padding: 12px 16px; border-radius: var(--r-m); white-space: pre-wrap; overflow-wrap: break-word;
+  font: 14.5px/1.55 var(--mono); border: 1.5px solid var(--trait); }
+.bulle.moi { align-self: flex-end; background: var(--plein); border-color: var(--plein); color: var(--sur-plein); border-bottom-right-radius: 4px; box-shadow: var(--sh-2); }
+.bulle.life { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 4px; box-shadow: var(--sh-1); }
+.bulle .heure { display: block; font: 400 12px var(--mono); color: var(--encre-2); margin-top: 8px; text-align: right; }
+.bulle.moi .heure { color: var(--heure-moi); }
+.bulle.attente { opacity: .72; }
+.bulle.echec { border-style: dashed; box-shadow: none; }
+.reessayer { display: block; margin: 6px -8px -6px auto; min-height: var(--cible); padding: 0 8px; border: 0; background: none; color: inherit;
+  font: 600 12.5px var(--mono); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* Un seul modèle de carte système : rayon 14, contour plein, barre de 4 px à gauche pour une information dans un fil */
+.bulle.systeme { align-self: stretch; max-width: none; background: var(--surface); border-radius: var(--r-m); border: 1.5px solid var(--trait); box-shadow: var(--sh-2); }
+.bulle.systeme.info { border-left-width: 4px; padding-top: 34px; }
+.bulle.systeme.info::before { content: attr(data-etiquette); position: absolute; top: 11px; left: 14px;
+  font: 500 12px var(--mono); letter-spacing: 1.2px; text-transform: uppercase; color: var(--encre-2); }
+.bulle.systeme .titre { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal;
+  font: 700 18px/24px var(--display); text-wrap: balance; margin-bottom: 6px; }
+.bulle.systeme .titre svg { width: 20px; height: 20px; vertical-align: -3px; margin-right: 6px; }
+.bulle.systeme .section { display: block; font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
+  border-top: 1px solid var(--trait-doux); padding-top: 8px; margin-top: 10px; }
+.vide { margin: auto; text-align: center; color: var(--encre-2); max-width: 290px; }
+.vide strong { display: block; font: 700 22px var(--display); color: var(--encre); margin-bottom: 6px; }
+.ecrit { align-self: flex-start; display: flex; gap: 5px; padding: 14px 16px; border: 1.5px solid var(--trait); border-radius: var(--r-m);
   border-bottom-left-radius: 4px; background: var(--surface); }
-.ecrit i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: point 1.2s infinite ease-in-out; }
+.ecrit i { width: 7px; height: 7px; border-radius: 50%; background: var(--encre); animation: point 1.2s infinite ease-in-out; }
 .ecrit i:nth-child(2) { animation-delay: .15s; } .ecrit i:nth-child(3) { animation-delay: .3s; }
 @keyframes point { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-4px); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ecrit i { animation: none; opacity: .7; } }
-nav.replie { grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 8px 12px 10px; }
-nav.replie button { padding: 0; border-radius: 10px; }
-nav.replie button > span:not(.badge) { display: none; }
-nav.replie button svg { width: 20px; height: 20px; }
 .rapides { align-self: flex-start; display: flex; gap: 8px; flex-wrap: wrap; margin: -8px 0 0 40px; }
-.rapides button { border: 1.5px solid var(--ink); background: var(--surface); color: var(--ink); border-radius: 999px;
-  padding: 7px 16px; font: 500 14px var(--body); cursor: pointer; }
-.rapides button:active { background: var(--ink); color: var(--surface); }
-.rond svg, header button svg { width: 22px; height: 22px; }
+.rapides button { min-height: var(--cible); border: 1.5px solid var(--trait); background: var(--surface); color: var(--encre); border-radius: var(--r-p);
+  padding: 0 18px; font: 500 14px var(--mono); cursor: pointer; }
+.rapides button:active { background: var(--plein); color: var(--sur-plein); }
+/* indice de l'appui long, montré jusqu'à ce qu'on l'ait lu ou utilisé */
+.aide { align-self: center; display: flex; align-items: center; gap: 0 4px; max-width: min(100%, 520px);
+  padding: 0 4px 0 14px; border: 1px dashed var(--trait-doux); border-radius: var(--r-m); color: var(--encre-2); font: 400 12.5px/1.4 var(--mono); }
+.aide span { flex: 1; padding: 6px 0; }
+.aide button { min-height: var(--cible); padding: 0 12px; border: 0; background: none; color: var(--encre); font: 600 13px var(--mono); text-decoration: underline; cursor: pointer; }
 /* LIFE : petit avatar à côté de ses messages */
 .ligne-life { align-self: flex-start; display: flex; gap: 8px; align-items: flex-end; max-width: 92%; }
 .ligne-life .bulle { max-width: none; }
 .avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #002FA7, #4f7be0); color: #fff;
-  display: grid; place-items: center; border: 1.5px solid var(--ink); }
+  display: grid; place-items: center; border: 1.5px solid var(--trait); }
 .avatar svg { width: 18px; height: 18px; }
 .avatar.vide { visibility: hidden; }
-/* Brief : section à part */
-#vue-brief { display: none; flex: 1; overflow-y: auto; padding: 16px; background: var(--board); border-top: 1.5px solid var(--ink); }
-body.brief #vue-brief { display: block; } body.brief main { display: none; }
-#vue-maintenance { display: none; flex: 1; overflow-y: auto; padding: 16px; background: var(--board); border-top: 1.5px solid var(--ink); flex-direction: column; gap: 14px; }
-body.maintenance #vue-maintenance { display: flex; } body.maintenance main { display: none; }
-body.maintenance #maintenance { background: var(--ink); color: var(--surface); }
-#vue-maintenance .bulle { max-width: none; }
-header button { width: 38px; height: 38px; }
-body.brief #brief { background: var(--ink); color: var(--surface); }
-#vue-brief .bulle { max-width: none; }
-#vue-brief .vide { margin-top: 30vh; }
-#plier { align-self: center; margin: -8px 0 8px; width: 46px; height: 20px; border: 1.5px solid var(--ink); border-radius: 999px;
-  background: var(--surface); color: var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
-#plier svg { width: 16px; height: 16px; transition: transform .2s; }
-body.replie #plier svg { transform: rotate(180deg); }
-body.replie nav { grid-template-columns: repeat(10, 1fr); gap: 6px; padding: 8px 12px 10px; }
-body.replie nav button { padding: 0; border-radius: 10px; }
-body.replie nav button > span:not(.badge) { display: none; }
-body.replie nav button svg { width: 20px; height: 20px; }
-header button { position: relative; }
-.bulle { position: relative; }
-.feuille-msg { position: absolute; z-index: 8; top: calc(100% + 6px); right: 0; display: flex; flex-direction: column; min-width: 150px;
-  background: var(--surface); border: 1.5px solid var(--ink); border-radius: 14px; box-shadow: 4px 4px 0 var(--doux); overflow: hidden; }
-.bulle.life .feuille-msg, .bulle.systeme .feuille-msg { right: auto; left: 0; }
-.feuille-msg button { all: unset; cursor: pointer; padding: 12px 16px; font: 500 14px var(--mono); color: var(--ink); }
-.feuille-msg button + button { border-top: 1.5px solid var(--doux); }
-.feuille-msg button:last-child { font-weight: 700; }
-/* ronds bien ronds et serrés (ils ne se déforment plus quand la place manque) */
-header { gap: 5px; } header h1 { margin-right: auto; min-width: 0; }
-header button { flex: 0 0 auto; width: 38px; height: 38px; aspect-ratio: 1; border-radius: 50%; }
-header .etat { flex: 1 1 0; min-width: 0; }
-header button .badge { position: absolute; top: -6px; right: -6px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px;
-  background: var(--ink); color: var(--surface); border: 1.5px solid var(--surface); font: 600 11px/16px var(--mono); text-align: center; }
-body.brief #brief .badge, body.maintenance #maintenance .badge { display: none; }
-/* Encart d'information (offres, cours, alertes) dans un fil : pleine largeur, étiquette, filet à gauche, sans avatar */
-main .bulle.systeme { background: var(--board); border-style: dashed; border-left: 5px solid var(--ink); border-radius: 6px 14px 14px 6px;
-  box-shadow: none; padding-top: 30px; position: relative; }
-main .bulle.systeme::before { content: attr(data-etiquette); position: absolute; top: 9px; left: 14px;
-  font: 500 10.5px var(--mono); letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 .avatar.carre { border-radius: 9px; }
-#menu { position: absolute; top: calc(env(safe-area-inset-top) + 64px); right: 16px; z-index: 5; display: flex; flex-direction: column;
-  background: var(--surface); border: 1.5px solid var(--ink); border-radius: 16px; box-shadow: 4px 4px 0 var(--sh); overflow: hidden; }
-#menu[hidden] { display: none; }
-#menu button { all: unset; cursor: pointer; padding: 16px 24px; font: 500 14px var(--mono); color: var(--ink); }
-#menu button + button { border-top: 1.5px solid var(--doux); }
-header { position: relative; }
-#tirer { text-align: center; font: 500 11px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); height: 0; overflow: hidden; transition: height .15s; }
-nav button > span.long { font-size: 8.4px; }
-#recherche { display: flex; gap: 8px; padding: 8px 16px; border-top: 1.5px solid var(--ink); background: var(--bg); }
+/* feuille d'actions d'un message (appui long ou clic droit) */
+.feuille-msg { position: absolute; z-index: 8; top: calc(100% + 6px); right: 0; display: flex; flex-direction: column; min-width: 170px; white-space: normal;
+  background: var(--surface); border: 1.5px solid var(--trait); border-radius: var(--r-m); box-shadow: var(--sh-3); overflow: hidden; }
+.bulle.life .feuille-msg, .bulle.systeme .feuille-msg { right: auto; left: 0; }
+.feuille-msg button { all: unset; box-sizing: border-box; cursor: pointer; min-height: var(--cible); padding: 12px 16px; font: 500 14px/20px var(--mono); color: var(--encre); }
+.feuille-msg button + button { border-top: 1px solid var(--trait-doux); }
+.feuille-msg button:last-child { font-weight: 700; }
+/* Brief et Maintenance : vues à part, avec un retour explicite */
+#vue-brief, #vue-maintenance { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px 16px; background: var(--plateau);
+  border-top: 1.5px solid var(--trait); flex-direction: column; gap: 14px; }
+body.brief #vue-brief, body.maintenance #vue-maintenance { display: flex; }
+body.brief main, body.maintenance main { display: none; }
+.retour { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: var(--cible); padding: 0 16px 0 12px;
+  border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre); font: 600 14px var(--display); cursor: pointer; }
+.retour svg { width: 18px; height: 18px; }
+/* Recherche */
+#recherche { flex: none; display: flex; gap: 8px; padding: 8px 16px; border-top: 1.5px solid var(--trait); background: var(--fond); }
 #recherche[hidden] { display: none; }
-#recherche input { flex: 1; outline: none; border: 1.5px solid var(--ink); border-radius: 999px; padding: 8px 16px; font: 14px var(--mono); background: var(--surface); color: var(--ink); }
-#recherche button { width: 40px; height: 40px; border: 1.5px solid var(--ink); border-radius: 50%; background: var(--surface); color: var(--ink); display: grid; place-items: center; }
+#recherche input { flex: 1; min-width: 0; min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: var(--r-p); padding: 8px 16px;
+  font: 15px var(--mono); background: var(--surface); color: var(--encre); }
+#q::-webkit-search-cancel-button, #q::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+#recherche button { flex: none; width: var(--cible); height: var(--cible); padding: 0; border: 1.5px solid var(--trait); border-radius: 50%;
+  background: var(--surface); color: var(--encre); display: grid; place-items: center; cursor: pointer; }
 #recherche button svg { width: 18px; height: 18px; }
-mark { background: var(--doux); color: inherit; border-radius: 3px; }
+mark { background: var(--pale); color: inherit; font-weight: 600; border-radius: 3px; }
 .resultat { cursor: pointer; }
-.resultat .ou { display: block; font: 600 10.5px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-/* Épinglés : en haut du fil, d'un appui long */
-#epingles { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
-#epingles:not(:empty) { padding: 8px 16px; border-top: 1.5px solid var(--ink); background: var(--bg); }
-.epingle { display: flex; gap: 8px; align-items: center; border: 1.5px solid var(--ink); border-radius: 12px; padding: 8px 12px;
+.resultat .ou { display: block; font: 600 12px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--encre-2); margin-bottom: 4px; }
+/* Épinglés : en haut du fil */
+#epingles { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
+#epingles:not(:empty) { padding: 8px 16px; border-top: 1.5px solid var(--trait); background: var(--fond); }
+.epingle { display: flex; gap: 8px; align-items: center; border: 1.5px solid var(--trait); border-radius: var(--r-m); padding: 4px 4px 4px 12px;
   background: var(--surface); font: 12.5px/1.35 var(--mono); }
 .epingle span { flex: 1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .epingle svg { width: 16px; height: 16px; flex: none; }
-.epingle button { all: unset; cursor: pointer; display: grid; place-items: center; }
-/* Essai graphique 1 : un point de couleur par fil, dans des bleus nuancés */
-nav button .point { width: 6px; height: 6px; border-radius: 50%; margin-top: -1px; }
-body.replie nav button .point { display: none; }
+.epingle button { all: unset; cursor: pointer; flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; }
+#tirer { flex: none; text-align: center; font: 500 12px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--encre-2); height: 0; overflow: hidden; transition: height .15s; }
+/* ---------- Saisie ---------- */
+footer { position: relative; flex: none; padding: 8px 16px calc(env(safe-area-inset-bottom) + 10px); display: flex; gap: 8px; align-items: flex-end;
+  border-top: 1.5px solid var(--trait); background: var(--fond); }
+textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: 22px;
+  padding: 10px 16px; font: 15px/1.45 var(--mono); background: var(--surface); color: var(--encre); outline: none; }
+textarea::placeholder { color: var(--encre-2); }
+.rond { width: var(--cible); height: var(--cible); padding: 0; border-radius: 50%; flex: none; cursor: pointer; display: grid; place-items: center;
+  border: 1.5px solid var(--trait); }
+.rond svg { width: 22px; height: 22px; }
+.rond:active { transform: translate(2px, 2px); }
+#micro { background: var(--surface); color: var(--encre); }
+#micro.actif { background: var(--plein); color: var(--sur-plein); }
+#envoyer { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-2); }
+#envoyer:disabled { background: var(--surface); border-color: var(--trait); color: var(--encre); box-shadow: none; cursor: default; }
+#envoyer:disabled svg { opacity: .4; }
+/* Message d'état : un bandeau lisible juste au-dessus de la saisie (3 à 5 s), avec « Annuler » après une suppression */
+#bandeau { position: absolute; left: 16px; right: 16px; bottom: calc(100% + 10px); z-index: 9; display: flex; align-items: center; gap: 8px;
+  min-height: 48px; padding: 4px 4px 4px 16px; border: 1.5px solid var(--plein); border-radius: var(--r-m); background: var(--plein); color: var(--sur-plein);
+  font: 500 14px/1.35 var(--mono); box-shadow: var(--sh-2); }
+#bandeau[hidden] { display: none; }
+#bandeau span { flex: 1; min-width: 0; }
+#bandeau button { flex: none; min-height: 40px; padding: 0 14px; border: 1.5px solid var(--sur-plein); border-radius: var(--r-p); background: none;
+  color: var(--sur-plein); font: 600 14px var(--mono); cursor: pointer; }
+#maj { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 84px); transform: translateX(-50%); z-index: 9; min-height: var(--cible);
+  border: 1.5px solid var(--plein); border-radius: var(--r-p); padding: 0 16px; font: 500 13px var(--mono); background: var(--plein); color: var(--sur-plein);
+  box-shadow: var(--sh-2); cursor: pointer; }
+#maj[hidden] { display: none; }
+/* ---------- Réglages, installation ---------- */
+dialog { border: 1.5px solid var(--trait); border-radius: var(--r-l); padding: 22px; width: min(92vw, 440px); max-height: 92dvh; background: var(--surface);
+  color: var(--encre); box-shadow: var(--sh-3); }
+dialog::backdrop { background: rgba(0,47,167,.18); }
+dialog h2 { margin: 0 0 8px; font: 700 22px var(--display); }
+dialog p { color: var(--encre-2); font-size: 14px; margin: 0 0 12px; }
+dialog p.accueil { color: var(--encre); font: 500 16px/1.45 var(--display); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--trait-doux); }
+dialog p.accueil strong { display: block; font: 700 24px/1.2 var(--display); margin-bottom: 4px; }
+dialog input { width: 100%; min-height: var(--cible); margin-bottom: 8px; padding: 10px 12px; border-radius: var(--r-s); border: 1.5px solid var(--trait); font: 15px var(--mono);
+  background: var(--fond); color: var(--encre); }
+dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 18px 0 0; }
+dialog button { min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: var(--r-p); padding: 0 16px; font: 500 15px var(--mono); cursor: pointer;
+  background: var(--surface); color: var(--encre); }
+dialog button.principal { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
+dialog .cle-bt { margin-top: 4px; }
+dialog .cle-bt button { padding: 0 12px; font-size: 13px; }
+dialog .appareil { border-top: 1px solid var(--trait-doux); margin-top: 16px; padding-top: 14px; }
+dialog .appareil h3 { margin: 0 0 6px; font: 700 16px var(--display); }
+dialog .rang { display: flex; flex-wrap: wrap; gap: 8px; }
+#qr { display: block; width: 220px; max-width: 100%; margin: 12px auto 4px; background: #fff; padding: 10px; border-radius: var(--r-m); border: 1.5px solid var(--trait); }
+#qr[hidden] { display: none; }
+#installe { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: rgba(0,47,167,.18); }
+#installe[hidden] { display: none; }
+#installe > div { background: var(--surface); color: var(--encre); border: 1.5px solid var(--trait); border-radius: var(--r-l); padding: 22px; max-width: 360px; box-shadow: var(--sh-3); }
+#installe h2 { margin: 0 0 8px; font: 700 22px var(--display); }
+#installe p { color: var(--encre-2); font-size: 14px; margin: 0 0 12px; }
+#installe button { min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: var(--r-p); padding: 0 18px; font: 500 15px var(--mono); cursor: pointer;
+  background: var(--surface); color: var(--encre); margin: 4px 6px 0 0; }
+#installe button.principal { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
 /* Écran d'ouverture : l'étincelle s'allume */
-#ouverture { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: var(--bg); transition: opacity .35s; }
-#ouverture svg { width: 84px; height: 84px; color: var(--ink); animation: allume .6s ease-out both; }
+#ouverture { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: var(--fond); transition: opacity .35s; }
+#ouverture svg { width: 84px; height: 84px; color: var(--trait); animation: allume .6s ease-out both; }
 #ouverture.fini { opacity: 0; pointer-events: none; }
 @keyframes allume { 0% { transform: scale(.6) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { #ouverture { display: none; } }
-/* Essai graphique 3 : icône dessinée en tête des encarts */
-.bulle.systeme .titre svg { width: 20px; height: 20px; vertical-align: -3px; margin-right: 6px; }
-/* Loupe discrète, à droite de la poignée des fils */
-#barre-fils { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 16px; margin: -8px 0 8px; }
-#barre-fils #plier { margin: 0; }
-#chercher { justify-self: end; all: unset; cursor: pointer; justify-self: end; width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); }
-#chercher svg { width: 18px; height: 18px; }
-/* Tout tient dans l'écran : la page ne défile jamais, seule la conversation défile ; sur un écran peu haut (ou un
-   texte agrandi par le téléphone), l'en-tête et les fils se compactent. */
-html, body { overflow: hidden; overscroll-behavior: none; }
-header, nav, #barre-fils, #epingles, footer { flex-shrink: 0; }
-main, #vue-brief, #vue-maintenance { min-height: 0; }
-@media (max-height: 780px) {
-  header { padding-top: calc(env(safe-area-inset-top) + 10px); padding-bottom: 4px; }
-  header h1 { font-size: 24px; }
-  nav { gap: 6px; padding: 8px 14px 8px; }
-  nav button { aspect-ratio: auto; height: 54px; border-radius: 13px; gap: 3px; padding: 4px 2px; }
-  nav button svg { width: 22px; height: 22px; }
+@media (prefers-reduced-motion: reduce) { #ouverture { display: none; } #plier svg { transition: none; } }
+/* Focus visible au clavier, partout */
+button:focus-visible, .feuille-msg button:focus-visible, .epingle button:focus-visible { outline: 3px solid var(--trait); outline-offset: 2px; }
+#menu button:focus-visible, .feuille-msg button:focus-visible { outline: 3px solid var(--trait); outline-offset: -4px; }
+nav button[aria-pressed="true"]:focus-visible, header > button[aria-pressed="true"]:focus-visible { outline-color: var(--trait-doux); }
+textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); outline-offset: 2px; }
+
+/* ---------- TÉLÉPHONE : écrans étroits ou peu hauts ---------- */
+@media (max-width: 400px) { header h1 small .long { display: none; } }
+@media (max-width: 899px) and (max-height: 700px) {
+  header { padding-top: calc(env(safe-area-inset-top) + 6px); padding-bottom: 4px; }
+  header h1 { font-size: 22px; }
   footer { padding-top: 6px; padding-bottom: calc(env(safe-area-inset-bottom) + 8px); }
 }
-@media (max-height: 600px) {
-  nav button { height: 40px; } nav button > span:not(.badge) { display: none; }
+@media (max-width: 899px) and (max-height: 520px) { header h1 small { display: none; } }
+
+/* ---------- ORDINATEUR (à partir de 900 px) : deux colonnes ---------- */
+@media (min-width: 900px) {
+  body { max-width: 1040px; padding: 0 24px 24px; }
+  header { padding: 20px 0 16px; gap: 8px; }
+  header h1 { font-size: 30px; }
+  #menu { right: 0; }
+  #app { flex-direction: row; align-items: stretch; gap: 24px; }
+  /* colonne des fils, à gauche */
+  #barre-fils { width: 240px; flex: none; flex-direction: column; align-items: stretch; gap: 12px; padding: 2px 0 0; overflow-y: auto; }
+  #chercher { order: -1; width: 100%; height: 40px; justify-content: flex-start; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+    border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre-2); font: 500 14px var(--mono); }
+  #chercher .lib { display: inline; flex: 1; text-align: left; }
+  #chercher kbd { display: inline; font: 500 12px var(--mono); padding: 1px 6px; border: 1px solid var(--trait-doux); border-radius: var(--r-s); }
+  #plier { display: none; }
+  nav { flex: none; flex-direction: column; overflow: visible; padding: 0; gap: 4px; -webkit-mask-image: none; mask-image: none; }
+  nav button { width: 100%; height: 44px; gap: 12px; padding: 0 12px; border-color: transparent; background: transparent; border-radius: var(--r-m);
+    font: 600 14px/1.2 var(--display); }
+  nav button svg { width: 22px; height: 22px; }
+  nav button .nom { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+  nav button:not([aria-pressed="true"]):hover { background: var(--surface); border-color: var(--trait-doux); }
+  nav button[aria-pressed="true"] { border-color: var(--plein); }
+  nav button:active { transform: none; }
+  /* conversation à droite : un plateau qui se détache du fond, avec une ombre décalée */
+  #conv { flex: 1 1 720px; max-width: 720px; border: 1.5px solid var(--trait); border-radius: var(--r-l); background: var(--plateau);
+    box-shadow: var(--sh-2); overflow: hidden; }
+  main, #vue-brief, #vue-maintenance { border-top: 0; padding: 16px 24px 24px; }
+  #recherche { border-top: 0; border-bottom: 1.5px solid var(--trait); padding: 10px 16px; background: var(--plateau); }
+  #epingles:not(:empty) { border-top: 0; border-bottom: 1.5px solid var(--trait); background: var(--plateau); }
+  .bulle { max-width: 560px; font-size: 15px; line-height: 22px; }
+  .ligne-life { max-width: 600px; }
+  .bulle.systeme { max-width: none; }
+  footer { padding: 12px 16px 14px; background: var(--plateau); }
+  #bandeau { left: 24px; right: 24px; }
+  #maj { bottom: 110px; }
+  .bulle.systeme .titre { font-size: 20px; line-height: 26px; }
 }
-@media (min-width: 600px) {
-  html { background: var(--board); }
-  body { max-width: 520px; border-left: 1.5px solid var(--ink); border-right: 1.5px solid var(--ink); box-shadow: 6px 0 0 var(--doux); zoom: .82; height: calc(100dvh / .82); }
+/* souris : cibles de 36 px au moins, survol qui soulève */
+@media (min-width: 900px) and (pointer: fine) {
+  :root { --cible: 36px; }
+  header > button { width: 40px; height: 40px; }
+  nav button { height: 40px; }
+  .rond { width: 42px; height: 42px; }
+  textarea { min-height: 42px; padding: 9px 16px; border-radius: 21px; }
+  #menu button { min-height: 40px; padding: 10px 20px; }
+  .rapides button:hover, .retour:hover, dialog button:hover, header > button:not([aria-pressed="true"]):hover { transform: translate(-1px, -1px); box-shadow: var(--sh-1); }
 }
 </style>
 </head>
 <body>
 <div id="ouverture" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.5 6.5l2.5 2.5M15 15l2.5 2.5M6.5 17.5L9 15M15 9l2.5-2.5"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg></div>
 <header>
-  <h1>LIFE<small>ta messagerie · <span id="ver-haut"></span></small></h1>
-  <span class="etat" id="etat"></span>
-  <button id="brief" title="Brief du jour" aria-label="Brief du jour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
-  <button id="maintenance" title="Maintenance" aria-label="Maintenance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></button>
+  <h1>LIFE<small><span class="long">ta messagerie · </span><span id="ver-haut"></span></small></h1>
+  <button id="brief" title="Brief du jour" aria-label="Brief du jour" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z"/><path d="M16 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-4 0"/><path d="M7.5 8h5M7.5 11.5h5M7.5 15h3"/></svg></button>
+  <button id="maintenance" title="Maintenance" aria-label="Maintenance" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></button>
   <button id="theme" title="Jour / nuit" aria-label="Jour ou nuit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
-  <button id="plus" title="Plus" aria-label="Plus d'options" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
-  <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="effacer-fil" role="menuitem">Effacer ce fil</button><button id="reglages" role="menuitem">Réglages (clé du lien)</button></div>
+  <button id="plus" title="Plus" aria-label="Plus d'options" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
+  <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="reglages" role="menuitem">Réglages (clé du lien)</button><button id="effacer-fil" role="menuitem">Effacer ce fil</button></div>
 </header>
-<nav id="fils" aria-label="Fils"></nav>
-<div id="barre-fils"><span></span><button id="plier" aria-label="Replier les fils" title="Replier les fils"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button><button id="chercher" aria-label="Rechercher" title="Rechercher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button></div>
-<div id="recherche" hidden><input id="q" type="search" placeholder="Rechercher dans mes messages…" autocomplete="off"><button id="fermer-recherche" aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-<div id="epingles"></div>
-<div id="tirer">relâche pour actualiser</div>
-<main id="messages" aria-live="polite"></main>
-<section id="vue-brief" aria-label="Brief du jour"></section>
-<section id="vue-maintenance" aria-label="Maintenance"></section>
-<footer>
-  <button class="rond" id="micro" title="Dicter" aria-label="Dicter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></button>
-  <textarea id="saisie" rows="1" placeholder="Écris à LIFE…" aria-label="Message"></textarea>
-  <button class="rond" id="envoyer" title="Envoyer" aria-label="Envoyer" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/></svg></button>
-</footer>
+<div id="app">
+  <div id="barre-fils">
+    <nav id="fils" aria-label="Fils"></nav>
+    <button id="plier" aria-label="Voir tous les fils" title="Voir tous les fils" aria-expanded="false" aria-controls="fils"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+    <button id="chercher" aria-label="Rechercher" title="Rechercher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span class="lib">Rechercher</span><kbd id="raccourci">Ctrl K</kbd></button>
+  </div>
+  <div id="conv">
+    <div id="recherche" hidden><input id="q" type="search" placeholder="Rechercher dans mes messages…" autocomplete="off" aria-label="Rechercher dans mes messages"><button id="fermer-recherche" aria-label="Fermer la recherche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div id="epingles"></div>
+    <div id="tirer">relâche pour actualiser</div>
+    <main id="messages" aria-live="polite"></main>
+    <section id="vue-brief" aria-label="Brief du jour"></section>
+    <section id="vue-maintenance" aria-label="Maintenance"></section>
+    <footer>
+      <div id="bandeau" role="status" aria-live="polite" hidden></div>
+      <button class="rond" id="micro" title="Dicter" aria-label="Dicter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></button>
+      <textarea id="saisie" rows="1" placeholder="Écris à LIFE…" aria-label="Message"></textarea>
+      <button class="rond" id="envoyer" title="Envoyer" aria-label="Envoyer" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/></svg></button>
+    </footer>
+  </div>
+</div>
 
 <dialog id="dlg">
+  <p class="accueil" id="accueil" hidden><strong>Bienvenue dans LIFE</strong>Ici, tu écris à ton système comme dans une messagerie. Pour commencer, relie LIFE avec l'adresse et la clé que tu utilises déjà dans Ma carte de vie.</p>
   <h2>Clé et connexion</h2>
   <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil.</p>
-  <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (https://…/webhook/life)">
-  <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien">
+  <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (commence par https://)" aria-label="Adresse du lien">
+  <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien" aria-label="Clé du lien">
   <div class="rang cle-bt"><button id="coller-cle">Coller la clé copiée</button><button id="copier-cle">Copier la clé</button></div>
   <menu><button value="annuler" id="annuler">Annuler</button><button class="principal" id="garder">Enregistrer</button></menu>
   <div class="appareil">
@@ -304,6 +388,23 @@ const COULEURS = { general: '#002FA7', travail: '#2f5fd8', metamorphose: '#6c8fe
   voyage: '#8fb0f0', experts: '#3a4fb0', comite: '#2a3f9a', brainstorm: '#5f86e8', coach: '#a9c0f2' };
 const svg = id => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONES[id] + '</svg>';
 const $ = id => document.getElementById(id);
+const COUPURES = { brainstorm: 'Brain­storming' };   // dans la grille, le nom long passe à la ligne au lieu de rétrécir
+// Brief et Maintenance : des vues à part ; quand l'une est ouverte, aucun fil n'est marqué actif.
+const enVueAPart = () => document.body.classList.contains('brief') || document.body.classList.contains('maintenance');
+function majVues() {
+  $('brief').setAttribute('aria-pressed', String(document.body.classList.contains('brief')));
+  $('maintenance').setAttribute('aria-pressed', String(document.body.classList.contains('maintenance')));
+}
+function vue(nom) {   // 'brief', 'maintenance', ou null pour revenir à la conversation
+  document.body.classList.toggle('brief', nom === 'brief'); document.body.classList.toggle('maintenance', nom === 'maintenance');
+  majVues(); afficher();
+  if (nom) { const r = $(nom === 'brief' ? 'vue-brief' : 'vue-maintenance').querySelector('.retour'); if (r) r.focus({ preventScroll: true }); }
+}
+function boutonRetour() {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'retour';
+  b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span>Conversation</span>';
+  b.onclick = () => vue(null); return b;
+}
 const store = {
   lire(k, d) { try { const v = localStorage.getItem('life.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   ecrire(k, v) { try { localStorage.setItem('life.' + k, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } }
@@ -322,12 +423,29 @@ function pastilleAppli() {   // le petit numéro sur l'icône de l'app (Android,
   try { if (navigator.setAppBadge) total ? navigator.setAppBadge(total) : navigator.clearAppBadge(); } catch (e) { /* non pris en charge */ }
 }
 
-function etat(t) { $('etat').textContent = t || ''; }
+// Message d'état : bandeau au-dessus de la saisie, lu par les lecteurs d'écran (role="status"), qui s'efface seul.
+// action = [libellé, fonction] : un bouton dans le bandeau (« Annuler », « Réessayer »).
+let minuterieBandeau = null;
+function bandeau(texte, action, duree) {
+  const z = $('bandeau'); clearTimeout(minuterieBandeau); z.innerHTML = '';
+  if (!texte) { z.hidden = true; return; }
+  const s = document.createElement('span'); s.textContent = texte; z.appendChild(s);
+  if (action) { const b = document.createElement('button'); b.type = 'button'; b.textContent = action[0];
+    b.onclick = e => { e.stopPropagation(); clearTimeout(minuterieBandeau); z.hidden = true; action[1](); }; z.appendChild(b); }
+  z.hidden = false;
+  minuterieBandeau = setTimeout(() => { z.hidden = true; }, duree || 4000);
+}
+function etat(t) { if (t) bandeau(t); else if (!$('bandeau').querySelector('button')) bandeau(''); }   // sans texte : efface, sauf un « Annuler » en cours
+function ouvrirReglages() {
+  $('accueil').hidden = !!(cle() && adresse());   // premier lancement : une phrase d'accueil avant la connexion
+  $('cle').value = cle(); $('adresse').value = adresse();
+  if (!$('dlg').open) $('dlg').showModal();
+}
 // Sans clé propre, LIFE reprend la clé du lien de Ma carte de vie (même site, même stockage) : une seule clé à coller.
 function cle() { const c = store.lire('cle', ''); if (c) return c; try { return (localStorage.getItem('carte-de-vie-lien') || '').trim(); } catch (e) { return ''; } }
 
 async function appel(corps) {
-  if (!cle() || !adresse()) { $('dlg').showModal(); throw new Error('clé ou adresse manquante'); }
+  if (!cle() || !adresse()) { ouvrirReglages(); throw new Error('clé ou adresse manquante'); }
   const r = await fetch(adresse(), { method: 'POST', headers: { 'content-type': 'application/json', 'x-cle-app': cle() },
                                    body: JSON.stringify(corps) });
   if (r.status === 403 || r.status === 401) throw new Error('clé refusée');
@@ -342,9 +460,10 @@ function fusionner(nouveaux) {
   // une copie locale disparaît dès que le serveur renvoie le même message
   const duServeur = new Set(nouveaux.filter(m => m.auteur === 'moi' && !m.local).map(m => (m.fil || 'general') + '|' + m.texte));
   [...parId.values()].forEach(m => { if (m.local && !m.expert && duServeur.has((m.fil || 'general') + '|' + m.texte)) parId.delete(m.id); });
-  messages = [...parId.values()].filter(m => !m.temp).sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : (a.id < b.id ? -1 : 1)).slice(-400);
+  messages = [...parId.values()].filter(m => !m.temp).sort(ordre).slice(-400);
   store.ecrire('messages', messages);
 }
+function ordre(a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : (a.id < b.id ? -1 : 1); }
 
 function heure(t) { return (t || '').slice(11, 16); }
 function jourLisible(t) {
@@ -401,24 +520,55 @@ let epingles = store.lire('epingles', {});
 // Suppression manuelle (appui long → Supprimer, ou ••• → Effacer ce fil) : retirée de l'appareil tout de suite, puis du serveur.
 let supprimes = new Set(store.lire('supprimes', []));
 let filsForces = store.lire('filsForces', {});   // id du message → fil où l'échange a eu lieu
-function supprimer(ids) {
+// La suppression est d'abord locale et annulable pendant 5 s (bandeau « Annuler ») ; le serveur n'est prévenu qu'après.
+let aRetirer = store.lire('aRetirer', []);   // suppressions confirmées, pas encore reçues par le serveur
+let annulable = null;                        // { ids, avant, minuterie } : la dernière suppression, encore annulable
+const locaux = () => messages.filter(m => !m.temp);
+function supprimer(ids, libelle) {
   ids = ids.filter(Boolean); if (!ids.length) return;
+  confirmerSuppression();   // une suppression précédente encore en attente part tout de suite
+  const avant = { messages: messages.filter(m => ids.includes(m.id)), epingles: JSON.parse(JSON.stringify(epingles)) };
   ids.forEach(i => supprimes.add(i)); store.ecrire('supprimes', [...supprimes].slice(-3000));
-  messages = messages.filter(m => !supprimes.has(m.id)); store.ecrire('messages', messages);
+  messages = messages.filter(m => !supprimes.has(m.id)); store.ecrire('messages', locaux());
   Object.keys(epingles).forEach(f => { epingles[f] = (epingles[f] || []).filter(i => !supprimes.has(i)); }); store.ecrire('epingles', epingles);
   afficher();
-  const serveur = ids.filter(i => !/^(tmp|loc)-/.test(i));
-  if (serveur.length && !DEMO) appel({ action: 'retirer', ids: serveur }).catch(() => {});
+  annulable = { ids, avant, minuterie: setTimeout(confirmerSuppression, 5000) };
+  bandeau(libelle || 'Message supprimé', ['Annuler', annulerSuppression], 5000);
 }
+function confirmerSuppression() {
+  if (!annulable) return;
+  const { ids, minuterie } = annulable; clearTimeout(minuterie); annulable = null;
+  const serveur = ids.filter(i => !/^(tmp|loc)-/.test(i));
+  if (!serveur.length) return;
+  aRetirer = [...new Set(aRetirer.concat(serveur))].slice(-500); store.ecrire('aRetirer', aRetirer);
+  retirerServeur();
+}
+function retirerServeur() {   // en cas d'échec (hors ligne), on réessaie au prochain lancement
+  if (DEMO || !aRetirer.length || !cle() || !adresse()) return;
+  const ids = aRetirer.slice();
+  appel({ action: 'retirer', ids }).then(() => { aRetirer = aRetirer.filter(i => !ids.includes(i)); store.ecrire('aRetirer', aRetirer); }).catch(() => {});
+}
+function annulerSuppression() {
+  if (!annulable) return;
+  const { ids, avant, minuterie } = annulable; clearTimeout(minuterie); annulable = null;
+  ids.forEach(i => supprimes.delete(i)); store.ecrire('supprimes', [...supprimes].slice(-3000));
+  messages = messages.filter(m => !ids.includes(m.id)).concat(avant.messages).sort(ordre); store.ecrire('messages', locaux());
+  epingles = avant.epingles; store.ecrire('epingles', epingles);
+  afficher(); bandeau('Rétabli', null, 3000);
+}
+function fermerFeuilles() { document.querySelectorAll('.feuille-msg').forEach(x => x.remove()); }
 function actionsMessage(m, b) {
-  document.querySelectorAll('.feuille-msg').forEach(x => x.remove());
+  fermerFeuilles();
+  if (!store.lire('aideAppui', false)) store.ecrire('aideAppui', true);   // le geste est connu : plus d'indice
   const f = document.createElement('div'); f.className = 'feuille-msg'; f.setAttribute('role', 'menu');
-  const bt = (t, fn) => { const x = document.createElement('button'); x.textContent = t; x.onclick = e => { e.stopPropagation(); f.remove(); fn(); }; f.appendChild(x); };
+  const bt = (t, fn) => { const x = document.createElement('button'); x.type = 'button'; x.setAttribute('role', 'menuitem'); x.textContent = t;
+    x.onclick = e => { e.stopPropagation(); f.remove(); fn(); }; f.appendChild(x); };
   const ep = (epingles[m.fil || 'general'] || []).includes(m.id);
   bt(ep ? 'Désépingler' : 'Épingler', () => epingler(m));
-  bt('Copier', () => { try { navigator.clipboard.writeText(m.texte || ''); } catch (e) { /* refusé */ } });
-  bt('Supprimer', () => { if (confirm('Supprimer ce message ?')) supprimer([m.id]); });
-  b.appendChild(f); setTimeout(() => document.addEventListener('click', () => f.remove(), { once: true }), 0);
+  bt('Copier', () => { try { navigator.clipboard.writeText(m.texte || '').then(() => bandeau('Copié', null, 2500), () => {}); } catch (e) { /* refusé */ } });
+  bt('Supprimer', () => supprimer([m.id], 'Message supprimé'));
+  b.appendChild(f); f.querySelector('button').focus({ preventScroll: true });
+  setTimeout(() => document.addEventListener('click', () => f.remove(), { once: true }), 0);
 }   // fil → [id]
 function epingler(m) {
   const f = m.fil || 'general', l = epingles[f] || [];
@@ -441,23 +591,32 @@ function afficherEpingles() {
 function afficher() {
   afficherEpingles();
   $('saisie').placeholder = fil === 'experts' ? 'Ta question — ou « notaire : … » pour un expert précis' : fil === 'comite' ? 'Ta décision à prendre — /direct, /fiche, /vite, /comite' : fil === 'brainstorm' ? 'Un besoin, une idée : je pars dans tous les sens' : 'Écris à LIFE…';
-  $('fils').innerHTML = '';
-  if (document.visibilityState !== 'hidden') marquerLu(fil);   // le fil ouvert est lu
+  const nav = $('fils'), defile = nav.scrollLeft, vueAPart = enVueAPart();
+  nav.innerHTML = '';
+  if (document.visibilityState !== 'hidden' && !vueAPart) marquerLu(fil);   // le fil ouvert est lu
   FILS.forEach(([id, nom]) => {
-    const b = document.createElement('button'), n = id === fil ? 0 : nonLus(id);
-    b.innerHTML = svg(id) + '<span></span>' + (ESSAI_POINTS ? '<i class="point" style="background:' + COULEURS[id] + '"></i>' : '') + (n ? '<span class="badge">' + (n > 99 ? '99+' : n) + '</span>' : '');
-    b.querySelector('span').textContent = nom; if (nom.length > 8) b.querySelector('span').classList.add('long'); if (nom.length > 11) b.querySelector('span').classList.add('xlong');
-    b.setAttribute('aria-pressed', String(id === fil));
+    const b = document.createElement('button'), n = id === fil && !vueAPart ? 0 : nonLus(id);
+    b.type = 'button';
+    b.innerHTML = svg(id) + '<span class="nom"></span>' + (ESSAI_POINTS ? '<i class="point" style="background:' + COULEURS[id] + '"></i>' : '') + (n ? '<span class="badge" aria-hidden="true">' + (n > 99 ? '99+' : n) + '</span>' : '');
+    b.querySelector('.nom').textContent = COUPURES[id] || nom;
+    b.setAttribute('aria-pressed', String(id === fil && !vueAPart));   // Brief ou Maintenance ouverts : aucun fil n'est actif
     b.setAttribute('aria-label', nom + (n ? ', ' + n + ' nouveau' + (n > 1 ? 'x' : '') + ' message' + (n > 1 ? 's' : '') : ''));
-    b.onclick = () => { fil = id; store.ecrire('fil', fil); afficher(); };
-    $('fils').appendChild(b);
+    b.onclick = () => { fil = id; store.ecrire('fil', fil); document.body.classList.remove('brief', 'maintenance'); majVues(); afficher(); };
+    nav.appendChild(b);
   });
+  // rangée défilante : on garde la position, et le fil choisi reste visible
+  nav.scrollLeft = defile;
+  const choisi = nav.querySelector('[aria-pressed="true"]');
+  if (choisi && nav.scrollWidth > nav.clientWidth + 1) {
+    const g = choisi.offsetLeft - 16, d = choisi.offsetLeft + choisi.offsetWidth + 16 - nav.clientWidth;
+    if (g < nav.scrollLeft) nav.scrollLeft = g; else if (d > nav.scrollLeft) nav.scrollLeft = d;
+  }
   pastilleAppli();
   const zone = $('messages'); zone.innerHTML = '';
   const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
   const briefs = messages.filter(estBrief);
-  const vb = $('vue-brief'); vb.innerHTML = '';
-  if (!briefs.length) vb.innerHTML = '<div class="vide"><strong>Pas encore de brief</strong>Il arrive chaque matin à 7 h 50.</div>';
+  const vb = $('vue-brief'); vb.innerHTML = ''; vb.appendChild(boutonRetour());
+  if (!briefs.length) vb.insertAdjacentHTML('beforeend', '<div class="vide"><strong>Pas encore de brief</strong>Il arrive chaque matin à 7 h 50.</div>');
   else vb.appendChild(carteSysteme(briefs[briefs.length - 1]));
   // Brief et Maintenance : lus quand on ouvre leur section ; sinon un petit numéro sur leur bouton.
   if (document.body.classList.contains('brief') && briefs.length) { vus.brief = briefs[briefs.length - 1].t; store.ecrire('vus', vus); }
@@ -467,8 +626,8 @@ function afficher() {
     const b = $(id), old = b.querySelector('.badge'); if (old) old.remove();
     if (n) { const x = document.createElement('span'); x.className = 'badge'; x.textContent = n > 9 ? '9+' : n; b.appendChild(x); }
   });
-  const vm = $('vue-maintenance'); vm.innerHTML = '';
-  if (!maint.length) vm.innerHTML = '<div class="vide"><strong>Rien à signaler</strong>Le rapport du système et ses alertes arrivent ici.</div>';
+  const vm = $('vue-maintenance'); vm.innerHTML = ''; vm.appendChild(boutonRetour());
+  if (!maint.length) vm.insertAdjacentHTML('beforeend', '<div class="vide"><strong>Rien à signaler</strong>Le rapport du système et ses alertes arrivent ici.</div>');
   else maint.slice(-10).forEach(m => vm.appendChild(carteSysteme(m)));
   if (document.body.classList.contains('maintenance')) vm.scrollTop = vm.scrollHeight;
   const liste = messages.filter(m => (m.fil || 'general') === fil && !estBrief(m));
@@ -481,12 +640,15 @@ function afficher() {
     const j = jourLisible(m.t);
     if (j && j !== dernierJour) { const s = document.createElement('div'); s.className = 'jour'; s.textContent = j; zone.appendChild(s); dernierJour = j; }
     const b = document.createElement('div');
-    b.className = 'bulle ' + (m.auteur === 'moi' ? 'moi' : m.auteur === 'systeme' ? 'systeme' : 'life') + (m.temp ? ' attente' : '');
+    b.className = 'bulle ' + (m.auteur === 'moi' ? 'moi' : m.auteur === 'systeme' ? 'systeme info' : 'life') + (m.temp ? ' attente' : '') + (m.echec ? ' echec' : '');
     if (m.auteur === 'systeme') { remplirCarte(b, m.texte); b.dataset.etiquette = 'Info · ' + (FILS.find(f => f[0] === (m.fil || 'general')) || ['', ''])[1]; }
     else b.textContent = m.auteur === 'moi' ? m.texte : sobre(m.texte);   // texte brut : jamais interprété comme du HTML
     const suivant = liste[k + 1];
     const finDeGroupe = !suivant || suivant.auteur !== m.auteur || (suivant.t || '').slice(0, 15) !== (m.t || '').slice(0, 15);
-    if (m.temp || finDeGroupe) {   // l'heure une fois par groupe de messages rapprochés
+    if (m.echec) {   // envoi raté : la bulle le dit, et se renvoie d'un toucher
+      const r = document.createElement('button'); r.type = 'button'; r.className = 'reessayer'; r.textContent = 'Non envoyé · Réessayer';
+      r.onclick = e => { e.stopPropagation(); reessayer(m); }; b.appendChild(r);
+    } else if (m.temp || finDeGroupe) {   // l'heure une fois par groupe de messages rapprochés
       const h = document.createElement('span'); h.className = 'heure'; h.textContent = m.temp ? 'envoi…' : heure(m.t); b.appendChild(h);
     }
     if (m.auteur === 'life') {   // avatar de LIFE, une fois par groupe
@@ -505,6 +667,14 @@ function afficher() {
       zone.appendChild(r);
     }
   });
+  if (!store.lire('aideAppui', false)) {   // indice discret, jusqu'à ce qu'il soit lu ou que le geste soit utilisé
+    const a = document.createElement('div'); a.className = 'aide';
+    const s = document.createElement('span');
+    s.textContent = (matchMedia('(pointer: fine)').matches ? 'Clic droit' : 'Appui long') + ' sur un message : épingler, copier ou supprimer.';
+    const ok = document.createElement('button'); ok.type = 'button'; ok.textContent = 'Compris';
+    ok.onclick = () => { store.ecrire('aideAppui', true); a.remove(); };
+    a.appendChild(s); a.appendChild(ok); zone.appendChild(a);
+  }
   if (enAttente) { const e = document.createElement('div'); e.className = 'ecrit'; e.setAttribute('aria-label', 'LIFE écrit');
     e.innerHTML = '<i></i><i></i><i></i>'; zone.appendChild(e); }
   zone.scrollTop = zone.scrollHeight;
@@ -514,9 +684,9 @@ const DEMO = location.search.includes('demo');
 let enAttente = false;   // LIFE écrit (trois points)
 async function actualiser() {
   if (DEMO) return;
-  derniereActu = Date.now(); etat('…');
+  derniereActu = Date.now();
   try {
-    const dernier = messages.length ? messages[messages.length - 1].t : '';
+    const reels = messages.filter(m => !m.echec), dernier = reels.length ? reels[reels.length - 1].t : '';
     const j = await appel({ action: 'fil', depuis: dernier });
     fusionner(j.messages || []); afficher(); etat('');
   } catch (e) { etat(raison(e)); }
@@ -557,7 +727,7 @@ async function envoyer() {
   messages.push(temp); enAttente = true; afficher();
   try {
     if (fil === 'experts') {
-      if (!cle() || !adresse()) { $('dlg').showModal(); throw new Error('clé ou adresse manquante'); }
+      if (!cle() || !adresse()) { ouvrirReglages(); throw new Error('clé ou adresse manquante'); }
       const rep = await demanderExpert(texte), t0 = Date.now();
       fusionner([Object.assign({}, temp, { id: 'loc-' + t0, temp: false, local: true, expert: true }),
         ...rep.map((x, k) => ({ id: 'loc-' + t0 + '-' + k, t: heureLocale(), auteur: 'life', fil: 'experts', texte: x.nom + '\n' + x.texte, local: true, expert: true }))]);
@@ -572,10 +742,17 @@ async function envoyer() {
     fusionner(recus); etat('');
   } catch (e) {
     enAttente = false;
-    messages = messages.filter(m => m !== temp);
-    $('saisie').value = texte; ajuster(); etat(e.message === 'clé refusée' ? 'clé refusée — vérifie les réglages' : 'non envoyé, réessaie');
+    temp.temp = false; temp.echec = true;   // la bulle reste, marquée « Non envoyé · Réessayer » (gardée sur l'appareil)
+    store.ecrire('messages', locaux());
+    bandeau(e.message === 'clé refusée' ? 'Non envoyé : clé refusée, vérifie les réglages' : 'Non envoyé : ' + raison(e), ['Réessayer', () => reessayer(temp)], 5000);
   }
   enAttente = false; afficher();
+}
+function reessayer(m) {   // renvoie un message resté « Non envoyé », dans son fil, sans toucher à ce qui est en cours de saisie
+  messages = messages.filter(x => x !== m && x.id !== m.id); store.ecrire('messages', locaux());
+  if (m.fil && m.fil !== fil) { fil = m.fil; store.ecrire('fil', fil); }
+  if (enVueAPart()) { document.body.classList.remove('brief', 'maintenance'); majVues(); }
+  const brouillon = $('saisie').value; $('saisie').value = m.texte; envoyer(); $('saisie').value = brouillon; ajuster();
 }
 
 function ajuster() {
@@ -599,20 +776,41 @@ $('micro').onclick = () => {
 
 $('saisie').addEventListener('input', ajuster);
 // Brief : section à part, ouverte par le soleil de l'en-tête.
-$('brief').onclick = () => { document.body.classList.remove('maintenance'); document.body.classList.toggle('brief'); afficher(); };
+$('brief').onclick = () => vue(document.body.classList.contains('brief') ? null : 'brief');
 // Maintenance : section à part (rapport journalier, alertes du système), jamais mêlée aux conversations.
-$('maintenance').onclick = () => { document.body.classList.remove('brief'); document.body.classList.toggle('maintenance'); afficher(); };
-$('fils').addEventListener('click', () => document.body.classList.remove('brief', 'maintenance'));
-let plieMain = false;
-$('saisie').addEventListener('focus', () => document.body.classList.add('replie'));
-$('saisie').addEventListener('blur', () => { if (!plieMain) document.body.classList.remove('replie'); });
-// Fils dépliés par défaut ; repliables d'un toucher (une ligne de petits carrés), dépliés de même.
-$('plier').onclick = () => { const r = document.body.classList.toggle('replie'); plieMain = r;
-  $('plier').setAttribute('aria-label', r ? 'Déplier les fils' : 'Replier les fils'); };
+$('maintenance').onclick = () => vue(document.body.classList.contains('maintenance') ? null : 'maintenance');
+// Téléphone : les fils sur une rangée qui défile ; la grille complète s'ouvre avec ⌄ (choix gardé sur l'appareil).
+// Pendant la saisie, la grille se range pour laisser la place à la conversation.
+let grille = store.lire('grille', false), enSaisie = false;
+function majGrille() {
+  const g = grille && !enSaisie, t = g ? 'Replier les fils' : 'Voir tous les fils';
+  document.body.classList.toggle('grille', g);
+  $('plier').setAttribute('aria-expanded', String(g)); $('plier').setAttribute('aria-label', t); $('plier').title = t;
+}
+majGrille();
+$('saisie').addEventListener('focus', () => { enSaisie = true; majGrille(); });
+$('saisie').addEventListener('blur', () => { enSaisie = false; majGrille(); });
+$('plier').onclick = () => { grille = !grille; store.ecrire('grille', grille); majGrille(); };
 $('saisie').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); envoyer(); } });
 $('envoyer').onclick = envoyer;
-$('chercher').onclick = () => { $('recherche').hidden = !$('recherche').hidden; if (!$('recherche').hidden) $('q').focus(); else { $('q').value = ''; afficher(); } };
-$('fermer-recherche').onclick = () => { $('recherche').hidden = true; $('q').value = ''; afficher(); };
+function ouvrirRecherche() { if (enVueAPart()) vue(null); $('recherche').hidden = false; $('q').focus(); $('q').select(); }
+function fermerRecherche() { $('recherche').hidden = true; $('q').value = ''; afficher(); }
+$('chercher').onclick = () => { if ($('recherche').hidden) ouvrirRecherche(); else fermerRecherche(); };
+$('fermer-recherche').onclick = fermerRecherche;
+// Raccourcis (ordinateur surtout) : Ctrl/⌘ + K = rechercher ; Échap = fermer ce qui est ouvert ;
+// Entrée = envoyer et Maj + Entrée = aller à la ligne (sur la saisie, avec un clavier physique).
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+$('raccourci').textContent = MAC ? '⌘ K' : 'Ctrl K';
+$('chercher').title = 'Rechercher (' + (MAC ? '⌘' : 'Ctrl') + ' K)';
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key || '').toLowerCase() === 'k') { e.preventDefault(); ouvrirRecherche(); return; }
+  if (e.key !== 'Escape' || $('dlg').open) return;   // la boîte des réglages se ferme d'elle-même
+  if (!$('installe').hidden) { $('installe').hidden = true; return; }
+  if (document.querySelector('.feuille-msg')) { fermerFeuilles(); return; }
+  if (!$('menu').hidden) { fermerMenu(); $('plus').focus(); return; }
+  if (!$('recherche').hidden) { fermerRecherche(); $('chercher').focus(); return; }
+  if (enVueAPart()) { vue(null); $('saisie').focus(); }
+});
 $('q').addEventListener('input', () => {
   const q = $('q').value.trim().toLowerCase(), zone = $('messages');
   if (q.length < 2) { afficher(); return; }
@@ -628,7 +826,7 @@ $('q').addEventListener('input', () => {
     b.appendChild(document.createTextNode((debut ? '…' : '') + t.slice(debut, i)));
     const mk = document.createElement('mark'); mk.textContent = t.slice(i, i + q.length); b.appendChild(mk);
     b.appendChild(document.createTextNode(t.slice(i + q.length, i + q.length + 120) + '…'));
-    b.onclick = () => { $('recherche').hidden = true; $('q').value = ''; if (m.fil !== 'systeme') { fil = m.fil || 'general'; store.ecrire('fil', fil); } afficher(); };
+    b.onclick = () => { $('recherche').hidden = true; $('q').value = ''; if (m.fil !== 'systeme') { fil = m.fil || 'general'; store.ecrire('fil', fil); afficher(); } else vue('maintenance'); };
     zone.appendChild(b);
   });
 });
@@ -638,46 +836,47 @@ const libelleCalme = () => { $('calme').textContent = 'Ne pas déranger 21 h –
 libelleCalme();
 $('calme').onclick = () => { calme = !calme; store.ecrire('calme', calme); libelleCalme(); };
 const enCalme = () => { const h = new Date().getHours(); return calme && (h >= 21 || h < 8); };
-$('plus').onclick = e => { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; };
-document.addEventListener('click', () => { $('menu').hidden = true; });
+function fermerMenu() { $('menu').hidden = true; $('plus').setAttribute('aria-expanded', 'false'); }
+$('plus').onclick = e => { e.stopPropagation(); const o = $('menu').hidden; $('menu').hidden = !o; $('plus').setAttribute('aria-expanded', String(o));
+  if (o) $('menu').querySelector('button').focus({ preventScroll: true }); };
+document.addEventListener('click', fermerMenu);
 $('actualiser').onclick = actualiser;
-$('effacer-fil').onclick = () => { $('menu').hidden = true; const nom = (FILS.find(([i]) => i === fil) || [, 'ce fil'])[1].replace(/\u00AD/g, '');
+// Effacer ce fil : tout de suite à l'écran, annulable 5 s (bandeau « Annuler ») avant de partir au serveur.
+$('effacer-fil').onclick = () => { fermerMenu(); if (enVueAPart()) vue(null);
+  const nom = (FILS.find(([i]) => i === fil) || [, 'ce fil'])[1];
   const ids = messages.filter(m => (m.fil || 'general') === fil).map(m => m.id);
-  if (!ids.length) { etat('rien à effacer'); setTimeout(() => etat(''), 1500); return; }
-  if (confirm('Effacer toute la conversation « ' + nom + ' » (' + ids.length + ' message' + (ids.length > 1 ? 's' : '') + ') ?')) supprimer(ids); };
+  if (!ids.length) { bandeau('Rien à effacer dans « ' + nom + ' »', null, 2500); return; }
+  supprimer(ids, 'Fil effacé (' + ids.length + ' message' + (ids.length > 1 ? 's' : '') + ')'); };
 // Tirer la conversation vers le bas, en haut de la liste, pour actualiser.
 let tire = null;
 $('messages').addEventListener('touchstart', e => { tire = $('messages').scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
 $('messages').addEventListener('touchmove', e => { if (tire === null) return; const d = e.touches[0].clientY - tire;
   $('tirer').style.height = d > 20 ? Math.min(d / 2, 40) + 'px' : '0'; }, { passive: true });
 $('messages').addEventListener('touchend', () => { if ($('tirer').offsetHeight >= 36) actualiser(); $('tirer').style.height = '0'; tire = null; });
-$('reglages').onclick = () => { $('menu').hidden = true; $('cle').value = cle(); $('adresse').value = adresse(); $('dlg').showModal(); };
+$('reglages').onclick = () => { fermerMenu(); ouvrirReglages(); };
 // Jour / nuit : automatique → jour → nuit → automatique ; gardé sur l'appareil
 const THEMES = { auto: 'Jour / nuit : automatique', jour: 'Mode jour', nuit: 'Mode nuit' };
 function appliquerTheme(t) {
   if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
   const nuit = t === 'nuit' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', nuit ? '#0e1830' : '#f6ecdc'); m.removeAttribute('media'); });
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', nuit ? '#0e1830' : '#f5eee2'); m.removeAttribute('media'); });
   $('theme').title = THEMES[t]; $('theme').setAttribute('aria-label', THEMES[t]);
 }
 let theme = store.lire('theme', 'auto'); appliquerTheme(theme);
-$('theme').onclick = e => { e.stopPropagation(); theme = { auto: 'jour', jour: 'nuit', nuit: 'auto' }[theme] || 'auto'; store.ecrire('theme', theme); appliquerTheme(theme); etat(THEMES[theme].toLowerCase()); setTimeout(() => etat(''), 1800); };
+$('theme').onclick = e => { e.stopPropagation(); theme = { auto: 'jour', jour: 'nuit', nuit: 'auto' }[theme] || 'auto'; store.ecrire('theme', theme); appliquerTheme(theme); bandeau(THEMES[theme], null, 2500); };
 $('annuler').onclick = () => $('dlg').close();
 $('garder').onclick = () => { store.ecrire('cle', $('cle').value.trim()); store.ecrire('adresse', $('adresse').value.trim()); $('dlg').close(); actualiser(); };
 // Une actualisation = une exécution du serveur (quota) : au retour dans l'app, pas plus d'une fois toutes les 5 minutes.
 let derniereActu = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && Date.now() - derniereActu > 5 * 60e3) actualiser();
+  if (document.visibilityState === 'hidden') confirmerSuppression();   // on quitte l'app : la suppression en attente part
 });
+window.addEventListener('pagehide', confirmerSuppression);
 
-try {
-  if (window.matchMedia('(display-mode: standalone)').matches && screen.width > 900 && !store.lire('fenetre', false)) {
-    window.resizeTo(430, Math.min(820, screen.availHeight)); store.ecrire('fenetre', true);
-  }
-} catch (e) { /* redimensionnement refusé : la mise en page reste en colonne */ }
 // Connexion d'un autre appareil : le lien porte l'adresse et la clé dans le « # », qui n'est jamais envoyé à un serveur.
 // À l'ouverture, on les range sur l'appareil puis on efface le « # » de la barre d'adresse et de l'historique.
-const VERSION = 'V.0.0.20';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.21';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const d = btoa(unescape(encodeURIComponent(JSON.stringify({ a: adresse(), c: cle() })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -749,7 +948,7 @@ $('installe-ok').onclick = async () => {
 };
 $('installe-non').onclick = () => { $('installe').hidden = true; };
 // le message reste après la première actualisation, puis s'efface
-function annonce(t) { setTimeout(() => { etat(t); setTimeout(() => { if ($('etat').textContent === t) etat(''); }, 5000); }, 1500); }
+function annonce(t) { setTimeout(() => bandeau(t, null, 5000), 1500); }
 function recevoirConnexion(ev) {
   const m = location.hash.match(/^#connexion=([A-Za-z0-9_-]+)$/);
   if (!m) return;
@@ -803,7 +1002,7 @@ if (DEMO) {
   afficher();
 } else {
   afficher();
-  if (cle() && adresse()) actualiser(); else $('dlg').showModal();
+  if (cle() && adresse()) { actualiser(); retirerServeur(); } else ouvrirReglages();
 }
 </script>
 </body>
