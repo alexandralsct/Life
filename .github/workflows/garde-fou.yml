@@ -28,6 +28,7 @@ jobs:
           sha256sum -c --strict <<'FIN'
           e99334a6b4cec7dfd82972c3cdda40bd6506d80abb1ab6d24dcc60edde6c0ffd  icon-192.png
           911decb9b5c73875a1783cf51b022846e0f02cbf75f110e2a0f800a73f6a65dc  icon-512.png
+          48d9d5e3aa2e608158933d22e566853ca8c34a2e4fcda8b7b3a12f374c035c59  icon-maskable-512.png
           3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35  icon.svg
           FIN
   historique:

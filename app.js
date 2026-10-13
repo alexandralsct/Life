@@ -56,7 +56,30 @@ function boutonRetour() {
 const DEMO = location.search.includes('demo');
 // Stockage de l'appareil (partagé avec les autres apps du même site) : une écriture ratée (stockage plein) est signalée,
 // jamais ignorée en silence. ecrire() rend false en cas d'échec.
-let alerteStockage = 0;
+let alerteStockage = 0, dernierEchec = null;
+// Copie protégée : on demande au navigateur de ne pas effacer LIFE de lui-même quand l'appareil manque de place
+// (navigator.storage.persist, audit expert X2). Demandé une fois connectée, puis au plus une fois par semaine si refusé.
+let persistant = null;
+async function demanderPersistance() {
+  try {
+    if (!navigator.storage || !navigator.storage.persist) return;
+    if (await navigator.storage.persisted()) { persistant = true; return; }
+    if (Date.now() - store.lire('persistDemande', 0) < 7 * 864e5) { persistant = false; return; }
+    store.ecrire('persistDemande', Date.now());
+    persistant = await navigator.storage.persist();
+  } catch (e) { persistant = false; }
+}
+function placeLife() {   // caractères gardés par LIFE dans le stockage de l'appareil
+  let n = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('life.')) n += k.length + (localStorage.getItem(k) || '').length; } } catch (e) { /* */ }
+  return n;
+}
+function decrireAppareil() {
+  const ko = Math.round(placeLife() * 2 / 1024);   // 2 octets par caractère
+  let t = 'LIFE garde ' + ko + ' Ko sur cet appareil (plafond : environ 1 Mo, le reste du stockage est pour Ma carte de vie). '
+    + 'Copie protégée contre l\'effacement automatique : ' + (persistant === true ? 'oui.' : persistant === false ? 'non (le navigateur décide ; installer LIFE aide).' : 'inconnu.');
+  if (dernierEchec) t += ' Dernier enregistrement raté à ' + new Date(dernierEchec.t).toTimeString().slice(0, 5) + ' : ' + dernierEchec.quoi + '.';
+  $('stockage').textContent = t;
+}
 const store = {
   lire(k, d) { try { const v = localStorage.getItem('life.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   ecrire(k, v, silence) {
@@ -66,16 +89,31 @@ const store = {
   effacer(k) { try { localStorage.removeItem('life.' + k); } catch (e) { /* stockage indisponible */ } }
 };
 function stockagePlein(quoi) {
+  dernierEchec = { t: Date.now(), quoi };   // gardé pour Réglages → « Cet appareil »
   if (Date.now() - alerteStockage < 60e3) return;   // une fois par minute au plus
   alerteStockage = Date.now();
   setTimeout(() => bandeau('Stockage de l\'appareil plein : ' + quoi + '.', null, 10000, true), 0);
 }
-// Limite par fil (et non plus globale) : un fil très actif ne fait plus sortir les messages des fils calmes.
-const PAR_FIL = 300, PAR_FIL_SERRE = 80;
+// PLACE PRISE PAR LIFE sur l'appareil (audit expert fiabilité CC-6 / LC-6) : le stockage du navigateur est commun à
+// LIFE et à Ma carte de vie (même site, environ 5 millions de caractères en tout). LIFE se borne pour ne jamais priver la
+// carte de place :
+//   messages : 300 au plus par fil, 150 000 caractères au plus par fil, 500 000 caractères en tout (≈ 1 Mo, soit
+//   environ 10 % du quota) ; les 5 derniers messages de chaque fil sont toujours gardés (et les envois pas encore partis) ;
+//   suppressions et retraits en attente : 1 500 identifiants chacun au plus ; réglages : quelques centaines d'octets.
+// Le serveur garde tout : ce qui sort de l'appareil n'est jamais perdu. Réglages → « Cet appareil » montre la place prise.
+const PAR_FIL = 300, PAR_FIL_SERRE = 80, CAR_FIL = 150000, CAR_TOTAL = 500000, MIN_PAR_FIL = 5, MAX_IDS = 1500;
+const poids = m => String(m.texte || '').length + 120;   // texte, plus identifiant, heure et champs
 function borner(l, max) {
-  const n = {}, r = [];
-  for (let i = l.length - 1; i >= 0; i--) { const f = l[i].fil || 'general'; n[f] = (n[f] || 0) + 1;
-    if (n[f] <= max || l[i].temp || l[i].echec) r.push(l[i]); }
+  const n = {}, c = {}, ferme = {}, r = []; let total = 0, plein = false;
+  for (let i = l.length - 1; i >= 0; i--) {
+    const m = l[i], f = m.fil || 'general', t = poids(m); n[f] = (n[f] || 0) + 1;
+    if (!(m.temp || m.echec || n[f] <= MIN_PAR_FIL)) {
+      if (ferme[f] || plein) continue;
+      if (n[f] > max || (c[f] || 0) + t > CAR_FIL) { ferme[f] = true; continue; }   // le reste de ce fil, plus ancien, reste au serveur
+      if (total + t > CAR_TOTAL) { plein = true; continue; }
+    }
+    r.push(m); c[f] = (c[f] || 0) + t; total += t;
+  }
   return r.reverse();
 }
 function garderMessages() {   // stockage plein : on garde moins d'historique hors ligne (le serveur a tout), et on le dit
@@ -86,7 +124,7 @@ function garderMessages() {   // stockage plein : on garde moins d'historique ho
   return ok;
 }
 let fil = store.lire('fil', 'general');
-let messages = store.lire('messages', []);   // copie locale : l'app s'ouvre tout de suite, même hors ligne
+let messages = borner(store.lire('messages', []), PAR_FIL);   // copie locale : l'app s'ouvre tout de suite, même hors ligne
 // Un envoi interrompu (app fermée pendant l'attente) : la bulle revient en « Non envoyé · Réessayer », jamais perdue.
 messages.forEach(m => { if (m.temp) { m.temp = false; m.echec = true; } });
 let vus = store.lire('vus', {});              // fil → horodatage du dernier message lu
@@ -118,6 +156,7 @@ function bandeau(texte, action, duree, important) {   // important : une actuali
 }
 function etat(t) { const z = $('bandeau'); if (t) bandeau(t); else if (!z.querySelector('button') && !(z.dataset.important && !z.hidden)) bandeau(''); }   // sans texte : efface, sauf un « Annuler » en cours
 function ouvrirReglages() {
+  decrireAppareil();
   $('accueil').hidden = !!(cle() && adresse());   // premier lancement : une phrase d'accueil avant la connexion
   $('cle').value = cle(); $('cle-life').value = store.lire('cleLife', ''); $('adresse').value = adresse();
   ouvrirDialogue($('dlg'));
@@ -285,7 +324,7 @@ function supprimer(ids, libelle) {
   ids = ids.filter(Boolean); if (!ids.length) return;
   confirmerSuppression();   // une suppression précédente encore en attente part tout de suite
   const avant = { messages: messages.filter(m => ids.includes(m.id)), epingles: JSON.parse(JSON.stringify(epingles)) };
-  ids.forEach(i => supprimes.add(i)); store.ecrire('supprimes', [...supprimes].slice(-3000));
+  ids.forEach(i => supprimes.add(i)); store.ecrire('supprimes', [...supprimes].slice(-MAX_IDS));
   messages = messages.filter(m => !supprimes.has(m.id)); garderMessages();
   Object.keys(epingles).forEach(f => { epingles[f] = (epingles[f] || []).filter(i => !supprimes.has(i)); }); store.ecrire('epingles', epingles);
   afficher();
@@ -297,7 +336,7 @@ function confirmerSuppression() {
   const { ids, minuterie } = annulable; clearTimeout(minuterie); annulable = null;
   const serveur = ids.filter(i => !/^(tmp|loc)-/.test(i));
   if (!serveur.length) return;
-  aRetirer = [...new Set(aRetirer.concat(serveur))].slice(-3000); store.ecrire('aRetirer', aRetirer);
+  aRetirer = [...new Set(aRetirer.concat(serveur))].slice(-MAX_IDS); store.ecrire('aRetirer', aRetirer);
   retirerServeur();
 }
 // Par lots de 400 (la limite du serveur) ; un lot n'est oublié qu'après un ok du serveur (ok:false si son écriture
@@ -317,7 +356,7 @@ async function retirerServeur() {
 function annulerSuppression() {
   if (!annulable) return;
   const { ids, avant, minuterie } = annulable; clearTimeout(minuterie); annulable = null;
-  ids.forEach(i => supprimes.delete(i)); store.ecrire('supprimes', [...supprimes].slice(-3000));
+  ids.forEach(i => supprimes.delete(i)); store.ecrire('supprimes', [...supprimes].slice(-MAX_IDS));
   messages = messages.filter(m => !ids.includes(m.id)).concat(avant.messages).sort(ordre); garderMessages();
   epingles = avant.epingles; store.ecrire('epingles', epingles);
   afficher(); bandeau('Rétabli', null, 3000);
@@ -640,6 +679,7 @@ function actualiser() {
         if (!(serveurAJour() && j.plus)) break;
       }
       afficher(); etat('');
+      if (persistant === null) demanderPersistance();   // connectée : on protège la copie de l'appareil
     } catch (e) { etat(raison(e)); }
     finally { actuEnCours = null; }
   })();
@@ -937,7 +977,7 @@ const DANS_CARTE = (() => { try { return window.top !== window && window.parent.
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.33';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.34';   // à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 function lienConnexion() {
   const o = { a: adresse(), c: cle() }; if (store.lire('cleLife', '')) o.l = store.lire('cleLife', '');
