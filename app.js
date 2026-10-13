@@ -8,14 +8,15 @@ function adresse() { try { const v = JSON.parse(localStorage.getItem('life.adres
 // 1. Jamais dans le cadre d'un autre site (LO2) : seule Ma carte de vie (même site) peut montrer LIFE dans un cadre.
 const DANS_CARTE = (() => { try { return window.top !== window && window.parent.location.pathname.indexOf('/carte-de-vie') === 0; } catch (e) { return false; } })();
 if (window.top !== window && !DANS_CARTE) { document.body.textContent = 'LIFE ne s\'ouvre pas dans le cadre d\'un autre site.'; throw new Error('cadre refusé'); }
-// 2. Seconde règle de sécurité (CSP), posée au lancement avec le serveur EXACT enregistré sur l'appareil (LC2) : les deux
-//    règles s'additionnent, et plus aucune donnée ne peut partir vers un autre serveur, même du même domaine de premier
-//    niveau. Changer d'adresse dans les Réglages recharge l'app (la nouvelle règle suit).
-const HOTE_CSP = (() => { try { return new URL(adresse()).host; } catch (e) { return ''; } })();
-if (HOTE_CSP && /^[a-z0-9.-]+(:\d+)?$/i.test(HOTE_CSP)) {
-  const m = document.createElement('meta'); m.httpEquiv = 'Content-Security-Policy';
-  m.content = "connect-src 'self' https://" + HOTE_CSP; document.head.appendChild(m);
-}
+// 2. Seconde règle de sécurité (CSP), TOUJOURS posée au lancement, avant tout appel réseau (LC2 ; audit de sécurité du
+//    13/10, R6). Les deux règles se cumulent : une connexion doit passer celle de la page ET celle-ci.
+//    - appareil relié : seulement le serveur EXACT enregistré ici (même un autre serveur du même domaine est bloqué) ;
+//    - appareil neuf : 'self' seulement, aucun serveur extérieur (avant le 13/10 : tout « *.cloud »).
+//    La règle de la page (index.html) ne nomme jamais le serveur (dépôt public). Changer d'adresse, ou relier un appareil
+//    neuf, recharge l'app : la nouvelle règle suit.
+const HOTE_CSP = (() => { try { const h = new URL(adresse()).host; return /^[a-z0-9.-]+(:\d+)?$/i.test(h) ? h : ''; } catch (e) { return ''; } })();
+{ const m = document.createElement('meta'); m.httpEquiv = 'Content-Security-Policy';
+  m.content = "connect-src 'self'" + (HOTE_CSP ? ' https://' + HOTE_CSP : ''); document.head.appendChild(m); }
 // 3. Trusted Types (CSP : require-trusted-types-for 'script') : le HTML n'entre dans la page que par cette politique, qui
 //    refuse tout script, cadre ou attribut d'événement ; seuls qr.js et le service worker (sw.js) peuvent être chargés.
 const POLITIQUE = (() => {
@@ -112,7 +113,7 @@ function stockagePlein(quoi) {
   dernierEchec = { t: Date.now(), quoi };   // gardé pour Réglages → « Cet appareil »
   if (Date.now() - alerteStockage < 60e3) return;   // une fois par minute au plus
   alerteStockage = Date.now();
-  setTimeout(() => bandeau('Stockage de l\'appareil plein : ' + quoi + '.', null, 10000, true), 0);
+  setTimeout(() => erreur('Stockage de l\'appareil plein : ' + quoi + '.', null, 10000), 0);
 }
 // PLACE PRISE PAR LIFE sur l'appareil (audit expert fiabilité CC-6 / LC-6) : le stockage du navigateur est commun à
 // LIFE et à Ma carte de vie (même site, environ 5 millions de caractères en tout). LIFE se borne pour ne jamais priver la
@@ -164,20 +165,33 @@ function pastilleAppli(c) {   // le petit numéro sur l'icône de l'app (Android
 
 // Message d'état : bandeau au-dessus de la saisie, lu par les lecteurs d'écran (role="status"), qui s'efface seul.
 // action = [libellé, fonction] : un bouton dans le bandeau (« Annuler », « Réessayer »).
-let minuterieBandeau = null;
+// Erreur (erreur()) : affichée au moins 8 s (audit UX du 13/10). Tant que le doigt, la souris ou le focus est sur le bandeau,
+// il ne s'efface pas (sauf « Annuler » d'une suppression, qui suit son propre délai).
+let minuterieBandeau = null, dureeBandeau = 4000;
 function bandeau(texte, action, duree, important) {   // important : une actualisation réussie ne l'efface pas
   const z = $('bandeau'); clearTimeout(minuterieBandeau); z.textContent = ''; z.dataset.important = important ? '1' : '';
   if (!texte) { z.hidden = true; return; }
   const s = document.createElement('span'); s.textContent = texte; z.appendChild(s);
   if (action) { const b = document.createElement('button'); b.type = 'button'; b.textContent = action[0];
     b.onclick = e => { e.stopPropagation(); clearTimeout(minuterieBandeau); z.hidden = true; action[1](); }; z.appendChild(b); }
-  z.hidden = false;
-  minuterieBandeau = setTimeout(() => { z.hidden = true; }, duree || 4000);
+  z.hidden = false; dureeBandeau = duree || 4000;
+  minuterieBandeau = setTimeout(() => { z.hidden = true; }, dureeBandeau);
 }
+const erreur = (texte, action, duree) => bandeau(texte, action, Math.max(duree || 0, 8000), true);
+(() => { const z = $('bandeau');
+  const tenir = () => { if (!annulable) clearTimeout(minuterieBandeau); };
+  const relacher = () => { if (annulable || z.hidden || z.matches(':hover') || z.contains(document.activeElement)) return;
+    clearTimeout(minuterieBandeau); minuterieBandeau = setTimeout(() => { z.hidden = true; }, Math.max(3000, dureeBandeau / 2)); };
+  z.addEventListener('pointerenter', tenir); z.addEventListener('focusin', tenir);
+  z.addEventListener('pointerleave', relacher); z.addEventListener('focusout', () => setTimeout(relacher, 0)); })();
 function etat(t) { const z = $('bandeau'); if (t) bandeau(t); else if (!z.querySelector('button') && !(z.dataset.important && !z.hidden)) bandeau(''); }   // sans texte : efface, sauf un « Annuler » en cours
 function ouvrirReglages() {
   decrireAppareil();
-  $('accueil').hidden = !!(cle() && adresse());   // premier lancement : une phrase d'accueil avant la connexion
+  // premier lancement (audit UX du 13/10) : une seule page, « Bienvenue », le chemin court d'abord (code montré par un appareil
+  // déjà relié) ; la saisie à la main reste à un toucher (« Saisir l'adresse et la clé à la main »)
+  const premier = !(cle() && adresse());
+  $('accueil').hidden = !premier; $('dlg').classList.toggle('premier', premier); $('dlg').classList.remove('main'); $('a-la-main').hidden = false;
+  $('dlg-titre').textContent = premier ? 'Bienvenue dans LIFE' : 'Clé et connexion';
   $('cle').value = cle(); $('cle-life').value = store.lire('cleLife', ''); $('adresse').value = adresse();
   ouvrirDialogue($('dlg'));
 }
@@ -351,10 +365,11 @@ let supprimes = new Set(store.lire('supprimes', []));
 // que le serveur est à jour (il refuse alors un fil inconnu au lieu de le ranger dans Général).
 let filsForces = serveurAJour() ? {} : store.lire('filsForces', {});
 if (serveurAJour()) store.effacer('filsForces');
-// La suppression est d'abord locale et annulable pendant 5 s (bandeau « Annuler ») ; le serveur n'est prévenu qu'après.
+// La suppression est d'abord locale et annulable (5 s pour un message, 10 s pour un fil entier : bandeau « Annuler ») ;
+// le serveur n'est prévenu qu'après.
 let aRetirer = store.lire('aRetirer', []);   // suppressions confirmées, pas encore reçues par le serveur
 let annulable = null;                        // { ids, avant, minuterie } : la dernière suppression, encore annulable
-function supprimer(ids, libelle) {
+function supprimer(ids, libelle, duree) {
   ids = ids.filter(Boolean); if (!ids.length) return;
   confirmerSuppression();   // une suppression précédente encore en attente part tout de suite
   const avant = { messages: messages.filter(m => ids.includes(m.id)), epingles: JSON.parse(JSON.stringify(epingles)) };
@@ -362,8 +377,8 @@ function supprimer(ids, libelle) {
   messages = messages.filter(m => !supprimes.has(m.id)); garderMessages();
   Object.keys(epingles).forEach(f => { epingles[f] = (epingles[f] || []).filter(i => !supprimes.has(i)); }); store.ecrire('epingles', epingles);
   afficher();
-  annulable = { ids, avant, minuterie: setTimeout(confirmerSuppression, 5000) };
-  bandeau(libelle || 'Message supprimé', ['Annuler', annulerSuppression], 5000);
+  annulable = { ids, avant, minuterie: setTimeout(confirmerSuppression, duree || 5000) };
+  bandeau(libelle || 'Message supprimé', ['Annuler', annulerSuppression], duree || 5000);
 }
 function confirmerSuppression() {
   if (!annulable) return;
@@ -484,9 +499,11 @@ function creerBulle(m, finDeGroupe) {
   else b.textContent = m.auteur === 'moi' ? m.texte : sobre(m.texte);   // texte brut : jamais interprété comme du HTML
   // au clavier : chaque message est un « article » atteignable (flèches), avec ses actions (Entrée, Maj+F10, touche Menu)
   b.dataset.id = m.id; b.tabIndex = -1; b.setAttribute('role', 'article');
-  b.setAttribute('aria-label', auteurLisible(m) + (m.temp ? ', envoi en cours' : m.echec ? ', non envoyé' : (heure(m.t) ? ', ' + heureParlee(m.t) : '')));
-  if (m.echec) {   // envoi raté : la bulle le dit, et se renvoie d'un toucher
-    const r = document.createElement('button'); r.type = 'button'; r.className = 'reessayer'; r.dataset.action = 'reessayer'; r.textContent = 'Non envoyé · Réessayer';
+  b.setAttribute('aria-label', auteurLisible(m) + (m.temp ? ', envoi en cours' : m.echec ? (m.delai ? ', pas encore de réponse' : ', non envoyé') : (heure(m.t) ? ', ' + heureParlee(m.t) : '')));
+  if (m.echec) {   // envoi raté : la bulle le dit, et se renvoie d'un toucher. Délai dépassé : le serveur a peut-être le message,
+    // « Vérifier » relève d'abord (rien n'est renvoyé s'il est arrivé) ; sinon « Non envoyé · Réessayer ».
+    const r = document.createElement('button'); r.type = 'button'; r.className = 'reessayer'; r.dataset.action = 'reessayer';
+    r.textContent = m.delai ? 'Pas encore de réponse · Vérifier' : 'Non envoyé · Réessayer';
     b.appendChild(r);
   } else if (m.temp || finDeGroupe) {   // l'heure une fois par groupe de messages rapprochés
     const h = document.createElement('span'); h.className = 'heure'; h.textContent = m.temp ? 'envoi…' : heure(m.t); b.appendChild(h);
@@ -527,7 +544,7 @@ function afficherConversation() {
     if (j && j !== dernierJour) { voulus.push(element('jour|' + fil + '|' + j + '|' + (m.t || '').slice(0, 10), j, () => {
       const s = document.createElement('div'); s.className = 'jour'; s.setAttribute('role', 'separator'); s.setAttribute('aria-label', j); s.textContent = j; return s; })); dernierJour = j; }
     const finDeGroupe = !suivant || suivant.auteur !== m.auteur || (suivant.t || '').slice(0, 15) !== (m.t || '').slice(0, 15);
-    voulus.push(element('m|' + m.id, [m.texte, m.temp ? 1 : 0, m.echec ? 1 : 0, finDeGroupe ? 1 : 0, m.t, m.auteur, m.fil].join('\u0001'), () => creerBulle(m, finDeGroupe)));
+    voulus.push(element('m|' + m.id, [m.texte, m.temp ? 1 : 0, m.echec ? (m.delai ? 2 : 1) : 0, finDeGroupe ? 1 : 0, m.t, m.auteur, m.fil].join('\u0001'), () => creerBulle(m, finDeGroupe)));
     if (!suivant && m.auteur === 'life' && /\?\s*$/.test(m.texte) && !envoisEnCours && !enCoursDans(fil))   // elle peut répondre d'un toucher
       voulus.push(element('rapides|' + m.id, '', () => { const r = document.createElement('div'); r.className = 'rapides'; r.setAttribute('role', 'group'); r.setAttribute('aria-label', 'Réponses rapides');
         ['Oui', 'Plus tard', 'Non merci'].forEach(t => { const x = document.createElement('button'); x.type = 'button'; x.dataset.rapide = t; x.textContent = t; r.appendChild(x); }); return r; }));
@@ -539,8 +556,10 @@ function afficherConversation() {
     const ok = document.createElement('button'); ok.type = 'button'; ok.textContent = 'Compris';
     ok.onclick = () => { store.ecrire('aideAppui', true); a.remove(); };
     a.appendChild(s); a.appendChild(ok); return a; }));
-  if (envoisEnCours || enCoursDans(fil)) voulus.push(elementUnique('ecrit', () => { const e = document.createElement('div'); e.className = 'ecrit';
-    e.setAttribute('role', 'img'); e.setAttribute('aria-label', 'LIFE écrit'); html(e, '<i></i><i></i><i></i>'); return e; }));
+  if (envoisEnCours || enCoursDans(fil)) { const e = elementUnique('ecrit', () => { const e = document.createElement('div'); e.className = 'ecrit';
+      html(e, '<span class="points" aria-hidden="true"><i></i><i></i><i></i></span><span class="ecrit-txt"></span>'); return e; });
+    const t = texteAttente(fil); if (e.lastChild.textContent !== t) e.lastChild.textContent = t;
+    voulus.push(e); }
   // réconciliation : on ne touche qu'aux nœuds qui changent de place, apparaissent ou disparaissent
   const actif = document.activeElement, idActif = flux.contains(actif) && actif.dataset ? actif.dataset.id : null;
   let cur = flux.firstChild;
@@ -773,12 +792,21 @@ function envoyer() {
   const envoi = expedier(texte, fil, nouvelId());
   if (long) { dire(); envoi.then(ok => { if (ok) dire(); }); }   // redit après la réponse (qui efface le bandeau)
 }
+// Attente annoncée (audit UX du 13/10) : « LIFE réfléchit… d'habitude ≈ N s », N = médiane des 9 dernières réponses du fil,
+// mesurées sur cet appareil (rien n'est affiché comme durée avant 3 mesures). Annoncé aussi au lecteur d'écran.
+let durees = store.lire('durees', {});
+function dureeHabituelle(f) { const d = (durees[f] || []).slice().sort((a, b) => a - b); return d.length >= 3 ? d[d.length >> 1] : 0; }
+function texteAttente(f) { const n = dureeHabituelle(f); return 'LIFE réfléchit…' + (n ? ' d\'habitude ≈ ' + Math.max(1, Math.round(n / 1000)) + ' s' : ''); }
+function noterDuree(f, ms) { if (!(ms > 0 && ms < DELAI_LONG)) return; durees[f] = (durees[f] || []).concat(Math.round(ms)).slice(-9); store.ecrire('durees', durees); }
+function direAuLecteur(t) { const a = $('annonce'); a.textContent = ''; setTimeout(() => { a.textContent = t; }, 50); }
 // Un envoi = un identifiant client (cid). Le même cid est renvoyé par « Réessayer » : le serveur ne traite jamais deux fois.
 async function expedier(texte, filCible, cid, parti) {
   const temp = { id: 'tmp-' + cid, cid, t: heureLocale(), auteur: 'moi', fil: filCible, texte, temp: true, parti: parti || Date.now() };
   try { if (navigator.vibrate && !enCalme()) navigator.vibrate(12); } catch (e) { /* pas de vibreur */ }
   messages.push(temp); garderMessages();   // gardée sur l'appareil AVANT l'envoi (app fermée pendant l'attente : rien de perdu)
   envoisEnCours++; afficher();
+  { const n = dureeHabituelle(filCible); direAuLecteur('Message envoyé. LIFE réfléchit' + (n ? ', d\'habitude environ ' + Math.max(1, Math.round(n / 1000)) + ' secondes' : '') + '.'); }
+  const debut = Date.now();
   const retirerTemp = () => { messages = messages.filter(m => m.id !== temp.id); };
   try {
     if (filCible === 'experts') {
@@ -787,7 +815,7 @@ async function expedier(texte, filCible, cid, parti) {
       retirerTemp();
       fusionner([Object.assign({}, temp, { id: 'loc-' + cid, temp: false, local: true, expert: true }),
         ...rep.map((x, k) => ({ id: 'loc-' + cid + '-' + k, t: heureLocale(), auteur: 'life', fil: 'experts', texte: x.nom + '\n' + x.texte, local: true, expert: true }))]);
-      etat(''); return true;
+      noterDuree(filCible, Date.now() - debut); etat(''); return true;
     }
     const k = curseur(), corps = { action: 'envoyer', texte, fil: filCible, cid };
     if (k !== null) corps.curseur = k;
@@ -808,6 +836,7 @@ async function expedier(texte, filCible, cid, parti) {
     const echo = recus.some(m => m.auteur === 'moi' && (cidDe(m.id) === cid || ((m.fil || 'general') === filCible && m.texte === texte)));
     if (!echo) recus.push(Object.assign({}, temp, { id: 'loc-' + cid, temp: false, local: true }));
     fusionner(recus, j.retires);
+    if (recus.some(m => m.auteur === 'life')) noterDuree(filCible, Date.now() - debut);
     if (serveurAJour() && k !== null && Number.isInteger(j.curseur)) { majCurseur(j.curseur); derniereActu = Date.now(); if (j.plus) actualiser(); }
     etat('');
     if (j.tronque) bandeau('Le serveur a gardé les ' + j.tronque + ' premiers caractères de ce message.', null, 6000);
@@ -822,7 +851,8 @@ async function expedier(texte, filCible, cid, parti) {
     m.temp = false; m.echec = true; m.parti = temp.parti;
     if (e.message === 'délai dépassé') m.delai = true;
     garderMessages();
-    bandeau('Non envoyé : ' + raison(e), ['Réessayer', () => reessayer(m)], e.message === 'délai dépassé' ? 9000 : 5000);
+    if (m.delai) erreur('Pas encore de réponse de LIFE : ton message est peut-être bien arrivé. « Vérifier » regarde avant de renvoyer.', ['Vérifier', () => reessayer(m)], 10000);
+    else erreur('Non envoyé : ' + raison(e), ['Réessayer', () => reessayer(m)]);
     if (e.message === 'délai dépassé' && serveurAJour()) attendreReponse(cid, filCible);   // la réponse a pu arriver entre-temps
     return false;
   } finally {
@@ -857,18 +887,31 @@ function ajuster() {
   $('envoyer').disabled = !s.value.trim();
 }
 
-// Dictée : reconnaissance vocale du navigateur (Chrome Android), gratuite, rien n'est envoyé ailleurs que ton message.
+// Dictée : reconnaissance vocale du navigateur. Dans Chrome, le son passe par le service vocal de Google (c'est dit
+// dans l'infobulle et la première fois qu'on dicte) ; le texte reconnu n'arrive que dans la saisie, rien n'est envoyé seul.
 const Reco = window.SpeechRecognition || window.webkitSpeechRecognition;
 let reco = null;
+const ERREURS_DICTEE = {
+  'not-allowed': 'Micro refusé : autorise-le pour ce site dans les réglages du navigateur.',
+  'service-not-allowed': 'Dictée refusée par le navigateur sur cet appareil.',
+  'audio-capture': 'Aucun micro trouvé sur cet appareil.',
+  'network': 'Dictée impossible sans réseau : elle passe par le service vocal de Google.',
+  'no-speech': 'Je n\'ai rien entendu : touche le micro et parle tout de suite.',
+  'language-not-supported': 'La dictée en français n\'est pas disponible ici.'
+};
+$('micro').setAttribute('aria-pressed', 'false');
+$('micro').title = 'Dicter (la dictée passe par le service vocal de Google)';
 $('micro').onclick = () => {
-  if (!Reco) { etat('dictée non disponible ici'); return; }
+  if (!Reco) { erreur('Dictée non disponible dans ce navigateur (elle marche dans Chrome).'); return; }
   if (reco) { reco.stop(); return; }
+  if (!store.lire('dicteeVue', false)) { store.ecrire('dicteeVue', true); bandeau('La dictée passe par le service vocal de Google. Touche à nouveau le micro pour arrêter.', null, 8000); }
   reco = new Reco(); reco.lang = 'fr-FR'; reco.interimResults = true; reco.continuous = false;
   const base = $('saisie').value ? $('saisie').value + ' ' : '';
   reco.onresult = ev => { $('saisie').value = base + [...ev.results].map(r => r[0].transcript).join(''); ajuster(); };
-  reco.onend = () => { reco = null; $('micro').classList.remove('actif'); };
-  reco.onerror = () => { etat('micro indisponible'); };
-  $('micro').classList.add('actif'); reco.start();
+  reco.onend = () => { reco = null; $('micro').classList.remove('actif'); $('micro').setAttribute('aria-pressed', 'false'); };
+  reco.onerror = ev => { if (ev && ev.error === 'aborted') return; erreur(ERREURS_DICTEE[ev && ev.error] || 'Dictée interrompue : réessaie.'); };
+  $('micro').classList.add('actif'); $('micro').setAttribute('aria-pressed', 'true');
+  try { reco.start(); } catch (e) { reco = null; $('micro').classList.remove('actif'); $('micro').setAttribute('aria-pressed', 'false'); erreur('Dictée impossible pour le moment : réessaie.'); }
 };
 
 $('saisie').addEventListener('input', ajuster);
@@ -945,12 +988,13 @@ $('plus').addEventListener('keydown', e => { if (e.key === 'ArrowDown' || e.key 
 $('menu').addEventListener('keydown', e => naviguerMenu(e, itemsMenu(), fermerMenu));
 document.addEventListener('click', fermerMenu);
 $('actualiser').onclick = actualiser;
-// Effacer ce fil : tout de suite à l'écran, annulable 5 s (bandeau « Annuler ») avant de partir au serveur.
+// Effacer ce fil : tout de suite à l'écran, annulable 10 s (bandeau « Annuler ») avant de partir au serveur, puis effacé
+// sur tous les appareils (audit UX du 13/10 : 5 s était trop court pour une action de cette taille).
 $('effacer-fil').onclick = () => { fermerMenu(); if (enVueAPart()) vue(null);
   const nom = (FILS.find(([i]) => i === fil) || [, 'ce fil'])[1];
   const ids = messages.filter(m => (m.fil || 'general') === fil).map(m => m.id);
   if (!ids.length) { bandeau('Rien à effacer dans « ' + nom + ' »', null, 2500); return; }
-  supprimer(ids, 'Fil effacé (' + ids.length + ' message' + (ids.length > 1 ? 's' : '') + ')'); };
+  supprimer(ids, '« ' + nom + ' » effacé sur tous tes appareils (' + ids.length + ' message' + (ids.length > 1 ? 's' : '') + ')', 10000); };
 // Tirer la conversation vers le bas, en haut de la liste, pour actualiser.
 let tire = null;
 $('messages').addEventListener('touchstart', e => { tire = $('messages').scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
@@ -969,6 +1013,7 @@ function appliquerTheme(t) {
 let theme = store.lire('theme', 'auto'); appliquerTheme(theme);
 $('theme').onclick = e => { e.stopPropagation(); theme = { auto: 'jour', jour: 'nuit', nuit: 'auto' }[theme] || 'auto'; store.ecrire('theme', theme); appliquerTheme(theme); bandeau(THEMES[theme], null, 2500); };
 $('annuler').onclick = () => $('dlg').close();
+$('a-la-main').onclick = () => { $('dlg').classList.add('main'); $('a-la-main').hidden = true; $('adresse').focus(); };
 $('garder').onclick = () => {   // adresse saisie ici par elle-même : elle n'est plus « venue d'un lien »
   const a = $('adresse').value.trim();
   if (a !== adresse()) { store.effacer('curseur'); store.effacer('adresseDuLien'); }
@@ -1014,7 +1059,7 @@ window.addEventListener('pagehide', confirmerSuppression);
 if (DANS_CARTE) { document.body.classList.add('dans-carte'); $('retour-carte').hidden = false; $('vers-carte').hidden = true;
   $('retour-carte').onclick = () => { try { window.parent.postMessage({ life: 'fermer' }, location.origin); } catch (e) { /* */ } }; }
 $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../carte-de-vie/'; };
-const VERSION = 'V.0.0.3.7';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.3.9';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
@@ -1164,15 +1209,28 @@ $('cx-ok').onclick = async () => {
   if (actuel && actuel !== hoteDe(n.a)) return;   // jamais un autre serveur par un lien
   if (!actuel && $('cx-saisie').value.trim().toLowerCase() !== hoteDe(n.a)) return;
   connexionEnAttente = null; $('dlg-connexion').close();
+  if (!actuel) {   // appareil neuf : la règle de sécurité du lancement n'autorise encore aucun serveur. On enregistre
+    // l'adresse (et la clé si le lien la porte), puis on relance : la nouvelle règle nomme ce serveur exact, et la
+    // connexion se termine (retrait du code à usage unique) après la relance.
+    store.ecrire('adresseDuLien', true); store.effacer('curseur'); store.ecrire('adresse', n.a);
+    if (!n.transfert) { store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l); }
+    try { sessionStorage.setItem('life.reprise', JSON.stringify(n.transfert ? { a: n.a, transfert: n.transfert } : { a: n.a })); } catch (e) { /* sans reprise : les Réglages s'ouvriront */ }
+    location.reload(); return;
+  }
+  finirConnexion(n, false);
+};
+// Fin d'une connexion par lien (même serveur, ou appareil neuf après la relance) ; neuf = l'adresse vient d'être posée.
+async function finirConnexion(n, neuf) {
   if (n.transfert) {   // code à usage unique : la clé est retirée du serveur maintenant (une seule fois)
     try { Object.assign(n, await retirerTransfert(n)); }
-    catch (e) { bandeau('Connexion impossible : ' + ((e && e.message) || 'code illisible') + '. Montre un nouveau code sur l\'autre appareil.', null, 9000, true);
+    catch (e) {
+      if (neuf) { store.effacer('adresse'); store.effacer('adresseDuLien'); store.effacer('curseur'); }   // rien de relié : comme avant le lien
+      bandeau('Connexion impossible : ' + ((e && e.message) || 'code illisible') + '. Montre un nouveau code sur l\'autre appareil.', null, 9000, true);
       if (!(cle() && adresse())) setTimeout(ouvrirReglages, 300); return; }
-  }
-  if (!actuel) { store.ecrire('adresseDuLien', true); store.effacer('curseur'); }
-  store.ecrire('adresse', n.a); store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l);
+    store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l);
+  } else if (!neuf) { store.ecrire('adresse', n.a); store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l); }
   annonce('appareil connecté ✓'); proposerInstallation(); actualiser(); retirerServeur();
-};
+}
 $('cx-non').onclick = () => {
   connexionEnAttente = null; $('dlg-connexion').close();
   bandeau('Lien de connexion ' + ($('cx-ok').hidden ? 'refusé' : 'ignoré') + ' : rien n\'a changé sur cet appareil.', null, 5000);
@@ -1202,6 +1260,11 @@ if ('serviceWorker' in navigator) {
 }
 // Aperçu (?demo) : une conversation d'exemple, sans clé ni réseau.
 setTimeout(() => { const o = $('ouverture'); if (o) { o.classList.add('fini'); setTimeout(() => o.remove(), 400); } }, 650);
+// Reprise d'une connexion par lien sur un appareil neuf (voir « cx-ok ») : seulement si la règle de ce lancement nomme
+// bien ce serveur, et une seule fois.
+let reprise = null;
+try { reprise = JSON.parse(sessionStorage.getItem('life.reprise') || 'null'); sessionStorage.removeItem('life.reprise'); } catch (e) { reprise = null; }
+if (!reprise || typeof reprise.a !== 'string' || reprise.a !== adresse() || hoteDe(reprise.a) !== HOTE_CSP.toLowerCase()) reprise = null;
 if (DEMO) {
   fil = 'general'; vus = {}; epingles = { travail: ['d5'] };
   messages = [
@@ -1219,5 +1282,6 @@ if (DEMO) {
   afficher();
 } else {
   afficher();
-  if (cle() && adresse()) { actualiser(); retirerServeur(); if (Object.keys(enCours).length) attendreReponse(); } else if (!connexionEnAttente) ouvrirReglages();
+  if (reprise) finirConnexion(reprise, true);
+  else if (cle() && adresse()) { actualiser(); retirerServeur(); if (Object.keys(enCours).length) attendreReponse(); } else if (!connexionEnAttente) ouvrirReglages();
 }

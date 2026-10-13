@@ -73,6 +73,12 @@ export const tests = [
     verif(r.tt === 'bloqué', 'Trusted Types : du HTML brut ne peut pas entrer dans la page', r.tt);
     verif(await page.evaluate(() => document.querySelectorAll('meta[http-equiv="Content-Security-Policy"]').length === 2), 'deux règles CSP (celle de la page, celle du serveur exact)');
     await ctx.close();
+    // appareil neuf (rien d'enregistré) : la seconde règle n'autorise AUCUN serveur extérieur, même en .cloud (audit R6, 13/10)
+    const N = await ouvrir(nav, st, profil, fauxServeur(), { sansConnexion: true });
+    const rn = await N.page.evaluate(async () => ({ regle: [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy"]')].map(m => m.content).pop(),
+      essai: await fetch('https://essai.exemple.cloud/webhook/life', { method: 'POST', body: '{}' }).then(() => 'permis', () => 'bloqué') }));
+    verif(rn.regle === "connect-src 'self'" && rn.essai === 'bloqué', 'appareil neuf : connect-src \'self\' seulement, un serveur .cloud est bloqué', rn);
+    await N.ctx.close();
   } },
   { nom: 'Cadre : LIFE refuse de s\'afficher dans la page d\'un autre site (ou d\'une autre page que Ma carte de vie)', f: async ({ nav, st, profil, verif }) => {
     const S = fauxServeur();

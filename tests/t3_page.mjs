@@ -104,8 +104,10 @@ export const tests = [
     await A.page.fill('#cx-saisie', 'autre.exemple.cloud');
     verif(await A.page.evaluate(() => document.getElementById('cx-ok').disabled), 'un autre nom ne suffit pas');
     await A.page.fill('#cx-saisie', 'Nouveau.Exemple.cloud ');
-    await A.page.evaluate(() => document.getElementById('cx-ok').click());
+    // appareil neuf : la règle de sécurité du lancement n'autorise aucun serveur ; l'app enregistre et se relance (V.0.0.3.9)
+    await Promise.all([A.page.waitForNavigation(), A.page.evaluate(() => document.getElementById('cx-ok').click())]); await pause(400);
     verif((await ls(A.page, 'adresse')) === 'https://nouveau.exemple.cloud/webhook/life' && (await ls(A.page, 'adresseDuLien')) === true, 'nom retapé : connecté, adresse marquée « venue d\'un lien »');
+    verif(await A.page.evaluate(() => [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy"]')].some(m => m.content === "connect-src 'self' https://nouveau.exemple.cloud")), 'après la relance : la règle de sécurité nomme le nouveau serveur exact');
     await A.ctx.close();
   } },
   { nom: 'Sécurité : CSP sans « unsafe-inline », aucun script ni style dans la page, aucune violation', f: async ({ nav, st, profil, verif }) => {

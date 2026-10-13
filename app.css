@@ -1,64 +1,92 @@
-/* Polices hébergées avec l'app (licence SIL Open Font License 1.1, voir fonts/OFL-*.txt) : aucun appel à un tiers. */
-@font-face { font-family: 'IBM Plex Mono'; font-style: italic; font-weight: 400; font-display: swap; src: url(fonts/plex-mono-400-italique.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+/* Polices et jetons : charte commune aux trois apps (apps/charte/jetons.css). */
+/* ===== jetons communs : début (copie de apps/charte/jetons.css — ne pas modifier ici) ===== */
+/* ===== Jetons communs — LIFE, Coulisses, Tri Instagram (charte du 13/10/2026, audit design) =====
+   Source unique : apps/charte/jetons.css. Chaque app en garde une COPIE IDENTIQUE en tête de sa feuille de style,
+   entre les deux lignes « jetons communs » ; la recopier avec : python3 apps/charte/synchroniser.py
+   (tests/test_charte_apps.py vérifie que les trois copies sont identiques à la source et que les contrastes tiennent).
+   Polices : deux familles, hébergées avec chaque app (dossier fonts/ à côté de la page, licence SIL OFL 1.1) :
+   aucun appel à un tiers. Instrument Sans (titres, texte long) est une police variable : une seule déclaration.
+   Jour par défaut ; nuit par le réglage de l'appareil, ou forcée avec data-theme="nuit" (data-theme="jour" force le jour). */
+@font-face { font-family: 'Instrument Sans'; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/instrument-sans.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/plex-mono-400.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'IBM Plex Mono'; font-style: italic; font-weight: 400; font-display: swap; src: url(fonts/plex-mono-400-italique.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/plex-mono-500.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/plex-mono-600.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/plex-mono-700.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Instrument Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/instrument-sans.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Instrument Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/instrument-sans.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Instrument Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/instrument-sans.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+:root {
+  /* couleurs : fond crème, encre bleu Klein (contrastes : tests/test_charte_apps.py) */
+  --fond: #F5EEE2; --plateau: #FAF5EC; --surface: #FEFAF3;
+  --encre: #002FA7; --encre-2: #4768BD; --texte: #14204A;
+  --trait: #002FA7; --trait-doux: #6F86C6; --pale: #DBE3F3; --ombre: #C9D6F0;
+  --plein: #002FA7; --sur-plein: #FDFAF4;
+  /* états : toujours doublés d'une forme ou d'un mot (jamais la couleur seule) */
+  --ok: #186E48; --veille: #925500; --panne: #B42A35; --neutre: #6F7896;
+  /* typographie : deux familles, sept tailles */
+  --display: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --t-xs: 12px; --t-s: 13px; --t-m: 14.5px; --t-l: 16px; --t-xl: 18px; --t-2xl: 22px; --t-3xl: 28px;
+  /* espace (grille de 4) */
+  --e-1: 4px; --e-2: 8px; --e-3: 12px; --e-4: 16px; --e-5: 24px; --e-6: 32px;
+  /* formes : trait de 1,5 px, ombres décalées sans flou */
+  --r-s: 8px; --r-m: 14px; --r-l: 24px; --r-p: 999px;
+  --trait-l: 1.5px;
+  --sh-1: 2px 2px 0 var(--ombre); --sh-2: 4px 4px 0 var(--ombre); --sh-3: 4px 4px 0 var(--encre);
+  --cible: 44px;
+  color-scheme: light;
+}
+:root[data-theme="nuit"] {
+  --fond: #0E1830; --plateau: #122041; --surface: #172A52;
+  --encre: #E3EAFF; --encre-2: #9AABD4; --texte: #E3EAFF;
+  --trait: #93B3F0; --trait-doux: #6A80B8; --pale: #29447F; --ombre: #070F22;
+  --plein: #93B3F0; --sur-plein: #0E1830;
+  --ok: #4CC88E; --veille: #F0A93B; --panne: #FF858D; --neutre: #8F9AC0;
+  --sh-3: 4px 4px 0 #2F55D4;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="jour"]) {
+    --fond: #0E1830; --plateau: #122041; --surface: #172A52;
+    --encre: #E3EAFF; --encre-2: #9AABD4; --texte: #E3EAFF;
+    --trait: #93B3F0; --trait-doux: #6A80B8; --pale: #29447F; --ombre: #070F22;
+    --plein: #93B3F0; --sur-plein: #0E1830;
+    --ok: #4CC88E; --veille: #F0A93B; --panne: #FF858D; --neutre: #8F9AC0;
+    --sh-3: 4px 4px 0 #2F55D4;
+    color-scheme: dark;
+  }
+}
+/* ===== jetons communs : fin ===== */
 /* LIFE — messagerie personnelle, dans le langage visuel de Ma carte de vie : bleu Klein sur crème, traits nets de
    1,5 px, ombres décalées sans flou, pastilles. Aucune clé dans ce fichier : l'adresse et la clé du lien sont saisies
    sur l'appareil (Réglages) et gardées dans ce navigateur seulement.
    Deux apps pensées séparément : APP TÉLÉPHONE (par défaut, et tout écran tactile, même large : tuiles de fils,
    zones tactiles de 44 px) et APP ORDINATEUR (900 px et plus, à la souris : @media (min-width: 900px) and (pointer: fine) ;
    fils en colonne à gauche, conversation à droite ; cibles de 36 px). */
-/* Jetons communs avec Ma carte de vie (couleurs, rayons, ombres) */
-:root {
-  --fond: #F5EEE2; --plateau: #FAF5EC; --surface: #FEFAF3; --encre: #002FA7; --encre-2: #4768BD;
-  --trait: #002FA7; --trait-doux: #6F86C6; --accent: #002FA7; --sur-accent: #FDFAF4; --pale: #DBE3F3; --ombre: #C9D6F0;
-  --plein: var(--accent); --sur-plein: var(--sur-accent); --heure-moi: #C9D6F0;   /* aplat (bulle envoyée, fil choisi) */
-  --r-s: 8px; --r-m: 14px; --r-l: 24px; --r-p: 999px;
-  --sh-1: 2px 2px 0 var(--ombre); --sh-2: 4px 4px 0 var(--ombre); --sh-3: 4px 4px 0 var(--accent);
-  --cible: 44px;
-  --display: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-}
-/* jour / nuit : automatique (réglage de l'appareil), ou choisi avec le bouton de l'en-tête */
-:root[data-theme="nuit"] {
-  --fond: #0E1830; --plateau: #122041; --surface: #172A52; --encre: #E3EAFF; --encre-2: #9AABD4;
-  --trait: #93B3F0; --trait-doux: #45598A; --accent: #2F55D4; --sur-accent: #FFFFFF; --pale: #29447F; --ombre: #070F22;
-  --plein: #93B3F0; --sur-plein: #0E1830; --heure-moi: #172A52;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="jour"]) {
-    --fond: #0E1830; --plateau: #122041; --surface: #172A52; --encre: #E3EAFF; --encre-2: #9AABD4;
-    --trait: #93B3F0; --trait-doux: #45598A; --accent: #2F55D4; --sur-accent: #FFFFFF; --pale: #29447F; --ombre: #070F22;
-    --plein: #93B3F0; --sur-plein: #0E1830; --heure-moi: #172A52;
-  }
-}
+/* Jetons propres à LIFE (le reste vient des jetons communs ci-dessus) */
+:root { --accent: #002FA7; --sur-accent: #FDFAF4; --heure-moi: #C9D6F0; }   /* --heure-moi : heure dans la bulle envoyée */
+:root[data-theme="nuit"] { --accent: #2F55D4; --sur-accent: #FFFFFF; --heure-moi: #172A52; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="jour"]) { --accent: #2F55D4; --sur-accent: #FFFFFF; --heure-moi: #172A52; } }
 * { box-sizing: border-box; }
 /* Tout tient dans l'écran : la page ne défile jamais, seule la conversation défile. */
-html, body { margin: 0; height: 100%; background: var(--fond); color: var(--encre); font: 16px/1.45 var(--mono); overflow: hidden; overscroll-behavior: none; }
+html, body { margin: 0; height: 100%; background: var(--fond); color: var(--encre); font: var(--t-l)/1.45 var(--mono); overflow: hidden; overscroll-behavior: none; }
 body { display: flex; flex-direction: column; height: 100dvh; max-width: 760px; margin: 0 auto; }
 button { font-family: inherit; }
 
 /* ---------- En-tête ---------- */
 header { position: relative; flex: none; display: flex; align-items: center; gap: 6px; padding: calc(env(safe-area-inset-top) + 8px) 16px 4px; }
-header h1 { margin: 0 auto 0 0; min-width: 0; font: 700 26px/1 var(--display); letter-spacing: -.5px; }
-header h1 small { display: block; font: 400 12px/1.2 var(--mono); letter-spacing: .5px; color: var(--encre-2); margin-top: 4px; text-transform: uppercase; white-space: nowrap; }
+header h1 { margin: 0 auto 0 0; min-width: 0; font: 700 var(--t-3xl)/1 var(--display); letter-spacing: -.5px; }
+header h1 small { display: block; font: 400 var(--t-xs)/1.2 var(--mono); letter-spacing: .5px; color: var(--encre-2); margin-top: 4px; text-transform: uppercase; white-space: nowrap; }
 header > button { position: relative; flex: none; display: grid; place-items: center; padding: 0; width: var(--cible); height: var(--cible); border-radius: 50%;
   border: 1.5px solid var(--trait); background: var(--surface); color: var(--encre); cursor: pointer; }
 header > button svg { width: 22px; height: 22px; }
 header > button:active { transform: translate(2px, 2px); }
 header > button[aria-pressed="true"] { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
 header > button .badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-p);
-  background: var(--plein); color: var(--sur-plein); border: 1.5px solid var(--surface); font: 600 12px/17px var(--mono); text-align: center; }
+  background: var(--plein); color: var(--sur-plein); border: 1.5px solid var(--surface); font: 600 var(--t-xs)/17px var(--mono); text-align: center; }
 header > button[aria-pressed="true"] .badge { display: none; }
 #menu { position: absolute; top: calc(100% + 2px); right: 16px; z-index: 12; display: flex; flex-direction: column; min-width: 240px;
   background: var(--surface); border: 1.5px solid var(--trait); border-radius: var(--r-m); box-shadow: var(--sh-3); overflow: hidden; }
 #menu[hidden] { display: none; }
-#menu button { all: unset; box-sizing: border-box; cursor: pointer; min-height: 48px; padding: 14px 20px; font: 500 14px/20px var(--mono); color: var(--encre); }
+#menu button { all: unset; box-sizing: border-box; cursor: pointer; min-height: 48px; padding: 14px 20px; font: 500 var(--t-m)/20px var(--mono); color: var(--encre); }
 #menu button + button { border-top: 1px solid var(--trait-doux); }
 #menu #effacer-fil { margin-top: 6px; border-top: 1.5px solid var(--trait); }   /* action destructrice : en dernier, à part */
 
@@ -68,11 +96,11 @@ header > button[aria-pressed="true"] .badge { display: none; }
 nav { position: relative; flex: 1; min-width: 0; display: flex; gap: 8px; padding: 4px 4px 4px 16px; }
 nav button { position: relative; flex: none; display: inline-flex; align-items: center; gap: 6px; height: var(--cible); padding: 0 14px 0 11px;
   border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre);
-  font: 600 13px/1.1 var(--display); white-space: nowrap; cursor: pointer; }
+  font: 600 var(--t-s)/1.1 var(--display); white-space: nowrap; cursor: pointer; }
 nav button svg { width: 20px; height: 20px; flex: none; }
 nav button .nom { hyphens: manual; }
 nav button .badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-p); background: var(--plein); color: var(--sur-plein);
-  font: 600 12px/20px var(--mono); text-align: center; }
+  font: 600 var(--t-xs)/20px var(--mono); text-align: center; }
 nav button[aria-pressed="true"] { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
 nav button:active { transform: translate(2px, 2px); }
 #plier, #chercher { flex: none; display: grid; place-items: center; width: var(--cible); height: var(--cible); padding: 0; border: 0; border-radius: 50%;
@@ -89,53 +117,55 @@ main { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 24px; display
 #flux, #resultats { flex: 1 0 auto; display: flex; flex-direction: column; gap: 16px; }
 #flux[hidden], #resultats[hidden] { display: none; }
 .anciens { align-self: center; min-height: var(--cible); padding: 0 16px; border: 1.5px dashed var(--trait-doux); border-radius: var(--r-p);
-  background: none; color: var(--encre); font: 500 13px var(--mono); cursor: pointer; }
+  background: none; color: var(--encre); font: 500 var(--t-s) var(--mono); cursor: pointer; }
 /* bulles hors de l'écran : ni mise en page ni dessin tant qu'on n'y arrive pas (taille retenue une fois vue) */
 #flux > .bulle, #flux > .ligne-life { content-visibility: auto; contain-intrinsic-size: auto 120px; }
 #flux > .ouverte { content-visibility: visible; z-index: 3; }   /* feuille d'actions ouverte : rien n'est rogné */
 .bulle[role="article"]:focus-visible { outline: 3px solid var(--trait); outline-offset: 3px; }
-.resultat { text-align: left; width: 100%; max-width: none; color: var(--encre); font: inherit; font-size: 14.5px; }
+.resultat { text-align: left; width: 100%; max-width: none; color: var(--encre); font: inherit; font-size: var(--t-m); }
 /* texte lu par les lecteurs d'écran seulement */
 .lecteur { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-.jour { align-self: center; color: var(--encre-2); font: 400 12px var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
+.jour { align-self: center; color: var(--encre-2); font: 400 var(--t-xs) var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
   margin: 14px 0 0; padding: 3px 10px; border: 1.5px solid var(--trait-doux); border-radius: var(--r-p); }
 .bulle { position: relative; max-width: 84%; padding: 12px 16px; border-radius: var(--r-m); white-space: pre-wrap; overflow-wrap: break-word;
-  font: 14.5px/1.55 var(--mono); border: 1.5px solid var(--trait); }
+  font: var(--t-m)/1.55 var(--mono); border: 1.5px solid var(--trait); }
 .bulle.moi { align-self: flex-end; background: var(--plein); border-color: var(--plein); color: var(--sur-plein); border-bottom-right-radius: 4px; box-shadow: var(--sh-2); }
 .bulle.life { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 4px; box-shadow: var(--sh-1); }
-.bulle .heure { display: block; font: 400 12px var(--mono); color: var(--encre-2); margin-top: 8px; text-align: right; }
+.bulle .heure { display: block; font: 400 var(--t-xs) var(--mono); color: var(--encre-2); margin-top: 8px; text-align: right; }
 .bulle.moi .heure { color: var(--heure-moi); }
 .bulle.attente { opacity: .72; }
 .bulle.echec { border-style: dashed; box-shadow: none; }
 .reessayer { display: block; margin: 6px -8px -6px auto; min-height: var(--cible); padding: 0 8px; border: 0; background: none; color: inherit;
-  font: 600 12.5px var(--mono); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  font: 600 var(--t-s) var(--mono); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 /* Un seul modèle de carte système : rayon 14, contour plein, barre de 4 px à gauche pour une information dans un fil */
 .bulle.systeme { align-self: stretch; max-width: none; background: var(--surface); border-radius: var(--r-m); border: 1.5px solid var(--trait); box-shadow: var(--sh-2); }
 .bulle.systeme.info { border-left-width: 4px; padding-top: 34px; }
 .bulle.systeme.info::before { content: attr(data-etiquette); position: absolute; top: 11px; left: 14px;
-  font: 500 12px var(--mono); letter-spacing: 1.2px; text-transform: uppercase; color: var(--encre-2); }
+  font: 500 var(--t-xs) var(--mono); letter-spacing: 1.2px; text-transform: uppercase; color: var(--encre-2); }
 .bulle.systeme .titre { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal;
-  font: 700 18px/24px var(--display); text-wrap: balance; margin-bottom: 6px; }
+  font: 700 var(--t-xl)/24px var(--display); text-wrap: balance; margin-bottom: 6px; }
 .bulle.systeme .titre svg { width: 20px; height: 20px; vertical-align: -3px; margin-right: 6px; }
-.bulle.systeme .section { display: block; font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
+.bulle.systeme .section { display: block; font: 500 var(--t-xs) var(--mono); text-transform: uppercase; letter-spacing: 1.5px;
   border-top: 1px solid var(--trait-doux); padding-top: 8px; margin-top: 10px; }
 .vide { margin: auto; text-align: center; color: var(--encre-2); max-width: 290px; }
-.vide strong { display: block; font: 700 22px var(--display); color: var(--encre); margin-bottom: 6px; }
-.ecrit { align-self: flex-start; display: flex; gap: 5px; padding: 14px 16px; border: 1.5px solid var(--trait); border-radius: var(--r-m);
+.vide strong { display: block; font: 700 var(--t-2xl) var(--display); color: var(--encre); margin-bottom: 6px; }
+.ecrit { align-self: flex-start; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1.5px solid var(--trait); border-radius: var(--r-m);
   border-bottom-left-radius: 4px; background: var(--surface); }
+.ecrit .points { display: flex; gap: 5px; }
+.ecrit-txt { font: 400 var(--t-xs)/1.3 var(--mono); color: var(--encre-2); }   /* « LIFE réfléchit… d'habitude ≈ N s » */
 .ecrit i { width: 7px; height: 7px; border-radius: 50%; background: var(--encre); animation: point 1.2s infinite ease-in-out; }
 .ecrit i:nth-child(2) { animation-delay: .15s; } .ecrit i:nth-child(3) { animation-delay: .3s; }
 @keyframes point { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-4px); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ecrit i { animation: none; opacity: .7; } }
 .rapides { align-self: flex-start; display: flex; gap: 8px; flex-wrap: wrap; margin: -8px 0 0 40px; }
 .rapides button { min-height: var(--cible); border: 1.5px solid var(--trait); background: var(--surface); color: var(--encre); border-radius: var(--r-p);
-  padding: 0 18px; font: 500 14px var(--mono); cursor: pointer; }
+  padding: 0 18px; font: 500 var(--t-m) var(--mono); cursor: pointer; }
 .rapides button:active { background: var(--plein); color: var(--sur-plein); }
 /* indice de l'appui long, montré jusqu'à ce qu'on l'ait lu ou utilisé */
 .aide { align-self: center; display: flex; align-items: center; gap: 0 4px; max-width: min(100%, 520px);
-  padding: 0 4px 0 14px; border: 1px dashed var(--trait-doux); border-radius: var(--r-m); color: var(--encre-2); font: 400 12.5px/1.4 var(--mono); }
+  padding: 0 4px 0 14px; border: 1px dashed var(--trait-doux); border-radius: var(--r-m); color: var(--encre-2); font: 400 var(--t-s)/1.4 var(--mono); }
 .aide span { flex: 1; padding: 6px 0; }
-.aide button { min-height: var(--cible); padding: 0 12px; border: 0; background: none; color: var(--encre); font: 600 13px var(--mono); text-decoration: underline; cursor: pointer; }
+.aide button { min-height: var(--cible); padding: 0 12px; border: 0; background: none; color: var(--encre); font: 600 var(--t-s) var(--mono); text-decoration: underline; cursor: pointer; }
 /* LIFE : petit avatar à côté de ses messages */
 .ligne-life { align-self: flex-start; display: flex; gap: 8px; align-items: flex-end; max-width: 92%; }
 .ligne-life .bulle { max-width: none; }
@@ -147,7 +177,7 @@ main { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 24px; display
 .feuille-msg { position: absolute; z-index: 8; top: calc(100% + 6px); right: 0; display: flex; flex-direction: column; min-width: 170px; white-space: normal;
   background: var(--surface); border: 1.5px solid var(--trait); border-radius: var(--r-m); box-shadow: var(--sh-3); overflow: hidden; }
 .bulle.life .feuille-msg, .bulle.systeme .feuille-msg { right: auto; left: 0; }
-.feuille-msg button { all: unset; box-sizing: border-box; cursor: pointer; min-height: var(--cible); padding: 12px 16px; font: 500 14px/20px var(--mono); color: var(--encre); }
+.feuille-msg button { all: unset; box-sizing: border-box; cursor: pointer; min-height: var(--cible); padding: 12px 16px; font: 500 var(--t-m)/20px var(--mono); color: var(--encre); }
 .feuille-msg button + button { border-top: 1px solid var(--trait-doux); }
 .feuille-msg button:last-child { font-weight: 700; }
 /* Brief et Maintenance : vues à part, avec un retour explicite */
@@ -156,34 +186,34 @@ main { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 24px; display
 body.brief #vue-brief, body.maintenance #vue-maintenance { display: flex; }
 body.brief main, body.maintenance main { display: none; }
 .retour { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: var(--cible); padding: 0 16px 0 12px;
-  border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre); font: 600 14px var(--display); cursor: pointer; }
+  border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre); font: 600 var(--t-m) var(--display); cursor: pointer; }
 .retour svg { width: 18px; height: 18px; }
 /* Recherche */
 #recherche { flex: none; display: flex; gap: 8px; padding: 8px 16px; border-top: 1.5px solid var(--trait); background: var(--fond); }
 #recherche[hidden] { display: none; }
 #recherche input { flex: 1; min-width: 0; min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: var(--r-p); padding: 8px 16px;
-  font: 15px var(--mono); background: var(--surface); color: var(--encre); }
+  font: var(--t-l) var(--mono); background: var(--surface); color: var(--encre); }
 #q::-webkit-search-cancel-button, #q::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 #recherche button { flex: none; width: var(--cible); height: var(--cible); padding: 0; border: 1.5px solid var(--trait); border-radius: 50%;
   background: var(--surface); color: var(--encre); display: grid; place-items: center; cursor: pointer; }
 #recherche button svg { width: 18px; height: 18px; }
 mark { background: var(--pale); color: inherit; font-weight: 600; border-radius: 3px; }
 .resultat { cursor: pointer; }
-.resultat .ou { display: block; font: 600 12px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--encre-2); margin-bottom: 4px; }
+.resultat .ou { display: block; font: 600 var(--t-xs) var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--encre-2); margin-bottom: 4px; }
 /* Épinglés : en haut du fil */
 #epingles { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
 #epingles:not(:empty) { padding: 8px 16px; border-top: 1.5px solid var(--trait); background: var(--fond); }
 .epingle { display: flex; gap: 8px; align-items: center; border: 1.5px solid var(--trait); border-radius: var(--r-m); padding: 4px 4px 4px 12px;
-  background: var(--surface); font: 12.5px/1.35 var(--mono); }
+  background: var(--surface); font: var(--t-s)/1.35 var(--mono); }
 .epingle span { flex: 1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .epingle svg { width: 16px; height: 16px; flex: none; }
 .epingle button { all: unset; cursor: pointer; flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; }
-#tirer { flex: none; text-align: center; font: 500 12px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--encre-2); height: 0; overflow: hidden; transition: height .15s; }
+#tirer { flex: none; text-align: center; font: 500 var(--t-xs) var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--encre-2); height: 0; overflow: hidden; transition: height .15s; }
 /* ---------- Saisie ---------- */
 footer { position: relative; flex: none; padding: 8px 16px calc(env(safe-area-inset-bottom) + 10px); display: flex; gap: 8px; align-items: flex-end;
   border-top: 1.5px solid var(--trait); background: var(--fond); }
 textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: 22px;
-  padding: 10px 16px; font: 15px/1.45 var(--mono); background: var(--surface); color: var(--encre); outline: none; }
+  padding: 10px 16px; font: var(--t-l)/1.45 var(--mono); background: var(--surface); color: var(--encre); outline: none; }
 textarea::placeholder { color: var(--encre-2); }
 .rond { width: var(--cible); height: var(--cible); padding: 0; border-radius: 50%; flex: none; cursor: pointer; display: grid; place-items: center;
   border: 1.5px solid var(--trait); }
@@ -197,47 +227,52 @@ textarea::placeholder { color: var(--encre-2); }
 /* Message d'état : un bandeau lisible juste au-dessus de la saisie (3 à 5 s), avec « Annuler » après une suppression */
 #bandeau { position: absolute; left: 16px; right: 16px; bottom: calc(100% + 10px); z-index: 9; display: flex; align-items: center; gap: 8px;
   min-height: 48px; padding: 4px 4px 4px 16px; border: 1.5px solid var(--plein); border-radius: var(--r-m); background: var(--plein); color: var(--sur-plein);
-  font: 500 14px/1.35 var(--mono); box-shadow: var(--sh-2); }
+  font: 500 var(--t-m)/1.35 var(--mono); box-shadow: var(--sh-2); }
 #bandeau[hidden] { display: none; }
 #bandeau span { flex: 1; min-width: 0; }
 #bandeau button { flex: none; min-height: 40px; padding: 0 14px; border: 1.5px solid var(--sur-plein); border-radius: var(--r-p); background: none;
-  color: var(--sur-plein); font: 600 14px var(--mono); cursor: pointer; }
+  color: var(--sur-plein); font: 600 var(--t-m) var(--mono); cursor: pointer; }
 #maj { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 84px); transform: translateX(-50%); z-index: 9; min-height: var(--cible);
-  border: 1.5px solid var(--plein); border-radius: var(--r-p); padding: 0 16px; font: 500 13px var(--mono); background: var(--plein); color: var(--sur-plein);
+  border: 1.5px solid var(--plein); border-radius: var(--r-p); padding: 0 16px; font: 500 var(--t-s) var(--mono); background: var(--plein); color: var(--sur-plein);
   box-shadow: var(--sh-2); cursor: pointer; }
 #maj[hidden] { display: none; }
 /* ---------- Réglages, installation ---------- */
 dialog { border: 1.5px solid var(--trait); border-radius: var(--r-l); padding: 22px; width: min(92vw, 440px); max-height: 92dvh; background: var(--surface);
   color: var(--encre); box-shadow: var(--sh-3); }
 dialog::backdrop { background: rgba(0,47,167,.18); }
-dialog h2 { margin: 0 0 8px; font: 700 22px var(--display); }
-dialog p { color: var(--encre-2); font-size: 14px; margin: 0 0 12px; }
-dialog p.accueil { color: var(--encre); font: 500 16px/1.45 var(--display); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--trait-doux); }
-dialog p.accueil strong { display: block; font: 700 24px/1.2 var(--display); margin-bottom: 4px; }
-dialog input { width: 100%; min-height: var(--cible); margin-bottom: 8px; padding: 10px 12px; border-radius: var(--r-s); border: 1.5px solid var(--trait); font: 15px var(--mono);
+dialog h2 { margin: 0 0 8px; font: 700 var(--t-2xl) var(--display); }
+dialog p { color: var(--encre-2); font-size: var(--t-m); margin: 0 0 12px; }
+/* premier lancement : une seule page, le chemin court (code d'un appareil déjà relié) d'abord */
+dialog .accueil { color: var(--encre); font: 500 var(--t-l)/1.45 var(--display); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--trait-doux); }
+dialog .accueil p { color: var(--encre); font: inherit; margin: 0 0 8px; }
+dialog .accueil ol { margin: 0 0 12px; padding-left: 22px; } dialog .accueil li { margin: 4px 0; }
+dialog .accueil .lien { border: 0; padding: 0 2px; background: none; color: var(--encre); font: 600 var(--t-m) var(--mono); text-decoration: underline; text-underline-offset: 3px; }
+dialog.premier:not(.main) .manuel, dialog.premier .appareil { display: none; }
+dialog.premier.main .accueil { border-bottom: 1px solid var(--trait-doux); }
+dialog input { width: 100%; min-height: var(--cible); margin-bottom: 8px; padding: 10px 12px; border-radius: var(--r-s); border: 1.5px solid var(--trait); font: var(--t-l) var(--mono);
   background: var(--fond); color: var(--encre); }
 dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 18px 0 0; }
-dialog button { min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: var(--r-p); padding: 0 16px; font: 500 15px var(--mono); cursor: pointer;
+dialog button { min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: var(--r-p); padding: 0 16px; font: 500 var(--t-l) var(--mono); cursor: pointer;
   background: var(--surface); color: var(--encre); }
 dialog button.principal { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
-dialog .hote { color: var(--encre); font: 700 17px/1.3 var(--mono); overflow-wrap: anywhere; }
+dialog .hote { color: var(--encre); font: 700 var(--t-xl)/1.3 var(--mono); overflow-wrap: anywhere; }
 #cx-retaper[hidden], #cx-ok[hidden] { display: none; }
-dialog label { display: block; font-size: 14px; color: var(--encre-2); margin-bottom: 6px; }
-#cx-retaper label { display: block; font-size: 14px; color: var(--encre-2); margin-bottom: 6px; }
+dialog label { display: block; font-size: var(--t-m); color: var(--encre-2); margin-bottom: 6px; }
+#cx-retaper label { display: block; font-size: var(--t-m); color: var(--encre-2); margin-bottom: 6px; }
 dialog button:disabled { opacity: .45; cursor: default; box-shadow: none; }
 dialog .cle-bt { margin-top: 4px; }
-dialog .cle-bt button { padding: 0 12px; font-size: 13px; }
+dialog .cle-bt button { padding: 0 12px; font-size: var(--t-s); }
 dialog .appareil { border-top: 1px solid var(--trait-doux); margin-top: 16px; padding-top: 14px; }
-dialog .appareil h3 { margin: 0 0 6px; font: 700 16px var(--display); }
+dialog .appareil h3 { margin: 0 0 6px; font: 700 var(--t-l) var(--display); }
 dialog .rang { display: flex; flex-wrap: wrap; gap: 8px; }
 #qr { display: block; width: 220px; max-width: 100%; margin: 12px auto 4px; background: #fff; padding: 10px; border-radius: var(--r-m); border: 1.5px solid var(--trait); }
 #qr[hidden] { display: none; }
 #installe { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: rgba(0,47,167,.18); }
 #installe[hidden] { display: none; }
 #installe > div { background: var(--surface); color: var(--encre); border: 1.5px solid var(--trait); border-radius: var(--r-l); padding: 22px; max-width: 360px; box-shadow: var(--sh-3); }
-#installe h2 { margin: 0 0 8px; font: 700 22px var(--display); }
-#installe p { color: var(--encre-2); font-size: 14px; margin: 0 0 12px; }
-#installe button { min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: var(--r-p); padding: 0 18px; font: 500 15px var(--mono); cursor: pointer;
+#installe h2 { margin: 0 0 8px; font: 700 var(--t-2xl) var(--display); }
+#installe p { color: var(--encre-2); font-size: var(--t-m); margin: 0 0 12px; }
+#installe button { min-height: var(--cible); border: 1.5px solid var(--trait); border-radius: var(--r-p); padding: 0 18px; font: 500 var(--t-l) var(--mono); cursor: pointer;
   background: var(--surface); color: var(--encre); margin: 4px 6px 0 0; }
 #installe button.principal { background: var(--plein); border-color: var(--plein); color: var(--sur-plein); box-shadow: var(--sh-1); }
 /* Écran d'ouverture : l'étincelle s'allume */
@@ -256,7 +291,7 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
 @media (max-width: 400px) { header h1 small .long { display: none; } }
 @media (max-width: 899px) and (max-height: 700px), (pointer: coarse) and (max-height: 700px), (pointer: none) and (max-height: 700px) {
   header { padding-top: calc(env(safe-area-inset-top) + 6px); padding-bottom: 4px; }
-  header h1 { font-size: 22px; }
+  header h1 { font-size: var(--t-2xl); }
   footer { padding-top: 6px; padding-bottom: calc(env(safe-area-inset-bottom) + 8px); }
 }
 @media (max-width: 899px) and (max-height: 520px), (pointer: coarse) and (max-height: 520px), (pointer: none) and (max-height: 520px) { header h1 small { display: none; } }
@@ -266,19 +301,19 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
 @media (min-width: 900px) and (pointer: fine) {
   body { max-width: 1040px; padding: 0 24px 24px; }
   header { padding: 20px 0 16px; gap: 8px; }
-  header h1 { font-size: 30px; }
+  header h1 { font-size: var(--t-3xl); }
   #menu { right: 0; }
   #app { flex-direction: row; align-items: stretch; gap: 24px; }
   /* colonne des fils, à gauche */
   #barre-fils { width: 240px; flex: none; flex-direction: column; align-items: stretch; gap: 12px; padding: 2px 0 0; overflow-y: auto; }
   #chercher { order: -1; width: 100%; height: 40px; justify-content: flex-start; display: flex; align-items: center; gap: 10px; padding: 0 12px;
-    border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre-2); font: 500 14px var(--mono); }
+    border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre-2); font: 500 var(--t-m) var(--mono); }
   #chercher .lib { display: inline; flex: 1; text-align: left; }
-  #chercher kbd { display: inline; font: 500 12px var(--mono); padding: 1px 6px; border: 1px solid var(--trait-doux); border-radius: var(--r-s); }
+  #chercher kbd { display: inline; font: 500 var(--t-xs) var(--mono); padding: 1px 6px; border: 1px solid var(--trait-doux); border-radius: var(--r-s); }
   #plier { display: none; }
   nav { flex: none; flex-direction: column; padding: 0; gap: 4px; }
   nav button { width: 100%; height: 44px; gap: 12px; padding: 0 12px; border-color: transparent; background: transparent; border-radius: var(--r-m);
-    font: 600 14px/1.2 var(--display); }
+    font: 600 var(--t-m)/1.2 var(--display); }
   nav button svg { width: 22px; height: 22px; }
   nav button .nom { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
   nav button:not([aria-pressed="true"]):hover { background: var(--surface); border-color: var(--trait-doux); }
@@ -290,13 +325,13 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
   main, #vue-brief, #vue-maintenance { border-top: 0; padding: 16px 24px 24px; }
   #recherche { border-top: 0; border-bottom: 1.5px solid var(--trait); padding: 10px 16px; background: var(--plateau); }
   #epingles:not(:empty) { border-top: 0; border-bottom: 1.5px solid var(--trait); background: var(--plateau); }
-  .bulle { max-width: 560px; font-size: 15px; line-height: 22px; }
+  .bulle { max-width: 560px; font-size: var(--t-l); line-height: 22px; }
   .ligne-life { max-width: 600px; }
   .bulle.systeme { max-width: none; }
   footer { padding: 12px 16px 14px; background: var(--plateau); }
   #bandeau { left: 24px; right: 24px; }
   #maj { bottom: 110px; }
-  .bulle.systeme .titre { font-size: 20px; line-height: 26px; }
+  .bulle.systeme .titre { font-size: var(--t-xl); line-height: 24px; }
 }
 /* souris : cibles de 36 px au moins, survol qui soulève */
 @media (min-width: 900px) and (pointer: fine) {
@@ -319,7 +354,8 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
   #barre-fils nav button { position: relative; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1; height: auto;
     min-width: 0; padding: 6px 2px; gap: 4px; border: 1.5px solid var(--trait); border-radius: 16px; white-space: nowrap; }
   #barre-fils nav button svg { width: 27px; height: 27px; }
-  /* noms des tuiles en capitales, tailles d'origine : choix de la propriétaire (« exactement comme avant »), préféré au 11 px */
+  /* noms des tuiles en capitales, tailles d'origine : choix de la propriétaire (« exactement comme avant »), préféré au 11 px.
+     SEULE exception à l'échelle de sept tailles (--t-xs à --t-3xl) de la charte commune, gardée volontairement. */
   #barre-fils nav button .nom { display: block; text-transform: uppercase; font: 700 9.5px/1.1 var(--display); letter-spacing: 0; white-space: nowrap; }
   #barre-fils nav button.moyen .nom { font-size: 8.4px; }
   #barre-fils nav button.long .nom { font-size: 7.4px; letter-spacing: -.25px; }

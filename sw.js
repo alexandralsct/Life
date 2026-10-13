@@ -1,5 +1,5 @@
 // LIFE — service worker : l'app s'ouvre même hors ligne (coquille en cache). Les messages ne passent jamais par le cache.
-const CACHE = 'life-V.0.0.3.7';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
+const CACHE = 'life-V.0.0.3.9';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
 const COQUILLE = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'qr.js',
   'fonts/instrument-sans.woff2', 'fonts/plex-mono-400.woff2', 'fonts/plex-mono-400-italique.woff2', 'fonts/plex-mono-500.woff2',
   'fonts/plex-mono-600.woff2', 'fonts/plex-mono-700.woff2'];
@@ -8,10 +8,10 @@ const COQUILLE = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest
 // celle-ci. Ce fichier-ci n'est jamais dans le Cache Storage : personne ne peut changer ces empreintes depuis une page.
 // Recalculées par « node tests/empreintes.mjs » ; vérifiées par le garde-fou.
 const EMPREINTES = {
-  'index.html': '81bd8589b4f27e82945f3f691daf23a9e037481d4e6c19dc379f7fa9d189cf9e',
-  'app.js': '9f8186747160d00eb8ff4f9079ef009205c9a63eb3f0e7194d26eca4251b5277',
-  'app.css': 'd35757b54c647a2e0996209af61915e149cbb3fc85c848e00ef24cdd205064b0',
-  'manifest.webmanifest': 'be68195c0fc770e4d0624da67eb50f3d08ae944a207e1918dfbd12c136078b00',
+  'index.html': '34c01e8951312d4112ca575cc2356cf6e8d699c2a0f807e4d2c92050db049443',
+  'app.js': '7a1209a0a718a09714a0cf99dc13e2f98b36ec0b494a7470f73e0c5582430e25',
+  'app.css': '8d385b716eac8a2f9e93948acd3b75a557bcc33ce11917b82575a1d19b123dda',
+  'manifest.webmanifest': '59b243d98715d5a854c578e49a063b4896d74b9792ba1152c07ff43deeaf7223',
   'icon.svg': '3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35',
   'icon-192.png': 'e99334a6b4cec7dfd82972c3cdda40bd6506d80abb1ab6d24dcc60edde6c0ffd',
   'icon-512.png': '911decb9b5c73875a1783cf51b022846e0f02cbf75f110e2a0f800a73f6a65dc',

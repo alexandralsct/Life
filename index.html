@@ -47,14 +47,23 @@
 </div>
 
 <dialog id="dlg" aria-labelledby="dlg-titre">
-  <p class="accueil" id="accueil" hidden><strong>Bienvenue dans LIFE</strong>Ici, tu écris à ton système comme dans une messagerie. Pour commencer, relie LIFE avec l'adresse et la clé que tu utilises déjà dans Ma carte de vie.</p>
   <h2 id="dlg-titre">Clé et connexion</h2>
+  <div class="accueil" id="accueil" hidden>
+    <p>Ici, tu écris à ton système comme dans une messagerie. Le plus court pour la relier :</p>
+    <ol>
+      <li>sur ton Mac (ou un appareil déjà relié), ouvre LIFE → <strong>⋯</strong> → <strong>Réglages</strong> → <strong>Montrer le code</strong> ;</li>
+      <li>vise ce code avec l'appareil photo de ce téléphone : LIFE s'ouvre, connectée.</li>
+    </ol>
+    <button type="button" class="lien" id="a-la-main">Saisir l'adresse et la clé à la main</button>
+  </div>
+  <div class="manuel">
   <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil.</p>
   <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (commence par https://)" aria-label="Adresse du lien">
   <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien" aria-label="Clé du lien">
   <input id="cle-life" type="password" autocomplete="off" placeholder="Clé propre à LIFE (facultatif)" aria-label="Clé propre à LIFE, facultative">
   <div class="rang cle-bt"><button id="coller-cle">Coller la clé copiée</button><button id="copier-cle">Copier la clé</button></div>
   <menu><button value="annuler" id="annuler">Annuler</button><button class="principal" id="garder">Enregistrer</button></menu>
+  </div>
   <div class="appareil">
     <h3>Connecter un autre appareil</h3>
     <p>Sur l'ordinateur, montre le code ; sur le téléphone, vise-le avec l'appareil photo : LIFE s'ouvre, connectée, et propose de s'installer. L'adresse et la clé passent d'un appareil à l'autre, les messages sont les mêmes partout. Ce code contient ta clé : ne le montre qu'à toi.</p>
