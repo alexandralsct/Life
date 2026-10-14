@@ -50,3 +50,16 @@ export const tests = [
   verif(m.includes('Supprimer'), 'appui long tactile : menu ouvert', { pendant, apres: m });
   await A.ctx.close(); } },
 ];
+tests.push({ nom: 'Fil « Moi dans 5 ans » : sans tuile (grille inchangée), ouvert par le menu ••• ou par Ma carte de vie, bandeau et retour vers Général', f: async ({ nav, st, profil, verif }) => {
+  const S = fauxServeur(); const A = await ouvrir(nav, st, profil, S); const p = A.page;
+  const tuiles = await p.$$eval('#fils button', l => l.length);
+  verif(tuiles === 10, 'toujours 10 tuiles de fils', tuiles);
+  await p.evaluate(() => { document.getElementById('plus').click(); document.getElementById('vers-futur').click(); }); await pause(200);
+  const z = await p.evaluate(() => ({ visible: !document.getElementById('filcache').hidden, texte: document.getElementById('filcache').textContent, ph: document.getElementById('saisie').placeholder, fil: JSON.parse(localStorage.getItem('life.fil')) }));
+  verif(z.visible && /Moi dans 5 ans/.test(z.texte) && z.fil === 'futur' && /dans 5 ans/.test(z.ph), 'bandeau « Moi dans 5 ans », fil futur, saisie adaptée', z);
+  await p.reload(); await pause(900);
+  verif(await p.evaluate(() => !document.getElementById('filcache').hidden), 'à la réouverture, le bandeau est toujours là');
+  await p.evaluate(() => [...document.querySelectorAll('#filcache button')].find(x => x.textContent === 'Revenir à Général').click()); await pause(200);
+  const g = await p.evaluate(() => ({ cache: document.getElementById('filcache').hidden, fil: JSON.parse(localStorage.getItem('life.fil')) }));
+  verif(g.cache && g.fil === 'general', '« Revenir à Général » ramène au fil Général', g);
+  await A.ctx.close(); } });

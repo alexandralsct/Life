@@ -25,6 +25,9 @@ const POLITIQUE = (() => {
   try { return window.trustedTypes && window.trustedTypes.createPolicy ? window.trustedTypes.createPolicy('life', regle) : regle; } catch (e) { return regle; }
 })();
 const html = (el, x) => { el.innerHTML = POLITIQUE.createHTML(x); };
+// Fils qui n'ont pas de tuile (14/10) : on y entre depuis Ma carte de vie (Omni) ou le menu ••• ; un bandeau en haut le dit.
+// « futur » : conversation avec soi-même dans 5 ans (LIFE répond à la première personne, à partir d'Omniscient).
+const FILS_CACHES = [['futur', 'Moi dans 5 ans']];
 const FILS = [['general', 'Général'], ['travail', 'Travail'], ['metamorphose', 'Projet'], ['patrimoine', 'Patrimoine'],
   ['quotidien', 'Quotidien'], ['voyage', 'Voyage'], ['experts', 'Experts'], ['comite', 'Comité'], ['brainstorm', 'Brainstorming'], ['coach', 'Coach']];
 // Icônes au trait (couleur du texte), une par fil.
@@ -507,7 +510,7 @@ let filAffiche = null, focusFil = null;
 const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
 // Nom affiché sur la tuile du téléphone quand le nom complet ne tient pas à 11 px (le nom complet reste celui lu à voix haute).
 const NOM_COURT = {};
-const nomFil = id => (FILS.find(f => f[0] === id) || ['', id === 'systeme' ? 'Maintenance' : 'Général'])[1];
+const nomFil = id => (FILS.concat(FILS_CACHES).find(f => f[0] === id) || ['', id === 'systeme' ? 'Maintenance' : 'Général'])[1];
 function comptesNonLus() {   // une seule passe sur les messages (avant : une par fil)
   const c = {};
   for (const m of messages) { const f = m.fil || 'general';
@@ -684,7 +687,17 @@ function choisirFil(id) {
   if (selection) sortirSelection();
   fil = id; store.ecrire('fil', fil);
   if (!$('recherche').hidden) { $('recherche').hidden = true; $('q').value = ''; $('resultats').hidden = true; $('flux').hidden = false; }
-  document.body.classList.remove('brief', 'maintenance'); majVues(); afficher();
+  document.body.classList.remove('brief', 'maintenance'); majVues(); afficher(); filCache();
+}
+function filCache() {   // bandeau « Moi dans 5 ans · Revenir à Général » quand le fil n'a pas de tuile
+  const cache = FILS_CACHES.find(x => x[0] === fil); let z = $('filcache');
+  if (!z) { z = document.createElement('div'); z.id = 'filcache'; z.setAttribute('role', 'note'); $('conv').insertBefore(z, $('conv').firstChild); }
+  z.hidden = !cache; document.body.classList.toggle('fil-cache', !!cache);
+  $('saisie').placeholder = fil === 'futur' ? 'Écris-toi, dans 5 ans…' : 'Écris à LIFE…';
+  if (!cache) return; z.textContent = '';
+  const t = document.createElement('b'); t.textContent = cache[1];
+  const r = document.createElement('button'); r.type = 'button'; r.textContent = 'Revenir à Général'; r.onclick = () => choisirFil('general');
+  z.append(t, r);
 }
 let sigBrief = null, sigMaint = null;
 function afficherVues() {
@@ -873,7 +886,7 @@ async function expedier(texte, filCible, cid, parti) {
     if (j.tronque) bandeau('Le serveur a gardé les ' + j.tronque + ' premiers caractères de ce message.', null, 6000);
     // version 3 : le serveur traite déjà ce message (un premier envoi est en cours) : rien n'est retraité, la réponse suit
     if (j.en_cours) { attendreReponse(cid, filCible); bandeau('LIFE traite déjà ce message : sa réponse arrive.', null, 5000); }
-    if (horsFil && filCible !== 'general') bandeau('Le serveur ne connaît pas encore le fil ' + ((FILS.find(x => x[0] === filCible) || [0, filCible])[1]) + ' : c\'est Général qui a répondu. La dernière version du serveur doit être installée puis publiée.', null, 9000);
+    if (horsFil && filCible !== 'general') bandeau('Le serveur ne connaît pas encore le fil ' + ((FILS.concat(FILS_CACHES).find(x => x[0] === filCible) || [0, filCible])[1]) + ' : c\'est Général qui a répondu. La dernière version du serveur doit être installée puis publiée.', null, 9000);
     return true;
   } catch (e) {
     // la bulle reste (remise dans la liste si une fusion l'avait écartée), marquée « Non envoyé · Réessayer », gardée sur l'appareil
@@ -1020,6 +1033,8 @@ $('plus').addEventListener('keydown', e => { if (e.key === 'ArrowDown' || e.key 
 $('menu').addEventListener('keydown', e => naviguerMenu(e, itemsMenu(), fermerMenu));
 document.addEventListener('click', fermerMenu);
 $('actualiser').onclick = actualiser;
+$('vers-futur').onclick = () => { $('menu').hidden = true; choisirFil('futur'); $('saisie').focus(); };
+filCache();   // au lancement, si l'app rouvre sur un fil sans tuile
 // Effacer ce fil : tout de suite à l'écran, annulable 10 s (bandeau « Annuler ») avant de partir au serveur, puis effacé
 // sur tous les appareils (audit UX du 13/10 : 5 s était trop court pour une action de cette taille).
 $('effacer-fil').onclick = () => { fermerMenu(); if (enVueAPart()) vue(null);
@@ -1096,10 +1111,10 @@ $('vers-carte').onclick = () => { $('menu').hidden = true; location.href = '../c
 if (DANS_CARTE) window.addEventListener('message', e => {
   if (e.origin !== location.origin || e.source !== window.parent) return;
   const d = e.data || {}; if (d.life !== 'preparer' || typeof d.texte !== 'string' || !d.texte.trim()) return;
-  choisirFil(FILS.some(x => x[0] === d.fil) ? d.fil : 'general');
+  choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.4.4';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.4.5';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
