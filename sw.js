@@ -1,5 +1,5 @@
 // LIFE — service worker : l'app s'ouvre même hors ligne (coquille en cache). Les messages ne passent jamais par le cache.
-const CACHE = 'life-V.0.0.4.3';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
+const CACHE = 'life-V.0.0.4.4';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
 const COQUILLE = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'qr.js',
   'fonts/instrument-sans.woff2', 'fonts/plex-mono-400.woff2', 'fonts/plex-mono-400-italique.woff2', 'fonts/plex-mono-500.woff2',
   'fonts/plex-mono-600.woff2', 'fonts/plex-mono-700.woff2'];
@@ -8,9 +8,9 @@ const COQUILLE = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest
 // celle-ci. Ce fichier-ci n'est jamais dans le Cache Storage : personne ne peut changer ces empreintes depuis une page.
 // Recalculées par « node tests/empreintes.mjs » ; vérifiées par le garde-fou.
 const EMPREINTES = {
-  'index.html': '9fb088ac1360c7b8ac4fd99dbb3e48e10b1eb41be8d7114856e291859f37fdc6',
-  'app.js': '3b426b39c6dadff435a9a1c9ab51f9ef46b5bd51d592c903e11046d984113e07',
-  'app.css': 'ab97f9b7a6e632006e4ee34bec3267f4ad5f60a7c1b6016691f6bdc31771a9bf',
+  'index.html': 'cc8659d0068ed0e237e1e4a234ee7f339d13ae3dcc5e8e21fa29498090bc9fbf',
+  'app.js': 'e7e28ccd8ba8940cc27f7cf0d022843c7f687904b7b7271d20ddea15428ec3d8',
+  'app.css': 'ac6bc06b57db808f6861deb3418f2a092b9f1a82fe74b2b5f8aae66babb622c6',
   'manifest.webmanifest': '59b243d98715d5a854c578e49a063b4896d74b9792ba1152c07ff43deeaf7223',
   'icon.svg': '3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35',
   'icon-192.png': 'e99334a6b4cec7dfd82972c3cdda40bd6506d80abb1ab6d24dcc60edde6c0ffd',

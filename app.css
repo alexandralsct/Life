@@ -412,3 +412,15 @@ textarea:focus-visible, input:focus-visible { outline: 2px solid var(--trait); o
 @media (max-width: 899px) and (max-height: 600px), (pointer: coarse) and (max-height: 600px), (pointer: none) and (max-height: 600px) {
   body.grille #barre-fils nav button { height: 40px; } body.grille #barre-fils nav button .nom { display: none; }
 }
+
+/* Sélection de plusieurs messages (14/10) : bulle choisie bien marquée, barre d'actions à la place du bandeau */
+#flux .bulle.choisie { outline: 3px solid var(--plein); outline-offset: 2px; }
+body.en-selection #flux .bulle[data-id] { cursor: pointer; }
+#selbarre { position: absolute; left: 16px; right: 16px; bottom: calc(100% + 10px); z-index: 9; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  min-height: 48px; padding: 4px 4px 4px 16px; border: 1.5px solid var(--plein); border-radius: var(--r-m); background: var(--plein); color: var(--sur-plein);
+  font: 500 var(--t-m)/1.35 var(--mono); box-shadow: var(--sh-2); }
+#selbarre[hidden] { display: none; }
+#selbarre span { flex: 1; min-width: 0; }
+#selbarre button { flex: none; min-height: 40px; padding: 0 14px; border: 1.5px solid var(--sur-plein); border-radius: var(--r-p); background: none;
+  color: var(--sur-plein); font: 600 var(--t-m) var(--mono); cursor: pointer; }
+#selbarre button:disabled { opacity: .5; cursor: default; }

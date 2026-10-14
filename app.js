@@ -430,6 +430,29 @@ function naviguerMenu(e, items, fermer) {   // flèches dans un menu (WAI-ARIA �
   else if (e.key === 'Tab') { fermer(false); return; }
   if (j !== null) { e.preventDefault(); items[j].focus(); }
 }
+// Sélection de plusieurs messages (14/10) : appui long (ou clic droit) → « Sélectionner plusieurs », puis toucher les messages ;
+// une barre au-dessus de la saisie dit combien sont choisis et propose « Supprimer » (avec Annuler, comme pour un seul) ou « Fermer ».
+let selection = null;
+function barreSelection() {
+  let z = $('selbarre');
+  if (!z) { z = document.createElement('div'); z.id = 'selbarre'; z.setAttribute('role', 'toolbar'); z.setAttribute('aria-label', 'Messages sélectionnés');
+    $('bandeau').parentNode.appendChild(z); }
+  return z;
+}
+function marquerSelection() {
+  $('flux').querySelectorAll('.bulle[data-id]').forEach(b => { const on = !!(selection && selection.has(b.dataset.id)); b.classList.toggle('choisie', on);
+    if (selection) b.setAttribute('aria-selected', String(on)); else b.removeAttribute('aria-selected'); });
+  const z = barreSelection(); z.textContent = ''; z.hidden = !selection; document.body.classList.toggle('en-selection', !!selection);
+  if (!selection) return;
+  const n = selection.size, t = document.createElement('span'); t.textContent = n + ' message' + (n > 1 ? 's' : '') + ' sélectionné' + (n > 1 ? 's' : '') + ' · touche un message pour l\'ajouter ou l\'enlever';
+  const sup = document.createElement('button'); sup.type = 'button'; sup.textContent = 'Supprimer'; sup.disabled = !n;
+  sup.onclick = e => { e.stopPropagation(); const ids = [...selection]; sortirSelection(); supprimer(ids, ids.length + ' message' + (ids.length > 1 ? 's supprimés' : ' supprimé'), 8000); };
+  const fin = document.createElement('button'); fin.type = 'button'; fin.textContent = 'Fermer'; fin.onclick = e => { e.stopPropagation(); sortirSelection(); };
+  z.append(t, sup, fin);
+}
+function entrerSelection(m) { selection = new Set(m ? [m.id] : []); marquerSelection(); }
+function sortirSelection() { selection = null; marquerSelection(); }
+function basculerSelection(m) { if (!selection || !m) return; if (selection.has(m.id)) selection.delete(m.id); else selection.add(m.id); marquerSelection(); }
 function actionsMessage(m, b) {
   fermerFeuilles();
   if (!store.lire('aideAppui', false)) { store.ecrire('aideAppui', true); const a = document.querySelector('#flux .aide'); if (a) a.remove(); }
@@ -440,6 +463,7 @@ function actionsMessage(m, b) {
   const ep = (epingles[m.fil || 'general'] || []).includes(m.id);
   bt(ep ? 'Désépingler' : 'Épingler', () => epingler(m));
   bt('Copier', () => { try { navigator.clipboard.writeText(m.texte || '').then(() => bandeau('Copié', null, 2500), () => {}); } catch (e) { /* refusé */ } });
+  bt('Sélectionner plusieurs', () => entrerSelection(m));
   bt('Supprimer', () => supprimer([m.id], 'Message supprimé'));
   f.addEventListener('keydown', e => naviguerMenu(e, [...f.querySelectorAll('button')], fermerFeuilles));
   f.addEventListener('pointerdown', e => e.stopPropagation());
@@ -572,6 +596,7 @@ function afficherConversation() {
   const garde = (idActif && bl.find(x => x.dataset.id === idActif)) || (focusFil === fil && bl.find(x => x.tabIndex === 0)) || bl[bl.length - 1];
   bl.forEach(x => { const t = x === garde ? 0 : -1; if (x.tabIndex !== t) x.tabIndex = t; });
   focusFil = fil;
+  if (selection) marquerSelection();
   if (idActif && garde && document.activeElement !== garde && garde.dataset.id === idActif) garde.focus({ preventScroll: true });
   if (enBas) zone.scrollTop = zone.scrollHeight; else zone.scrollTop = zone.scrollHeight - hautAvant;
 }
@@ -586,15 +611,20 @@ function plusAnciens(focus) {   // ajoute FENETRE bulles plus anciennes, sans fa
   const flux = $('flux'); let appui = null, depart = null;
   const annuler = () => { clearTimeout(appui); appui = null; };
   flux.addEventListener('pointerdown', e => {
-    const b = bulleDe(e.target); if (!b || e.target.closest('button')) return;
+    const b = bulleDe(e.target); if (!b || selection || e.target.closest('button')) return;
     depart = [e.clientX, e.clientY];
-    appui = setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate(15); } catch (x) { /* */ } const m = messageDe(b); if (m) actionsMessage(m, b); }, 550);   // appui long
+    appui = setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate(15); } catch (x) { /* */ } const m = messageDe(b); if (!m) return; actionsMessage(m, b);
+      // au doigt, relâcher après l'appui long produit un « clic » qui refermait aussitôt le menu (14/10) : on l'ignore
+      const t0 = Date.now(), avale = e2 => { window.removeEventListener('click', avale, true);
+        if (Date.now() - t0 < 1000 && !(e2.target.closest && e2.target.closest('.feuille-msg'))) { e2.stopPropagation(); e2.preventDefault(); } };
+      window.addEventListener('click', avale, true); }, 550);   // appui long
   });
   flux.addEventListener('pointermove', e => { if (appui && depart && Math.hypot(e.clientX - depart[0], e.clientY - depart[1]) > 10) annuler(); });
   ['pointerup', 'pointercancel', 'pointerout'].forEach(ev => flux.addEventListener(ev, annuler));
   $('messages').addEventListener('scroll', annuler, { passive: true });
-  flux.addEventListener('contextmenu', e => { const b = bulleDe(e.target), m = messageDe(b); if (!m) return; e.preventDefault(); actionsMessage(m, b); });
+  flux.addEventListener('contextmenu', e => { const b = bulleDe(e.target), m = messageDe(b); if (!m) return; e.preventDefault(); if (selection) basculerSelection(m); else actionsMessage(m, b); });
   flux.addEventListener('click', e => {
+    if (selection) { const m = messageDe(bulleDe(e.target)); if (m) { e.stopPropagation(); basculerSelection(m); } return; }
     const r = e.target.closest('[data-action="reessayer"]');
     if (r) { e.stopPropagation(); const m = messageDe(bulleDe(r)); if (m) reessayer(m); return; }
     const q = e.target.closest('[data-rapide]');
@@ -651,6 +681,7 @@ function afficherFils(vueAPart) {
   return c;
 }
 function choisirFil(id) {
+  if (selection) sortirSelection();
   fil = id; store.ecrire('fil', fil);
   if (!$('recherche').hidden) { $('recherche').hidden = true; $('q').value = ''; $('resultats').hidden = true; $('flux').hidden = false; }
   document.body.classList.remove('brief', 'maintenance'); majVues(); afficher();
@@ -947,6 +978,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || $('dlg').open) return;   // la boîte des réglages se ferme d'elle-même
   if (!$('installe').hidden) { fermerInstalle(); return; }
   if (document.querySelector('.feuille-msg')) { fermerFeuilles(true); return; }
+  if (selection) { sortirSelection(); return; }
   if (!$('menu').hidden) { fermerMenu(true); return; }
   if (!$('recherche').hidden) { fermerRecherche(); $('chercher').focus(); return; }
   if (enVueAPart()) { vue(null); $('saisie').focus(); }
@@ -1067,7 +1099,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.4.3';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.4.4';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
