@@ -1020,7 +1020,39 @@ $('q').addEventListener('input', () => {   // résultats dans leur propre zone :
 let calme = store.lire('calme', false);
 const libelleCalme = () => { $('calme').textContent = 'Ne pas déranger 21 h – 8 h : ' + (calme ? 'oui' : 'non'); };
 libelleCalme();
-$('calme').onclick = () => { calme = !calme; store.ecrire('calme', calme); libelleCalme(); };
+$('calme').onclick = () => { calme = !calme; store.ecrire('calme', calme); libelleCalme(); pousserReglage(); };
+
+// Vraies notifications, même app fermée (18/10) : le téléphone s'abonne (Web Push) ; l'abonnement — une adresse d'envoi,
+// rien de personnel — part au serveur (action push_abonne) avec « ne pas déranger » et « texte discret ». La clé publique
+// d'envoi est demandée au serveur (action push_cle) : elle n'est jamais écrite dans ce code. Le serveur envoie : réponse de
+// LIFE, alerte ⚠️, réponse d'un assistant convoqué, brief du matin.
+const pushDispo = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const b64u8 = s => { const b = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...b].map(c => c.charCodeAt(0))); };
+async function abonnement() { try { const r = await navigator.serviceWorker.ready; return await r.pushManager.getSubscription(); } catch (e) { return null; } }
+async function libelleNotifs() { const s = pushDispo() ? await abonnement() : null; $('notifs').textContent = 'Notifications : ' + (s ? 'oui' + (store.lire('discret', false) ? ' (texte discret)' : '') : 'non'); }
+async function pousserReglage() { const s = pushDispo() ? await abonnement() : null; if (!s) return;
+  try { await appel({ action: 'push_abonne', app: 'life', abonnement: s.toJSON(), discret: store.lire('discret', false), calme }); } catch (e) { /* réessayé au prochain changement */ } }
+$('notifs').onclick = async () => {
+  if (!pushDispo()) { bandeau('Ce navigateur ne sait pas recevoir de notifications.', null, 5000); return; }
+  const deja = await abonnement();
+  if (deja) {   // déjà activées : texte discret, puis désactivation
+    if (!store.lire('discret', false)) { store.ecrire('discret', true); await pousserReglage(); bandeau('Notifications en texte discret : « Nouveau message », sans le contenu.', null, 5000); }
+    else { await deja.unsubscribe().catch(() => {}); store.ecrire('discret', false); try { await appel({ action: 'push_desabonne', app: 'life', endpoint: deja.endpoint }); } catch (e) { /* rien */ } bandeau('Notifications désactivées sur cet appareil.', null, 5000); }
+    libelleNotifs(); return; }
+  if (await Notification.requestPermission() !== 'granted') { bandeau('Notifications non autorisées (réglages du téléphone).', null, 6000); return; }
+  try {
+    const { j } = await appel({ action: 'push_cle' }, { brut: true }), k = typeof j.cle === 'string' ? j.cle.trim() : '';
+    if (!/^[A-Za-z0-9_-]{40,}$/.test(k)) { bandeau('Bientôt disponible : le serveur n\'a pas encore branché l\'envoi des notifications.', null, 6000); return; }
+    const r = await navigator.serviceWorker.ready, s = await r.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u8(k) });
+    await appel({ action: 'push_abonne', app: 'life', abonnement: s.toJSON(), discret: false, calme });
+    bandeau('Notifications activées : tu seras prévenue même app fermée. Touche encore pour le texte discret.', null, 6000);
+  } catch (e) { bandeau('Impossible d\'activer les notifications : ' + String(e && e.message || e).slice(0, 80), null, 6000); }
+  libelleNotifs(); };
+libelleNotifs();
+// toucher une notification : LIFE s'ouvre sur le bon fil (message du service worker, ou #fil dans l'adresse)
+const filConnu = f => FILS.concat(FILS_CACHES).some(([id]) => id === f);
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.life === 'fil' && filConnu(e.data.fil)) choisirFil(e.data.fil); });
+{ const h = location.hash.slice(1); if (filConnu(h)) setTimeout(() => choisirFil(h), 300); }
 const enCalme = () => { const h = new Date().getHours(); return calme && (h >= 21 || h < 8); };
 // Menu « Plus » : un vrai menu (WAI-ARIA) — flèches haut / bas, Début / Fin, Échap (focus rendu à « Plus »), Tab ferme.
 const itemsMenu = () => [...$('menu').querySelectorAll('[role="menuitem"]')].filter(b => !b.hidden);
@@ -1114,7 +1146,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.4.5';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.4.6';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au

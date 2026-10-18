@@ -1,5 +1,5 @@
 // LIFE — service worker : l'app s'ouvre même hors ligne (coquille en cache). Les messages ne passent jamais par le cache.
-const CACHE = 'life-V.0.0.4.5';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
+const CACHE = 'life-V.0.0.4.6';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
 const COQUILLE = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'qr.js',
   'fonts/instrument-sans.woff2', 'fonts/plex-mono-400.woff2', 'fonts/plex-mono-400-italique.woff2', 'fonts/plex-mono-500.woff2',
   'fonts/plex-mono-600.woff2', 'fonts/plex-mono-700.woff2'];
@@ -8,8 +8,8 @@ const COQUILLE = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest
 // celle-ci. Ce fichier-ci n'est jamais dans le Cache Storage : personne ne peut changer ces empreintes depuis une page.
 // Recalculées par « node tests/empreintes.mjs » ; vérifiées par le garde-fou.
 const EMPREINTES = {
-  'index.html': '71162b07520701924277a653ef0001f0963467230e7195694290717790f2e1a6',
-  'app.js': '148701ac130891234c4c4381c192c89e6692b1afbf2f255a8515f15b6c4120eb',
+  'index.html': 'e9cef3913765328c112a37b5d309f0707886292d6fb8fecabcee3a3c74bc5118',
+  'app.js': '7efbb0458e40e3e4f08a01accd9fc49e5dc0f8fbc22d6d304d5c467013625d85',
   'app.css': '1c2057a49da323274cdf0393db48c7e0fa2c52bf91665fad1e5d1fa9fcdf4f52',
   'manifest.webmanifest': '59b243d98715d5a854c578e49a063b4896d74b9792ba1152c07ff43deeaf7223',
   'icon.svg': '3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35',
@@ -65,5 +65,21 @@ self.addEventListener('fetch', e => {
       const minuterie = setTimeout(() => { lentJusqua = Date.now() + 15000; ok(copie); }, ATTENTE_RESEAU);
       reseau.then(r => { clearTimeout(minuterie); ok(r.ok ? r : copie); }, () => { clearTimeout(minuterie); ok(copie); });
     });
+  }));
+});
+
+// Vraies notifications (Web Push, envoyées par le serveur) : {titre, corps, fil, tag}. Toucher la notification ouvre LIFE
+// (sur le fil indiqué si c'est un nom de fil simple).
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (x) { d = { corps: e.data ? e.data.text() : '' }; }
+  const fil = /^[a-z]{2,20}$/.test(String(d.fil || '')) ? d.fil : '';
+  e.waitUntil(self.registration.showNotification(String(d.titre || 'LIFE').slice(0, 80), { body: String(d.corps || '').slice(0, 300), tag: String(d.tag || 'life').slice(0, 60),
+    icon: 'icon-192.png', badge: 'icon-192.png', data: { fil } }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close(); const fil = (e.notification.data || {}).fil || '';
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(w => {
+    for (const c of w) { if ('focus' in c) { if (fil) c.postMessage({ life: 'fil', fil }); return c.focus(); } }
+    return clients.openWindow(fil ? './#' + fil : './');
   }));
 });
