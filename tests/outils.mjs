@@ -45,7 +45,9 @@ function fonctionsInternes(o) {
   const F = {}, V = o.version === 2 ? 2 : 3;
   const t = v => v === undefined || v === null ? '' : String(v).trim();
   const visible = m => t(m.id) && t(m.texte) && t(m.statut) !== 'retire' && t(m.statut) !== 'retrait';
-  const msg = m => ({ id: t(m.id), t: t(m.horodatage), auteur: t(m.auteur), fil: t(m.fil), texte: t(m.texte), source: t(m.source) });
+  const msg = m => { const r = { id: t(m.id), t: t(m.horodatage), auteur: t(m.auteur), fil: t(m.fil), texte: t(m.texte), source: t(m.source) };
+    if (V >= 3 && t(m.auteur) === 'life' && t(m.fil) === 'comite' && t(m.comite)) { try { r.comite = JSON.parse(t(m.comite)); } catch (e) { /* champ illisible : absent */ } }   // D3 : champ structuré du Comité
+    return r; };
   const curs = v => { const n = Number(v); return v !== '' && v !== null && v !== undefined && Number.isInteger(n) && n >= 0 ? n : -1; };
   const seqDe = v => { const n = Number(v); return V >= 3 && v !== '' && v != null && Number.isInteger(n) && n >= 1e12 ? n : 0; };
   F.contratLife = x => Object.assign({ version: V, fils: FILS_V2 }, o.experts ? { experts: o.experts } : {}, V >= 3 && o.transfert !== false ? { transfert: true } : {}, x);
@@ -58,6 +60,7 @@ function fonctionsInternes(o) {
     if (!FILS_V2.includes(fil)) return { erreur: 'fil inconnu' };
     const texte = t(c.texte).slice(0, 2000); if (!texte) return { erreur: 'message vide' };
     const d = { action, fil, texte }; if (t(c.texte).length > 2000) d.tronque = true;
+    if (V >= 3 && fil === 'comite' && ['voix', 'personnes'].includes(t(c.mode))) { d.mode = t(c.mode); if (d.mode === 'personnes' && Array.isArray(c.membres)) d.membres = c.membres.slice(0, 8); }
     if (/^[a-z0-9]{6,32}$/i.test(t(c.cid))) d.cid = t(c.cid); if (curs(c.curseur) >= 0) d.curseur = curs(c.curseur);
     return d;
   };

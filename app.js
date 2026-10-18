@@ -867,6 +867,7 @@ async function expedier(texte, filCible, cid, parti) {
     }
     const k = curseur(), corps = { action: 'envoyer', texte, fil: filCible, cid };
     if (k !== null) corps.curseur = k;
+    if (filCible === 'comite') Object.assign(corps, jointComite(texte));   // D3 : mode de la table (et table actuelle) joints à l'envoi
     const j = await appel(corps, { delai: delaiPour(filCible) });
     // pre-mortem du 18/10 (T1) : une « réponse » de LIFE vide n'est pas une réponse (ni bulle vide, ni silence)
     const recus = (j.messages || []).filter(m => m && m.id && !(m.auteur === 'life' && !String(m.texte || '').trim()));
@@ -1126,15 +1127,46 @@ $('vers-appareil').onclick = () => { fermerMenu(); ouvrirReglages();
 })();
 
 // Comité (maquette du Drive, dossier « 25_LIFE PROJET » → « LIFE — maquettes des brainstormings », écran « Le comité ») :
-// cinq voix autour d'une table, la décision au centre, étapes en haut, la voix qui parle en bas. Affichage seulement : rien n'est
-// envoyé ni décidé ici, et rien n'est inventé — la voix n'est montrée que si la réponse de LIFE commence par son nom ; l'étape
-// compte les réponses de LIFE depuis la décision posée (nouvelle décision après 12 h de silence).
-const SIEGES = [['raison', 'R', 'la raison', /^\W*(la )?raison\b/i], ['coeur', 'C', 'le cœur', /^\W*(le )?c(œ|oe)ur\b/i],
-  ['argent', '€', 'l\'argent', /^\W*(l['’]\s?)?argent\b/i], ['temps', 'T', 'le temps', /^\W*(le )?temps\b/i], ['futur', '+5', null, /^\W*toi en \d{4}\b/i]];
+// une table de 5 à 8 sièges, la décision au centre, étapes en haut, la voix qui parle en bas. Affichage seulement : rien n'est
+// envoyé ni décidé ici. Deux modes (D3, 2026-10-18), au choix au début de chaque décision et modifiables ensuite :
+//   « Les 5 voix »               : la raison, le cœur, l'argent, le temps, toi dans 5 ans ;
+//   « Les personnes du sujet »   : 5 à 8 personnes ou rôles choisis par le serveur selon la question.
+// Le serveur répond avec, en plus du texte, un CHAMP structuré `comite` { mode, membres:[{id,nom}], parle } : la table se dessine
+// avec ces membres et allume celui qui parle. Rien n'est deviné dans le texte ; sans champ (ancien serveur), le texte reste lisible
+// et rien ne s'allume. L'étape compte les réponses de LIFE depuis la décision posée (nouvelle décision après 12 h de silence).
+const COMITE_VOIX = [{ id: 'raison', nom: 'la raison' }, { id: 'coeur', nom: 'le cœur' }, { id: 'argent', nom: 'l\'argent' }, { id: 'temps', nom: 'le temps' }, { id: 'futur', nom: 'toi dans 5 ans' }];
+const COMITE_ROND = { raison: 'R', coeur: 'C', argent: '€', temps: 'T', futur: '+5' };
+const COMITE_MODES = [['voix', 'Les 5 voix'], ['personnes', 'Les personnes du sujet']];
+// Le champ vient du serveur : rien n'est cru sans contrôle (mode connu, 5 à 8 membres, identifiants simples et distincts).
+function tableComite(c) {
+  if (!c || typeof c !== 'object' || !['voix', 'personnes'].includes(c.mode) || !Array.isArray(c.membres) || c.membres.length < 5 || c.membres.length > 8) return null;
+  const vus = new Set(), membres = [];
+  for (const m of c.membres) {
+    const id = m && typeof m.id === 'string' ? m.id : '', nom = m && typeof m.nom === 'string' ? m.nom.trim() : '';
+    if (!/^[a-z0-9-]{1,24}$/.test(id) || !nom || nom.length > 40 || vus.has(id)) return null;
+    vus.add(id); membres.push({ id, nom });
+  }
+  return { mode: c.mode, membres, parle: typeof c.parle === 'string' && vus.has(c.parle) ? c.parle : '' };
+}
 function sessionComite() {
   const l = messages.filter(m => (m.fil || 'general') === 'comite' && m.auteur !== 'systeme' && !estBrief(m)), ms = m => Date.parse(String(m.t || '').replace(' ', 'T'));
   let d = 0; for (let i = l.length - 1; i > 0; i--) if (ms(l[i]) - ms(l[i - 1]) > 12 * 3600e3) { d = i; break; }
   return l.slice(d);
+}
+const modeComite = () => { const m = store.lire('comiteMode', 'voix'); return m === 'personnes' ? 'personnes' : 'voix'; };
+// Table à dessiner pour un mode : « voix » = toujours les cinq voix ; « personnes » = les membres du dernier champ reçu dans ce mode
+// (aucun siège tant que le serveur n'en a pas choisi). `parle` n'est allumé que si la DERNIÈRE réponse de LIFE porte un champ de ce mode.
+function tableDuMode(S, mode) {
+  const vies = S.filter(m => m.auteur === 'life'), derniere = vies[vies.length - 1], cd = derniere && tableComite(derniere.comite);
+  let membres = mode === 'voix' ? COMITE_VOIX : [];
+  if (mode === 'personnes') for (let i = vies.length - 1; i >= 0; i--) { const t = tableComite(vies[i].comite); if (t && t.mode === 'personnes') { membres = t.membres; break; } }
+  return { membres, parle: cd && cd.mode === mode && S[S.length - 1] === derniere ? cd.parle : '' };
+}
+// Ce que l'app joint à un envoi dans le fil Comité : le mode choisi, et la table actuelle en mode « personnes » (pour qu'elle reste la même).
+function jointComite(texte) {
+  const mode = modeComite(), j = { mode };
+  if (mode === 'personnes' && !/^\s*\/comite\b/i.test(texte)) { const m = tableDuMode(sessionComite(), 'personnes').membres; if (m.length) j.membres = m; }
+  return j;
 }
 let sigComite = '';
 function majComite(vueAPart) {
@@ -1144,9 +1176,9 @@ function majComite(vueAPart) {
   z.hidden = !voir; if (!voir) return;
   const S = sessionComite(), q = S.find(m => m.auteur === 'moi'), vies = S.filter(m => m.auteur === 'life'), dernier = S[S.length - 1];
   const etape = q ? Math.min(5, Math.max(1, vies.length)) : 0, attend = envoisEnCours || enCoursDans('comite');
-  const siege = dernier && dernier.auteur === 'life' ? SIEGES.find(x => x[3].test(String(dernier.texte || ''))) : null;
-  const replie = !!store.lire('comiteRepli', false), annee = new Date().getFullYear() + 5;
-  const sig = [etape, q && q.id, dernier && dernier.id, siege && siege[0], attend ? 1 : 0, replie ? 1 : 0, annee].join('|');
+  const mode = modeComite(), T = tableDuMode(S, mode), siege = T.membres.find(m => m.id === T.parle) || null;
+  const replie = !!store.lire('comiteRepli', false);
+  const sig = [etape, q && q.id, dernier && dernier.id, mode, T.membres.map(m => m.id + m.nom).join(','), T.parle, attend ? 1 : 0, replie ? 1 : 0].join('|');
   if (sig === sigComite) return; sigComite = sig; z.textContent = '';
   const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
   const tete = el('div', 'cm-tete'); tete.append(el('h2', '', 'Le comité'), el('span', 'cm-etape', etape ? 'ÉTAPE ' + etape + ' SUR 5' : 'PAS ENCORE DE DÉCISION'));
@@ -1154,20 +1186,26 @@ function majComite(vueAPart) {
   rep.onclick = () => { store.ecrire('comiteRepli', !replie); sigComite = ''; majComite(false); }; tete.appendChild(rep);
   const barre = el('div', 'cm-barre'); barre.setAttribute('role', 'img'); barre.setAttribute('aria-label', etape ? 'Étape ' + etape + ' sur 5' : 'Aucune étape');
   for (let i = 1; i <= 5; i++) barre.appendChild(el('i', i <= etape ? 'on' : ''));
-  z.append(tete, barre);
+  const modes = el('div', 'cm-modes'); modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', 'Autour de la table');
+  COMITE_MODES.forEach(([k, nom]) => { const b = el('button', 'cm-mode' + (k === mode ? ' on' : ''), nom); b.type = 'button'; b.setAttribute('aria-pressed', String(k === mode));
+    b.onclick = () => { if (k === modeComite()) return; store.ecrire('comiteMode', k); sigComite = ''; majComite(false);
+      direAuLecteur('Table : ' + nom + '. Elle s\'applique à ton prochain message.'); }; modes.appendChild(b); });
+  z.append(tete, barre, modes);
   if (!replie) {
-    const table = el('div', 'cm-table'), centre = el('div', 'cm-centre');
+    const table = el('div', 'cm-table' + (T.membres.length > 5 ? ' large' : '')), centre = el('div', 'cm-centre');
     centre.append(el('small', '', q ? 'SUR LA TABLE' : 'LA TABLE EST VIDE'), el('b', '', q ? String(q.texte).slice(0, 90) : 'Pose ta décision ci-dessous'));
     table.appendChild(centre);
-    SIEGES.forEach(([k, lettre, nom], i) => { const a = (-90 + i * 72) * Math.PI / 180, e = el('div', 'cm-siege' + (siege && siege[0] === k ? ' parle' : ''));
-      e.style.left = (50 + 43 * Math.cos(a)) + '%'; e.style.top = (50 + 43 * Math.sin(a)) + '%';
-      e.append(el('span', 'cm-rond', lettre), el('small', '', nom || 'toi en ' + annee)); table.appendChild(e); });
+    T.membres.forEach((m, i) => { const a = (-90 + i * 360 / T.membres.length) * Math.PI / 180, e = el('div', 'cm-siege' + (siege && siege.id === m.id ? ' parle' : ''));
+      e.style.left = (50 + 43 * Math.cos(a)) + '%'; e.style.top = (50 + 43 * Math.sin(a)) + '%'; e.title = m.nom;
+      const lettre = mode === 'voix' && COMITE_ROND[m.id] ? COMITE_ROND[m.id] : ((m.nom.match(/[A-Za-zÀ-ÿ0-9]/) || ['?'])[0]).toUpperCase();
+      e.append(el('span', 'cm-rond', lettre), el('small', '', m.nom)); table.appendChild(e); });
+    if (!T.membres.length) centre.append(el('small', 'cm-aide', 'Cocon choisira les personnes selon ta question.'));
     z.appendChild(table);
   }
   const parole = el('div', 'cm-parole'); parole.setAttribute('role', 'status');
   if (attend) { parole.append(el('small', '', 'LE COMITÉ DÉLIBÈRE'), el('p', '', '…')); }
-  else if (dernier && dernier.auteur === 'life') { parole.append(el('small', '', (siege ? (siege[2] || 'toi en ' + annee).toUpperCase() : 'LE COMITÉ') + ' PREND LA PAROLE'), el('p', '', String(dernier.texte).replace(/\s+/g, ' ').slice(0, 220))); }
-  else parole.append(el('small', '', 'LE COMITÉ T\'ÉCOUTE'), el('p', '', q ? 'Réponds-lui : le comité continue à partir de là.' : 'Écris la décision que tu hésites à prendre. Il te posera ses questions, une voix après l\'autre.'));
+  else if (dernier && dernier.auteur === 'life') { parole.append(el('small', '', (siege ? siege.nom.toUpperCase() : 'LE COMITÉ') + ' PREND LA PAROLE'), el('p', '', String(dernier.texte).replace(/\s+/g, ' ').slice(0, 220))); }
+  else parole.append(el('small', '', 'LE COMITÉ T\'ÉCOUTE'), el('p', '', q ? 'Réponds-lui : le comité continue à partir de là.' : 'Choisis ta table, puis écris la décision que tu hésites à prendre. Il te posera ses questions, une voix après l\'autre.'));
   z.append(parole, el('p', 'cm-pied', 'Le comité guide. Il ne décide jamais à ta place.'));
 }
 
@@ -1236,7 +1274,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.5.0';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.5.1';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
