@@ -792,7 +792,7 @@ function raison(e) {
   if (/manquante/.test(m)) return 'pas connectée : adresse ou clé manquante';
   if (m === 'clé refusée') return adresseDuLien()
     ? 'le serveur « ' + hoteDe(adresse()) + ' », reçu par un lien, refuse la clé — ne lui donne pas ta clé : saisis toi-même l\'adresse dans les Réglages'
-    : 'clé refusée — vérifie la clé dans les Réglages';
+    : 'clé refusée : c\'est la clé des apps (pas la clé GitHub de synchro), elle a sans doute changé. Sur le Mac : « zsh scripts/cocon_copier_cle_app.sh », puis Réglages → Coller la clé copiée → Enregistrer';
   if (m === 'délai dépassé') return 'pas de réponse à temps (réseau lent ?) — le message est peut-être arrivé : LIFE vérifie d\'elle-même, et « Réessayer » ne le traitera jamais deux fois';
   if (m === 'fil inconnu') return 'le serveur ne connaît pas ce fil — sa dernière version doit être installée puis publiée';
   if (/erreur 404/.test(m)) return 'serveur introuvable (404) — lien LIFE pas encore publié dans ton système ?';
@@ -1236,7 +1236,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.4.9';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.5.0';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au

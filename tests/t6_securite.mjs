@@ -21,7 +21,7 @@ export const tests = [
     const B = await ouvrir(nav, st, profil, S);
     await ecrire(B.page, 'bonjour'); await pause(500);
     const u = await B.page.textContent('#bandeau');
-    verif(/clé refusée — vérifie la clé dans les Réglages/.test(u), 'adresse saisie par elle : message ordinaire', u);
+    verif(/clé refusée : c'est la clé des apps.*cocon_copier_cle_app\.sh/.test(u), 'adresse saisie par elle : message ordinaire', u);
     await B.ctx.close();
   } },
   { nom: 'Coller une clé ne valide ni ne garde rien (ni clé, ni adresse étrangère) sans « Enregistrer »', f: async ({ nav, st, profil, verif }) => {

@@ -1,5 +1,5 @@
 // LIFE — service worker : l'app s'ouvre même hors ligne (coquille en cache). Les messages ne passent jamais par le cache.
-const CACHE = 'life-V.0.0.4.9';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
+const CACHE = 'life-V.0.0.5.0';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
 const COQUILLE = ['./', 'index.html', 'boussole.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'qr.js',
   'fonts/instrument-sans.woff2', 'fonts/plex-mono-400.woff2', 'fonts/plex-mono-400-italique.woff2', 'fonts/plex-mono-500.woff2',
   'fonts/plex-mono-600.woff2', 'fonts/plex-mono-700.woff2'];
@@ -8,10 +8,10 @@ const COQUILLE = ['./', 'index.html', 'boussole.html', 'app.js', 'app.css', 'man
 // celle-ci. Ce fichier-ci n'est jamais dans le Cache Storage : personne ne peut changer ces empreintes depuis une page.
 // Recalculées par « node tests/empreintes.mjs » ; vérifiées par le garde-fou.
 const EMPREINTES = {
-  'index.html': 'c681a1f784d2bf31130ef2cee7f5f7534ead7f29f59aaa436fdfd46f93d451da',
+  'index.html': '252d8699c9c688fa08e287f877893921554c1eafb7809433c0952a47134f79ea',
   'boussole.html': '9b670ef040ff25ea54f232de812cc49dddf60f97d4c7a7c271b68d4899497c95',
-  'app.js': 'a7d1e191a9039705a3c913ac68c1ffc7fd92e52fbbff36522c806e5a970a242f',
-  'app.css': 'b9d2f2f08a083db25a90960a74bb3bcb847b81821dcbac1448b781b9c2365748',
+  'app.js': '28a9e0d301964c4e931a6a9b06c5b3619a53840526654f16efbb8e3b6bca7605',
+  'app.css': '02dede8acee5cafae4745ec9dcc5bab32eb66e35ff2768e0a34f34ddd07f4bf9',
   'manifest.webmanifest': '59b243d98715d5a854c578e49a063b4896d74b9792ba1152c07ff43deeaf7223',
   'icon.svg': '3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35',
   'icon-192.png': 'e99334a6b4cec7dfd82972c3cdda40bd6506d80abb1ab6d24dcc60edde6c0ffd',
