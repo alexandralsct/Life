@@ -739,6 +739,7 @@ function afficher() {
   afficherEpingles(); afficherVues();
   $('flux').setAttribute('aria-label', 'Messages du fil ' + nomFil(fil));
   if (!vueAPart) afficherConversation();
+  majComite(vueAPart);
 }
 // Annonce des nouveaux messages pour les lecteurs d'écran : une zone à part (avant : toute la conversation était
 // « vivante » et relue à chaque reconstruction).
@@ -1091,6 +1092,85 @@ $('messages').addEventListener('touchmove', e => { if (tire === null) return; co
   $('tirer').style.height = d > 20 ? Math.min(d / 2, 40) + 'px' : '0'; }, { passive: true });
 $('messages').addEventListener('touchend', () => { if ($('tirer').offsetHeight >= 36) actualiser(); $('tirer').style.height = '0'; tire = null; });
 $('reglages').onclick = () => { fermerMenu(); ouvrirReglages(); };
+
+// ===== V.0.0.4.9 =====
+// Connecter un autre appareil : une entrée à part dans le menu ••• ; elle ouvre les Réglages au bon endroit et montre le code tout de suite.
+$('vers-appareil').onclick = () => { fermerMenu(); ouvrirReglages();
+  if (!pretAConnecter()) return;
+  const bloc = $('montrer-qr').closest('.appareil'); if (bloc) bloc.scrollIntoView({ block: 'start' });
+  if ($('qr').hidden) $('montrer-qr').click(); };
+
+// Balayer pour changer de fil (APP TÉLÉPHONE : au doigt seulement ; même mécanique que le balayage des remarques dans
+// « Mes assistants » de Ma carte de vie : pointeur ≠ souris, 12 px pour décider, le vertical reste celui du téléphone).
+// Gauche = fil suivant, droite = fil précédent, dans l'ordre des tuiles ; aux deux bouts, le fil revient en place.
+(function balayerFils() {
+  const zone = $('messages'); let x0 = null, y0 = 0, dx = 0, id = null, lat = false, t0 = 0;
+  const cibleOk = e => !e.target.closest('button, a, textarea, input, select, dialog, .feuille-msg, #resultats');
+  const bloque = () => enVueAPart() || selection || !$('recherche').hidden || document.querySelector('dialog[open]') || ORDI.matches;
+  const remet = () => { const f = $('flux'); f.style.transition = ''; f.style.transform = ''; f.style.opacity = ''; };
+  const voisin = d => { const o = FILS.map(x => x[0]), i = o.indexOf(fil); return i < 0 ? null : o[i + d] || null; };
+  zone.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' || !cibleOk(e) || bloque()) return; x0 = e.clientX; y0 = e.clientY; dx = 0; lat = false; id = e.pointerId; t0 = Date.now(); });
+  zone.addEventListener('pointermove', e => { if (x0 === null || e.pointerId !== id) return; dx = e.clientX - x0; const dy = e.clientY - y0;
+    if (!lat) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { x0 = null; return; } if (Math.abs(dx) <= 12) return; lat = true; try { zone.setPointerCapture(id); } catch (err) { /* */ } }
+    const f = $('flux'), bout = !voisin(dx < 0 ? 1 : -1), r = bout ? .25 : 1;
+    f.style.transition = 'none'; f.style.transform = 'translateX(' + dx * r + 'px)'; f.style.opacity = String(Math.max(.3, 1 - Math.abs(dx) * r / (zone.offsetWidth || 320))); });
+  zone.addEventListener('pointerup', () => { if (x0 === null) return; x0 = null; if (!lat) return; lat = false;
+    const large = zone.offsetWidth || 320, rapide = Date.now() - t0 < 300 && Math.abs(dx) > 50, suivant = voisin(dx < 0 ? 1 : -1);
+    if (!suivant || !(Math.abs(dx) > large * .3 || rapide)) { const f = $('flux'); f.style.transition = ''; remet(); return; }
+    const f = $('flux'), sens = dx < 0 ? -1 : 1; f.style.transition = 'transform .15s, opacity .15s'; f.style.transform = 'translateX(' + sens * 40 + '%)'; f.style.opacity = '0';
+    setTimeout(() => { choisirFil(suivant); f.style.transition = 'none'; f.style.transform = 'translateX(' + -sens * 40 + '%)';
+      requestAnimationFrame(() => { f.style.transition = 'transform .15s, opacity .15s'; remet(); setTimeout(() => { f.style.transition = ''; }, 200); });
+      try { boutonsFils[suivant].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (err) { /* */ }
+      const z = $('annonce'); z.textContent = ''; setTimeout(() => { z.textContent = 'Fil ' + nomFil(suivant); }, 50); }, 150); });
+  zone.addEventListener('pointercancel', () => { x0 = null; lat = false; remet(); });
+})();
+
+// Comité (maquette du Drive, dossier « 25_LIFE PROJET » → « LIFE — maquettes des brainstormings », écran « Le comité ») :
+// cinq voix autour d'une table, la décision au centre, étapes en haut, la voix qui parle en bas. Affichage seulement : rien n'est
+// envoyé ni décidé ici, et rien n'est inventé — la voix n'est montrée que si la réponse de LIFE commence par son nom ; l'étape
+// compte les réponses de LIFE depuis la décision posée (nouvelle décision après 12 h de silence).
+const SIEGES = [['raison', 'R', 'la raison', /^\W*(la )?raison\b/i], ['coeur', 'C', 'le cœur', /^\W*(le )?c(œ|oe)ur\b/i],
+  ['argent', '€', 'l\'argent', /^\W*(l['’]\s?)?argent\b/i], ['temps', 'T', 'le temps', /^\W*(le )?temps\b/i], ['futur', '+5', null, /^\W*toi en \d{4}\b/i]];
+function sessionComite() {
+  const l = messages.filter(m => (m.fil || 'general') === 'comite' && m.auteur !== 'systeme' && !estBrief(m)), ms = m => Date.parse(String(m.t || '').replace(' ', 'T'));
+  let d = 0; for (let i = l.length - 1; i > 0; i--) if (ms(l[i]) - ms(l[i - 1]) > 12 * 3600e3) { d = i; break; }
+  return l.slice(d);
+}
+let sigComite = '';
+function majComite(vueAPart) {
+  let z = $('comite');
+  const voir = fil === 'comite' && !vueAPart && $('recherche').hidden;
+  if (!z) { if (!voir) return; z = document.createElement('section'); z.id = 'comite'; z.setAttribute('aria-label', 'Le comité'); $('conv').insertBefore(z, $('tirer')); }
+  z.hidden = !voir; if (!voir) return;
+  const S = sessionComite(), q = S.find(m => m.auteur === 'moi'), vies = S.filter(m => m.auteur === 'life'), dernier = S[S.length - 1];
+  const etape = q ? Math.min(5, Math.max(1, vies.length)) : 0, attend = envoisEnCours || enCoursDans('comite');
+  const siege = dernier && dernier.auteur === 'life' ? SIEGES.find(x => x[3].test(String(dernier.texte || ''))) : null;
+  const replie = !!store.lire('comiteRepli', false), annee = new Date().getFullYear() + 5;
+  const sig = [etape, q && q.id, dernier && dernier.id, siege && siege[0], attend ? 1 : 0, replie ? 1 : 0, annee].join('|');
+  if (sig === sigComite) return; sigComite = sig; z.textContent = '';
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const tete = el('div', 'cm-tete'); tete.append(el('h2', '', 'Le comité'), el('span', 'cm-etape', etape ? 'ÉTAPE ' + etape + ' SUR 5' : 'PAS ENCORE DE DÉCISION'));
+  const rep = el('button', 'cm-repli', replie ? 'Montrer la table' : 'Réduire'); rep.type = 'button'; rep.setAttribute('aria-expanded', String(!replie));
+  rep.onclick = () => { store.ecrire('comiteRepli', !replie); sigComite = ''; majComite(false); }; tete.appendChild(rep);
+  const barre = el('div', 'cm-barre'); barre.setAttribute('role', 'img'); barre.setAttribute('aria-label', etape ? 'Étape ' + etape + ' sur 5' : 'Aucune étape');
+  for (let i = 1; i <= 5; i++) barre.appendChild(el('i', i <= etape ? 'on' : ''));
+  z.append(tete, barre);
+  if (!replie) {
+    const table = el('div', 'cm-table'), centre = el('div', 'cm-centre');
+    centre.append(el('small', '', q ? 'SUR LA TABLE' : 'LA TABLE EST VIDE'), el('b', '', q ? String(q.texte).slice(0, 90) : 'Pose ta décision ci-dessous'));
+    table.appendChild(centre);
+    SIEGES.forEach(([k, lettre, nom], i) => { const a = (-90 + i * 72) * Math.PI / 180, e = el('div', 'cm-siege' + (siege && siege[0] === k ? ' parle' : ''));
+      e.style.left = (50 + 43 * Math.cos(a)) + '%'; e.style.top = (50 + 43 * Math.sin(a)) + '%';
+      e.append(el('span', 'cm-rond', lettre), el('small', '', nom || 'toi en ' + annee)); table.appendChild(e); });
+    z.appendChild(table);
+  }
+  const parole = el('div', 'cm-parole'); parole.setAttribute('role', 'status');
+  if (attend) { parole.append(el('small', '', 'LE COMITÉ DÉLIBÈRE'), el('p', '', '…')); }
+  else if (dernier && dernier.auteur === 'life') { parole.append(el('small', '', (siege ? (siege[2] || 'toi en ' + annee).toUpperCase() : 'LE COMITÉ') + ' PREND LA PAROLE'), el('p', '', String(dernier.texte).replace(/\s+/g, ' ').slice(0, 220))); }
+  else parole.append(el('small', '', 'LE COMITÉ T\'ÉCOUTE'), el('p', '', q ? 'Réponds-lui : le comité continue à partir de là.' : 'Écris la décision que tu hésites à prendre. Il te posera ses questions, une voix après l\'autre.'));
+  z.append(parole, el('p', 'cm-pied', 'Le comité guide. Il ne décide jamais à ta place.'));
+}
+
 // Jour / nuit : automatique → jour → nuit → automatique ; gardé sur l'appareil
 const THEMES = { auto: 'Jour / nuit : automatique', jour: 'Mode jour', nuit: 'Mode nuit' };
 function appliquerTheme(t) {
@@ -1156,7 +1236,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.4.8';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.4.9';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
@@ -1168,7 +1248,9 @@ const deb64u = t => { const b = t.replace(/-/g, '+').replace(/_/g, '/'); return 
 const octets = t => Uint8Array.from(deb64u(t), c => c.charCodeAt(0));
 async function lienConnexion() {
   const o = { a: adresse(), c: cle() }; if (store.lire('cleLife', '')) o.l = store.lire('cleLife', '');
-  if (!store.lire('transfert', false) || !(window.crypto && crypto.subtle)) return { lien: location.origin + location.pathname + '#connexion=' + b64u(JSON.stringify(o)), unique: false };
+  // V.0.0.4.9 : plus jamais de clé dans un lien ni dans un code. Sans serveur à jour (code à usage unique), on refuse au lieu de
+  // retomber sur l'ancien lien « #connexion= » qui portait la clé en clair (la réception d'un tel lien reste possible, plus loin).
+  if (!store.lire('transfert', false) || !(window.crypto && crypto.subtle)) throw new Error('le serveur doit être mis à jour pour un code à usage unique (la clé ne passe jamais dans un lien)');
   const k = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
   const ck = await crypto.subtle.importKey('raw', k, 'AES-GCM', false, ['encrypt']);
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, ck, new TextEncoder().encode(JSON.stringify({ c: o.c, l: o.l || '' }))));
@@ -1204,8 +1286,9 @@ $('montrer-qr').onclick = async () => {
     const l = await lienConnexion();
     const q = qrcode(0, 'M'); q.addData(l.lien); q.make();
     $('qr').src = q.createDataURL(6, 2); $('qr').hidden = false; $('montrer-qr').textContent = 'Cacher le code';
-    $('qr').alt = l.unique ? 'Code de connexion, valable une fois pendant 2 minutes' : 'Code de connexion (il contient ta clé)';
-    etat(l.unique ? 'code valable une seule fois, pendant 2 minutes' : 'ce code contient ta clé (serveur à mettre à jour pour un code à usage unique)');
+    $('qr').scrollIntoView({ block: 'nearest' });
+    $('qr').alt = 'Code de connexion, valable une fois pendant 2 minutes';
+    etat('code valable une seule fois, pendant 2 minutes — vise-le avec l\'appareil photo du téléphone');
     setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; }, 120e3);
   } catch (e) { qrCharge = null; etat('code indisponible : ' + raison(e)); }
 };
@@ -1233,7 +1316,7 @@ $('copier-lien').onclick = async () => {
   if (!pretAConnecter()) return;
   try { const l = await lienConnexion(); await navigator.clipboard.writeText(l.lien); viderPressePapiers(120e3);
     $('copier-lien').textContent = l.unique ? 'Lien copié ✓ (une fois, 2 min)' : 'Lien copié ✓'; }
-  catch (e) { $('copier-lien').textContent = 'Copie refusée'; }
+  catch (e) { $('copier-lien').textContent = 'Copie refusée'; etat('lien indisponible : ' + raison(e)); }
   setTimeout(() => { $('copier-lien').textContent = 'Copier le lien'; }, 2500);
 };
 $('dlg').addEventListener('close', () => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; });

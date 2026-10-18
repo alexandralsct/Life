@@ -62,7 +62,7 @@ export const tests = [
     await D.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: st.base.slice(0, -1) });
     await D.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); });
     await D.page.click('#copier-lien'); await pause(300);
-    verif(/#connexion=/.test(await D.page.evaluate(() => navigator.clipboard.readText())), 'serveur version 2 : ancien lien (repli)');
+    verif(!/#connexion=/.test(await D.page.evaluate(() => navigator.clipboard.readText())) && /mis à jour|mettre à jour/.test(await D.page.textContent('#copier-lien') + await D.page.textContent('#bandeau')), 'serveur version 2 : plus d\'ancien lien avec la clé — refus, le serveur est à mettre à jour');
     await D.ctx.close();
   } },
   { nom: 'CSP : seconde règle sur le serveur exact, Trusted Types, aucune violation au chargement', f: async ({ nav, st, profil, verif }) => {
