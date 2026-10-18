@@ -307,7 +307,10 @@ function attendreReponse(cid, filCible) {
   clearTimeout(releveEnCours);
   const suivante = k => {
     Object.keys(enCours).forEach(c => { if (Date.now() - (enCours[c].t || 0) > 600e3) delete enCours[c]; });
-    if (!Object.keys(enCours).length || k >= RELEVES_EN_COURS.length || DEMO) return;
+    if (!Object.keys(enCours).length || DEMO) return;
+    // pre-mortem du 18/10 (T1) : les relèves sont finies et la réponse manque toujours : on le dit (avant : les trois
+    // points restaient puis disparaissaient sans un mot)
+    if (k >= RELEVES_EN_COURS.length) { erreur('Toujours pas de réponse de LIFE au bout de 4 minutes. Ton message est gardé ; « Vérifier » relit le fil.', ['Vérifier', () => actualiser().then(() => { afficher(); attendreReponse(); })], 12000); return; }
     releveEnCours = setTimeout(() => { actualiser().then(() => { afficher(); suivante(k + 1); }); }, RELEVES_EN_COURS[k]);
   };
   suivante(0);
@@ -864,7 +867,8 @@ async function expedier(texte, filCible, cid, parti) {
     const k = curseur(), corps = { action: 'envoyer', texte, fil: filCible, cid };
     if (k !== null) corps.curseur = k;
     const j = await appel(corps, { delai: delaiPour(filCible) });
-    const recus = (j.messages || []).filter(m => m && m.id);
+    // pre-mortem du 18/10 (T1) : une « réponse » de LIFE vide n'est pas une réponse (ni bulle vide, ni silence)
+    const recus = (j.messages || []).filter(m => m && m.id && !(m.auteur === 'life' && !String(m.texte || '').trim()));
     let horsFil = false;
     if (!serveurAJour()) {
       // ANCIEN serveur seulement : il range un fil qu'il ne connaît pas dans Général ; l'échange reste affiché dans le fil
@@ -886,6 +890,11 @@ async function expedier(texte, filCible, cid, parti) {
     if (j.tronque) bandeau('Le serveur a gardé les ' + j.tronque + ' premiers caractères de ce message.', null, 6000);
     // version 3 : le serveur traite déjà ce message (un premier envoi est en cours) : rien n'est retraité, la réponse suit
     if (j.en_cours) { attendreReponse(cid, filCible); bandeau('LIFE traite déjà ce message : sa réponse arrive.', null, 5000); }
+    // pre-mortem du 18/10 (T1) : le serveur a dit « ok » sans réponse de LIFE : on le dit, et on guette la réponse
+    else if (serveurAJour() && !recus.some(m => m.auteur === 'life')) {
+      attendreReponse(cid, filCible);
+      erreur('LIFE n\'a rien répondu à ce message. Il est bien arrivé et gardé ; « Vérifier » regarde si la réponse est venue depuis.', ['Vérifier', () => actualiser().then(afficher)], 10000);
+    }
     if (horsFil && filCible !== 'general') bandeau('Le serveur ne connaît pas encore le fil ' + ((FILS.concat(FILS_CACHES).find(x => x[0] === filCible) || [0, filCible])[1]) + ' : c\'est Général qui a répondu. La dernière version du serveur doit être installée puis publiée.', null, 9000);
     return true;
   } catch (e) {
@@ -1066,6 +1075,7 @@ $('menu').addEventListener('keydown', e => naviguerMenu(e, itemsMenu(), fermerMe
 document.addEventListener('click', fermerMenu);
 $('actualiser').onclick = actualiser;
 $('vers-futur').onclick = () => { $('menu').hidden = true; choisirFil('futur'); $('saisie').focus(); };
+$('vers-boussole').onclick = () => { $('menu').hidden = true; location.href = 'boussole.html'; };   // Boussole des choix (18/10) : placement et habitudes, page à côté de l'app
 filCache();   // au lancement, si l'app rouvre sur un fil sans tuile
 // Effacer ce fil : tout de suite à l'écran, annulable 10 s (bandeau « Annuler ») avant de partir au serveur, puis effacé
 // sur tous les appareils (audit UX du 13/10 : 5 s était trop court pour une action de cette taille).
@@ -1146,7 +1156,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.4.6';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.4.8';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au

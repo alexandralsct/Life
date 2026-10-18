@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Boussole des choix</title>
+<!-- Fichier produit par scripts/construire_boussole_life.py depuis apps/calculateur/index.html : ne pas modifier ici. -->
+</head>
+<body>
+<style>
+@font-face { font-family: 'Instrument Sans'; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fonts/instrument-sans.woff2) format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/plex-mono-400.woff2) format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/plex-mono-500.woff2) format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/plex-mono-600.woff2) format('woff2'); }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+.retour-life { font: 600 14px var(--display); color: var(--encre); text-decoration: none; }
+/* Mise en page : une colonne de travail, deux onglets (Placement / Habitude), formulaire puis résultats.
+   Jetons repris de la charte des apps (apps/charte/jetons.css) : crème et bleu Klein, ombres décalées sans flou. */
+:root {
+  --fond: #F5EEE2; --plateau: #FAF5EC; --surface: #FEFAF3;
+  --encre: #002FA7; --encre-2: #4768BD; --texte: #14204A;
+  --trait: #002FA7; --trait-doux: #6F86C6; --pale: #DBE3F3; --ombre: #C9D6F0;
+  --plein: #002FA7; --sur-plein: #FDFAF4;
+  --ok: #186E48; --veille: #925500; --panne: #B42A35; --neutre: #6F7896;
+  --s1: #002FA7; --s2: #925500; --s3: #186E48; --s4: #8E3B87;
+  --display: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --t-xs: 12px; --t-s: 13px; --t-m: 14.5px; --t-l: 16px; --t-xl: 18px; --t-2xl: 22px; --t-3xl: 28px;
+  --e-1: 4px; --e-2: 8px; --e-3: 12px; --e-4: 16px; --e-5: 24px; --e-6: 32px;
+  --r-s: 8px; --r-m: 14px; --r-p: 999px; --trait-l: 1.5px;
+  --sh-1: 2px 2px 0 var(--ombre); --sh-2: 4px 4px 0 var(--ombre);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="jour"]) {
+    --fond: #0E1830; --plateau: #122041; --surface: #172A52;
+    --encre: #E3EAFF; --encre-2: #9AABD4; --texte: #E3EAFF;
+    --trait: #93B3F0; --trait-doux: #6A80B8; --pale: #29447F; --ombre: #070F22;
+    --plein: #93B3F0; --sur-plein: #0E1830;
+    --ok: #4CC88E; --veille: #F0A93B; --panne: #FF858D; --neutre: #8F9AC0;
+    --s1: #93B3F0; --s2: #F0A93B; --s3: #4CC88E; --s4: #E39AD6;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"], :root[data-theme="nuit"] {
+  --fond: #0E1830; --plateau: #122041; --surface: #172A52;
+  --encre: #E3EAFF; --encre-2: #9AABD4; --texte: #E3EAFF;
+  --trait: #93B3F0; --trait-doux: #6A80B8; --pale: #29447F; --ombre: #070F22;
+  --plein: #93B3F0; --sur-plein: #0E1830;
+  --ok: #4CC88E; --veille: #F0A93B; --panne: #FF858D; --neutre: #8F9AC0;
+  --s1: #93B3F0; --s2: #F0A93B; --s3: #4CC88E; --s4: #E39AD6;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--fond); color: var(--texte); font-family: var(--display); font-size: var(--t-m); line-height: 1.5; }
+.page { max-width: 880px; margin: 0 auto; padding-block: var(--e-5) var(--e-6);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: var(--e-5); }
+header h1 { font-size: var(--t-3xl); color: var(--encre); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+header p { margin: var(--e-1) 0 0; color: var(--encre-2); max-width: 62ch; }
+.onglets { display: flex; gap: var(--e-2); flex-wrap: wrap; }
+.onglet { font: 600 var(--t-m) var(--display); color: var(--encre); background: var(--surface); border: var(--trait-l) solid var(--trait);
+  border-radius: var(--r-p); padding: var(--e-2) var(--e-4); min-height: 44px; cursor: pointer; }
+.onglet[aria-selected="true"] { background: var(--plein); color: var(--sur-plein); }
+.bloc { background: var(--surface); border: var(--trait-l) solid var(--trait); border-radius: var(--r-m); box-shadow: var(--sh-2);
+  padding: var(--e-5) var(--e-4); display: grid; gap: var(--e-4); min-width: 0; }
+.bloc h2 { margin: 0; font-size: var(--t-xl); color: var(--encre); }
+.bloc h3 { margin: 0; font-size: var(--t-l); color: var(--encre); }
+.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--e-3); }
+label { display: grid; gap: var(--e-1); font-size: var(--t-s); color: var(--encre-2); font-weight: 600; }
+input, select, textarea { font: 500 var(--t-l) var(--mono); color: var(--texte); background: var(--plateau); border: var(--trait-l) solid var(--trait-doux);
+  border-radius: var(--r-s); padding: var(--e-2) var(--e-3); min-height: 44px; width: 100%; min-width: 0; }
+textarea { font-family: var(--display); font-size: var(--t-m); min-height: 64px; resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid var(--encre-2); outline-offset: 2px; }
+button.action { font: 600 var(--t-m) var(--display); background: var(--plein); color: var(--sur-plein); border: none; border-radius: var(--r-p);
+  padding: var(--e-2) var(--e-4); min-height: 44px; cursor: pointer; justify-self: start; }
+button.discret { font: 600 var(--t-s) var(--display); background: transparent; color: var(--encre); border: var(--trait-l) solid var(--trait-doux);
+  border-radius: var(--r-p); padding: var(--e-1) var(--e-3); min-height: 36px; cursor: pointer; }
+.puce { display: inline-block; font: 600 var(--t-xs) var(--mono); letter-spacing: 0.04em; text-transform: uppercase; border-radius: var(--r-p);
+  padding: 2px var(--e-2); border: var(--trait-l) solid currentColor; }
+.puce.ex { color: var(--veille); } .puce.ok { color: var(--ok); } .puce.non { color: var(--panne); } .puce.neutre { color: var(--neutre); }
+.note { font-size: var(--t-s); color: var(--encre-2); margin: 0; max-width: 70ch; }
+.alerte { border-left: 4px solid var(--panne); padding: var(--e-2) var(--e-3); background: var(--plateau); color: var(--texte); border-radius: var(--r-s); margin: 0; }
+.alerte.douce { border-left-color: var(--veille); }
+.tableau { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: var(--t-s); }
+th, td { text-align: right; padding: var(--e-2) var(--e-2); border-bottom: 1px solid var(--pale); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-family: var(--mono); font-weight: 600; color: var(--encre-2); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.04em; }
+td.n { font-family: var(--mono); }
+.legende { display: flex; gap: var(--e-4); flex-wrap: wrap; font-size: var(--t-s); }
+.legende span::before { content: ""; display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; background: var(--c); }
+svg text { font-family: var(--mono); font-size: 11px; fill: var(--encre-2); }
+.effets { display: grid; gap: var(--e-2); }
+.effet { display: grid; grid-template-columns: auto 1fr auto; gap: var(--e-3); align-items: start; padding: var(--e-3); background: var(--plateau);
+  border: 1px solid var(--pale); border-radius: var(--r-s); }
+.effet .sens { font: 700 var(--t-l) var(--mono); width: 1.6em; text-align: center; }
+.effet .sens.plus { color: var(--ok); } .effet .sens.moins { color: var(--panne); }
+.effet p { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.effet .meta { font-size: var(--t-xs); color: var(--encre-2); display: flex; gap: var(--e-2); flex-wrap: wrap; margin-top: var(--e-1); }
+.effet .boutons { display: flex; gap: var(--e-1); flex-wrap: wrap; justify-content: end; }
+.recit { background: var(--plateau); border-radius: var(--r-s); padding: var(--e-3) var(--e-4); margin: 0; display: grid; gap: var(--e-2); }
+.recit p { margin: 0; max-width: 70ch; }
+details summary { cursor: pointer; font-weight: 600; color: var(--encre); }
+.pied { font-size: var(--t-xs); color: var(--neutre); }
+.jours { display: flex; flex-wrap: wrap; gap: 3px; }
+.jours i { width: 11px; height: 11px; border-radius: 2px; background: var(--encre); display: block; }
+.jours i.part { background: var(--trait-doux); }
+.ligne-choix { display: flex; gap: var(--e-3); align-items: end; flex-wrap: wrap; justify-content: space-between; }
+.ligne-choix label { min-width: 160px; }
+@media (prefers-reduced-motion: no-preference) { .onglet, button { transition: background-color .15s, color .15s; } }
+</style>
+
+<div class="page">
+  <a class="retour-life" href="./">← Revenir à LIFE</a>
+  <header>
+    <h1>Boussole des choix</h1>
+    <p>Deux outils. <strong>Placement</strong> : ce qu'une somme peut devenir, en chiffres seulement. <strong>Habitude</strong> : ce qu'un geste répété, ou l'absence de décision, peut changer à ta vie, en positif et en négatif.</p>
+  </header>
+
+  <nav class="onglets" role="tablist" aria-label="Outils">
+    <button class="onglet" role="tab" id="tab-placement" aria-controls="vue-placement" aria-selected="true">Placement</button>
+    <button class="onglet" role="tab" id="tab-habitude" aria-controls="vue-habitude" aria-selected="false">Habitude</button>
+  </nav>
+
+  <!-- ================= OUTIL 1 : PLACEMENT ================= -->
+  <section id="vue-placement" role="tabpanel" aria-labelledby="tab-placement" style="display:grid;gap:var(--e-5)">
+    <div class="bloc">
+      <h2>Ta somme et ta durée</h2>
+      <p class="note"><span class="puce ex" id="p-exemple">Exemple</span> Les valeurs affichées sont un exemple à remplacer. Les taux sont les tiens : l'outil n'en propose aucun.</p>
+      <div class="grille">
+        <label for="p-capital">Somme de départ (€)<input id="p-capital" type="number" min="0" step="100" value="10000" inputmode="decimal"></label>
+        <label for="p-mensuel">Versement chaque mois (€)<input id="p-mensuel" type="number" min="0" step="10" value="0" inputmode="decimal"></label>
+        <label for="p-duree">Durée (années)<input id="p-duree" type="number" min="1" max="60" step="1" value="20" inputmode="numeric"></label>
+      </div>
+      <div class="grille">
+        <label for="p-t1">Taux A, par an (%)<input id="p-t1" type="number" step="0.1" value="2" inputmode="decimal"></label>
+        <label for="p-t2">Taux B, par an (%)<input id="p-t2" type="number" step="0.1" value="5" inputmode="decimal"></label>
+        <label for="p-t3">Taux C, par an (%)<input id="p-t3" type="number" step="0.1" value="7" inputmode="decimal"></label>
+        <label for="p-frais">Frais, par an (%)<input id="p-frais" type="number" min="0" step="0.1" value="0" inputmode="decimal"></label>
+        <label for="p-infl">Inflation basse, par an (%)<input id="p-infl" type="number" min="0" step="0.1" value="2" inputmode="decimal"></label>
+        <label for="p-infl-h">Inflation haute, par an (%)<input id="p-infl-h" type="number" min="0" step="0.1" value="4" inputmode="decimal"></label>
+      </div>
+    </div>
+
+    <div class="bloc" aria-live="polite">
+      <h2>Ce que ça peut devenir</h2>
+      <div class="legende" id="p-legende"></div>
+      <div class="tableau"><svg id="p-graphe" viewBox="0 0 640 260" width="100%" role="img" aria-label="Courbe de la valeur dans le temps pour les trois taux"></svg></div>
+      <h3>Ce qui vient de toi, ce qui vient des gains</h3>
+      <p class="note" id="p-barres-legende"></p>
+      <div class="tableau"><svg id="p-barres" width="100%" role="img" aria-label="Part versée et part des gains à chaque horizon"></svg></div>
+      <div class="tableau"><table id="p-table"></table></div>
+      <p class="note" id="p-phrase"></p>
+    </div>
+
+    <div class="bloc">
+      <h2>Calcul inverse</h2>
+      <p class="note">Combien verser chaque mois pour atteindre un montant, en partant de la somme de départ ci-dessus.</p>
+      <div class="grille">
+        <label for="i-objectif">Objectif (€)<input id="i-objectif" type="number" min="0" step="500" value="30000" inputmode="decimal"></label>
+        <label for="i-duree">En combien d'années<input id="i-duree" type="number" min="1" max="60" step="1" value="8" inputmode="numeric"></label>
+        <label for="i-taux">À quel taux, par an (%)<input id="i-taux" type="number" step="0.1" value="5" inputmode="decimal"></label>
+      </div>
+      <p class="recit" id="i-resultat"></p>
+    </div>
+
+    <div class="bloc">
+      <h2>Ce que disent les chiffres</h2>
+      <details><summary>Intérêts composés</summary><p class="note">Les gains de chaque mois s'ajoutent au capital et rapportent à leur tour. C'est pourquoi la courbe se redresse avec le temps. Leçon « Les intérêts composés » du cours de bourse du soir.</p></details>
+      <details><summary>Frais</summary><p class="note">Les frais annuels sont retirés chaque année du rendement : un taux de 5 % avec 1 % de frais donne environ 3,95 % net. Leçon « Les frais ».</p></details>
+      <details><summary>Inflation et « euros d'aujourd'hui »</summary><p class="note">La colonne « en euros d'aujourd'hui » divise la valeur par la hausse des prix cumulée : c'est ce que la somme permettrait d'acheter aux prix actuels. Elle donne deux valeurs, une par hypothèse d'inflation (basse, puis haute) : l'écart montre ce que coûte une vie qui renchérit plus vite. Leçon « L'inflation ».</p></details>
+      <details><summary>Ce que l'outil ne fait pas</summary><p class="note">Il ne connaît aucun rendement futur : un taux constant chaque année n'existe pas en bourse, où les années de baisse alternent avec les années de hausse. Il ne tient pas compte des impôts, qui dépendent de l'enveloppe (livret, PEA, assurance-vie, compte-titres). Simulation, pas une promesse ni un conseil.</p></details>
+      <p class="note">Convention de calcul : intérêts composés chaque mois au taux mensuel équivalent au taux annuel ; versements en fin de mois.</p>
+    </div>
+  </section>
+
+  <!-- ================= OUTIL 2 : HABITUDE ================= -->
+  <section id="vue-habitude" role="tabpanel" aria-labelledby="tab-habitude" hidden style="display:grid;gap:var(--e-5)">
+    <div class="bloc">
+      <h2>L'habitude</h2>
+      <p class="note"><span class="puce ex">Exemple</span> « Courir le matin » sert d'exemple ; les effets notés sont à toi de les écrire ou de les vérifier.</p>
+      <div class="grille">
+        <label for="h-nom">Habitude ou décision<input id="h-nom" type="text" value="Courir le matin" style="font-family:var(--display)"></label>
+        <label for="h-freq">Fois par semaine<input id="h-freq" type="number" min="0" max="21" step="1" value="5" inputmode="numeric"></label>
+        <label for="h-min">Minutes à chaque fois<input id="h-min" type="number" min="0" step="5" value="30" inputmode="numeric"></label>
+        <label for="h-cout">Coût à chaque fois (€)<input id="h-cout" type="number" min="0" step="0.5" value="0" inputmode="decimal"></label>
+        <label for="h-cout-an">Coût fixe par an (€)<input id="h-cout-an" type="number" min="0" step="10" value="120" inputmode="decimal"></label>
+        <label for="h-taux">Si cet argent était placé : taux (%)<input id="h-taux" type="number" step="0.1" value="" placeholder="facultatif" inputmode="decimal"></label>
+        <label for="h-tenue">Scénario de tenue<select id="h-tenue">
+          <option value="0">Je tiens sur toute la durée</option>
+          <option value="3">J'arrête au bout de 3 mois</option>
+          <option value="12">J'arrête au bout d'un an</option>
+        </select></label>
+      </div>
+    </div>
+
+    <div class="bloc" aria-live="polite">
+      <h2>Les chiffres, sans interprétation</h2>
+      <div class="tableau"><table id="h-table"></table></div>
+      <p class="note">Calculés à partir de tes réglages seulement. Un an compte 52 semaines.</p>
+      <div class="ligne-choix"><h3>Le temps donné, en jours entiers</h3>
+        <label for="h-jours-hor">Horizon<select id="h-jours-hor"></select></label></div>
+      <p class="note" id="h-jours-legende"></p>
+      <div class="jours" id="h-jours" role="img"></div>
+    </div>
+
+    <div class="bloc">
+      <h2>Les effets</h2>
+      <p class="note">Deux trajectoires : <strong>avec</strong> l'habitude, et <strong>sans</strong> (le choix par défaut, ne rien changer). Chaque effet garde son origine : <span class="puce neutre">selon toi</span> pour ce que tu écris, <span class="puce ok">vérifié</span> pour une suggestion dont tu as contrôlé la source.</p>
+      <div class="grille">
+        <label for="e-traj">Trajectoire<select id="e-traj"><option value="avec">Avec l'habitude</option><option value="sans">Sans (choix par défaut)</option></select></label>
+        <label for="e-dim">Domaine de vie<select id="e-dim"></select></label>
+        <label for="e-sens">Sens<select id="e-sens"><option value="plus">Positif</option><option value="moins">Négatif, coût ou risque</option></select></label>
+        <label for="e-hor">Se voit à partir de<select id="e-hor"></select></label>
+      </div>
+      <label for="e-texte">L'effet, en une phrase<textarea id="e-texte" placeholder="Ex. : je dors moins si je me lève plus tôt"></textarea></label>
+      <label for="e-source">Source (facultatif)<input id="e-source" type="text" placeholder="Ex. : mon expérience, mon médecin, un document nommé" style="font-family:var(--display)"></label>
+      <button class="action" id="e-ajouter" type="button">Ajouter l'effet</button>
+      <p class="alerte" id="e-erreur" hidden></p>
+      <h3>Effets notés</h3>
+      <div class="effets" id="e-liste"></div>
+    </div>
+
+    <div class="bloc" id="ia-bloc">
+      <h2>Suggestions sourcées</h2>
+      <p class="note">Claude propose des effets, positifs <em>et</em> négatifs, avec une source nommée pour chacun. Il ne lit pas Internet depuis cette page : <strong>chaque suggestion reste « à vérifier »</strong> et ne compte dans l'analyse qu'après ton clic sur « J'ai vérifié ». Une suggestion sans source est écartée.</p>
+      <button class="action" id="ia-lancer" type="button">Chercher des effets sourcés</button>
+      <p class="alerte douce" id="ia-etat" hidden></p>
+      <div class="effets" id="ia-liste"></div>
+    </div>
+
+    <div class="bloc" aria-live="polite">
+      <h2>Bilan</h2>
+      <div id="b-alertes" style="display:grid;gap:var(--e-2)"></div>
+      <div class="ligne-choix"><h3>La balance, domaine par domaine</h3>
+        <label for="b-hor">Horizon<select id="b-hor"></select></label></div>
+      <p class="note">À gauche, les effets négatifs ou coûts notés ; à droite, les positifs. Barre bleue : avec l'habitude ; barre ambre : sans (choix par défaut). Ce sont des nombres d'effets notés, pas une mesure de leur importance.</p>
+      <div class="tableau"><svg id="b-balance" width="100%" role="img" aria-label="Effets positifs et négatifs par domaine, avec et sans l'habitude"></svg></div>
+      <div class="tableau"><table id="b-table"></table></div>
+      <div class="recit" id="b-recit"></div>
+      <p class="pied">Information, pas un conseil de santé ni de finance. Aucun effet n'est inventé : la page n'affiche que ce que tu as écrit ou vérifié. Tes saisies restent dans ce navigateur.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var HORIZONS = [{ id: 'm1', nom: '1 mois', ans: 1 / 12 }, { id: 'a1', nom: '1 an', ans: 1 }, { id: 'a5', nom: '5 ans', ans: 5 },
+                  { id: 'a10', nom: '10 ans', ans: 10 }, { id: 'a20', nom: '20 ans', ans: 20 }];
+  var DOMAINES = ['Santé physique', 'Énergie et moral', 'Temps', 'Argent', 'Relations', 'Travail et compétences', 'Image de soi'];
+  var CLE = 'boussole-choix-v1';
+  function $(id) { return document.getElementById(id); }
+  function nb(id) { var v = parseFloat($(id).value); return isFinite(v) ? v : NaN; }
+  var eur = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  var ent = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+  var dec1 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+  function el(tag, attrs, texte) { var e = document.createElement(tag); if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]); if (texte !== undefined) e.textContent = texte; return e; }
+
+  /* ---------- onglets ---------- */
+  function montrer(nom) {
+    ['placement', 'habitude'].forEach(function (n) {
+      var actif = n === nom;
+      $('tab-' + n).setAttribute('aria-selected', String(actif));
+      $('vue-' + n).hidden = !actif;
+    });
+    try { localStorage.setItem(CLE + '-onglet', nom); } catch (e) {}
+    tout();
+  }
+  $('tab-placement').addEventListener('click', function () { montrer('placement'); });
+  $('tab-habitude').addEventListener('click', function () { montrer('habitude'); });
+
+  /* ---------- outil 1 : calculs purs ---------- */
+  // Valeur après n mois : capital C, versement mensuel M (fin de mois), taux annuel r, frais annuels f (fractions).
+  function valeur(C, M, r, f, mois) {
+    var net = (1 + r) * (1 - f) - 1;
+    var rm = Math.pow(1 + net, 1 / 12) - 1;
+    if (Math.abs(rm) < 1e-12) return C + M * mois;
+    var g = Math.pow(1 + rm, mois);
+    return C * g + M * (g - 1) / rm;
+  }
+  function mensualite(objectif, C, r, mois) {
+    var rm = Math.pow(1 + r, 1 / 12) - 1;
+    var g = Math.pow(1 + rm, mois);
+    var reste = objectif - C * g;
+    if (reste <= 0) return 0;
+    return Math.abs(rm) < 1e-12 ? reste / mois : reste * rm / (g - 1);
+  }
+
+  var COULEURS = ['var(--s1)', 'var(--s2)', 'var(--s3)'];
+  function calculPlacement() {
+    var C = Math.max(0, nb('p-capital') || 0), M = Math.max(0, nb('p-mensuel') || 0);
+    var N = Math.min(60, Math.max(1, Math.round(nb('p-duree') || 1)));
+    var f = (nb('p-frais') || 0) / 100, infB = (nb('p-infl') || 0) / 100, infH = isFinite(nb('p-infl-h')) ? nb('p-infl-h') / 100 : infB;
+    if (infH < infB) { var tmp = infB; infB = infH; infH = tmp; }
+    function auj(v, mois, i) { return v / Math.pow(1 + i, mois / 12); }
+    var taux = ['p-t1', 'p-t2', 'p-t3'].map(function (id, k) { return { nom: 'Taux ' + 'ABC'[k], r: nb(id) / 100, c: COULEURS[k] }; })
+      .filter(function (t) { return isFinite(t.r); });
+
+    // légende
+    var lg = $('p-legende'); lg.textContent = '';
+    taux.forEach(function (t) { var s = el('span', null, t.nom + ' : ' + dec1.format(t.r * 100) + ' %'); s.style.setProperty('--c', t.c); lg.appendChild(s); });
+    var sv = el('span', null, 'Versé'); sv.style.setProperty('--c', 'var(--neutre)'); lg.appendChild(sv);
+    if (taux.length) { var sa = el('span', null, taux[Math.floor((taux.length - 1) / 2)].nom + ' en € d’aujourd’hui (bande : inflation ' + dec1.format(infB * 100) + ' à ' + dec1.format(infH * 100) + ' %)'); sa.style.setProperty('--c', 'var(--s4)'); lg.appendChild(sa); }
+
+    // tableau : horizons fixes jusqu'à la durée choisie, plus la durée elle-même
+    var lignes = HORIZONS.filter(function (h) { return h.ans <= N; }).map(function (h) { return { nom: h.nom, mois: Math.round(h.ans * 12) }; });
+    if (!lignes.some(function (l) { return l.mois === N * 12; })) lignes.push({ nom: N + ' ans', mois: N * 12 });
+    var t = $('p-table'); t.textContent = '';
+    var tr = el('tr'); tr.appendChild(el('th', null, 'Horizon')); tr.appendChild(el('th', null, 'Versé'));
+    taux.forEach(function (x) { tr.appendChild(el('th', null, x.nom)); tr.appendChild(el('th', null, 'en € d’aujourd’hui')); });
+    var th = el('thead'); th.appendChild(tr); t.appendChild(th);
+    var tb = el('tbody');
+    lignes.forEach(function (l) {
+      var r = el('tr'); r.appendChild(el('td', null, l.nom)); r.appendChild(el('td', { class: 'n' }, eur.format(C + M * l.mois)));
+      taux.forEach(function (x) {
+        var v = valeur(C, M, x.r, f, l.mois);
+        r.appendChild(el('td', { class: 'n' }, eur.format(v)));
+        r.appendChild(el('td', { class: 'n' }, infB === infH ? eur.format(auj(v, l.mois, infB)) : eur.format(auj(v, l.mois, infB)) + ' → ' + eur.format(auj(v, l.mois, infH))));
+      });
+      tb.appendChild(r);
+    });
+    t.appendChild(tb);
+
+    // graphe
+    var g = $('p-graphe'); g.textContent = '';
+    var W = Math.max(300, g.parentNode.clientWidth || 640), H = 260, gx = 64, gd = 16, gh = 14, gb = 30;
+    var pts = taux.map(function (x) { var a = []; for (var m = 0; m <= N * 12; m += 1) a.push(valeur(C, M, x.r, f, m)); return a; });
+    var verse = []; for (var m = 0; m <= N * 12; m++) verse.push(C + M * m);
+    var max = Math.max.apply(null, [1].concat(verse, pts.map(function (a) { return Math.max.apply(null, a); })));
+    var pas = Math.pow(10, Math.floor(Math.log10(max))); var echelle = Math.ceil(max / pas) * pas;
+    if (echelle / pas > 6) pas *= 2; if (echelle / pas < 3) pas /= 2; echelle = Math.ceil(max / pas) * pas;
+    function X(mo) { return gx + (W - gx - gd) * mo / (N * 12); }
+    function Y(v) { return gh + (H - gh - gb) * (1 - v / echelle); }
+    g.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    function s(tag, a) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); g.appendChild(e); return e; }
+    for (var v = 0; v <= echelle + 1e-9; v += pas) {
+      s('line', { x1: gx, x2: W - gd, y1: Y(v), y2: Y(v), stroke: 'var(--pale)', 'stroke-width': 1 });
+      var tx = s('text', { x: gx - 6, y: Y(v) + 4, 'text-anchor': 'end' }); tx.textContent = v >= 1e6 ? dec1.format(v / 1e6) + ' M€' : ent.format(v / 1000) + ' k€';
+    }
+    var pasAn = N <= 10 ? (W < 480 ? 2 : 1) : N <= 30 ? (W < 480 ? 10 : 5) : 10;
+    for (var a = 0; a <= N; a += pasAn) { var ta = s('text', { x: X(a * 12), y: H - 10, 'text-anchor': a + pasAn > N ? 'end' : a === 0 ? 'start' : 'middle' }); ta.textContent = a + ' an' + (a > 1 ? 's' : ''); }
+    function chemin(arr) { return arr.map(function (val, i) { return (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(val).toFixed(1); }).join(' '); }
+    s('path', { d: chemin(verse) + ' L' + X(N * 12) + ' ' + Y(0) + ' L' + X(0) + ' ' + Y(0) + ' Z', fill: 'var(--pale)', stroke: 'none', opacity: 0.6 });
+    s('path', { d: chemin(verse), fill: 'none', stroke: 'var(--neutre)', 'stroke-width': 1.5, 'stroke-dasharray': '4 4' });
+    // bande « en euros d'aujourd'hui » du taux du milieu, entre inflation basse et haute
+    if (pts.length) {
+      var km = Math.floor((taux.length - 1) / 2), bas = pts[km].map(function (v, i) { return auj(v, i, infB); }), haut = pts[km].map(function (v, i) { return auj(v, i, infH); });
+      s('path', { d: chemin(bas) + ' ' + haut.slice().reverse().map(function (v, j) { return 'L' + X(haut.length - 1 - j).toFixed(1) + ' ' + Y(v).toFixed(1); }).join(' ') + ' Z', fill: 'var(--s4)', opacity: 0.18, stroke: 'none' });
+      s('path', { d: chemin(bas), fill: 'none', stroke: 'var(--s4)', 'stroke-width': 1.5 });
+      s('path', { d: chemin(haut), fill: 'none', stroke: 'var(--s4)', 'stroke-width': 1.5, 'stroke-dasharray': '5 3' });
+    }
+    pts.forEach(function (arr, k) {
+      s('path', { d: chemin(arr), fill: 'none', stroke: taux[k].c, 'stroke-width': 2.5 });
+      s('circle', { cx: X(N * 12), cy: Y(arr[arr.length - 1]), r: 4, fill: taux[k].c });
+    });
+
+    // barres empilées : versé / gains, au taux du milieu
+    var bs = $('p-barres'); bs.textContent = '';
+    if (taux.length) {
+      var tm = taux[Math.floor((taux.length - 1) / 2)];
+      $('p-barres-legende').textContent = 'Au ' + tm.nom.toLowerCase() + ' (' + dec1.format(tm.r * 100) + ' %). Bleu foncé : ce que tu as versé. Bleu clair : les gains. Traits prune : la valeur en euros d’aujourd’hui, trait plein avec l’inflation basse (' + dec1.format(infB * 100) + ' %), pointillé avec la haute (' + dec1.format(infH * 100) + ' %).';
+      var BW = Math.max(300, bs.parentNode.clientWidth || 640), etroit = BW < 520, lx = 64, rx = etroit ? 10 : 150, hh = etroit ? 46 : 34, BH = 10 + hh * lignes.length;
+      bs.setAttribute('viewBox', '0 0 ' + BW + ' ' + BH);
+      var vals = lignes.map(function (l) { return { nom: l.nom, verse: C + M * l.mois, v: valeur(C, M, tm.r, f, l.mois), reel: auj(valeur(C, M, tm.r, f, l.mois), l.mois, infB), reelH: auj(valeur(C, M, tm.r, f, l.mois), l.mois, infH) }; });
+      var mx = Math.max.apply(null, vals.map(function (x) { return Math.max(x.v, x.verse, 1); }));
+      function L(v) { return (BW - lx - rx) * v / mx; }
+      vals.forEach(function (x, i) {
+        var y = 6 + i * hh;
+        svgEl(bs, 'text', { x: lx - 8, y: y + 15, 'text-anchor': 'end' }, x.nom);
+        var base = Math.min(x.verse, x.v);
+        svgEl(bs, 'rect', { x: lx, y: y + 3, width: Math.max(0, L(base)), height: 16, fill: 'var(--encre)', rx: 2 });
+        if (x.v > x.verse) svgEl(bs, 'rect', { x: lx + L(x.verse), y: y + 3, width: L(x.v - x.verse), height: 16, fill: 'var(--trait-doux)', rx: 2 });
+        else if (x.v < x.verse) svgEl(bs, 'rect', { x: lx + L(x.v), y: y + 3, width: L(x.verse - x.v), height: 16, fill: 'none', stroke: 'var(--panne)', 'stroke-dasharray': '3 3' });
+        svgEl(bs, 'line', { x1: lx + L(x.reel), x2: lx + L(x.reel), y1: y, y2: y + 22, stroke: 'var(--s4)', 'stroke-width': 2.5 });
+        if (x.reelH !== x.reel) svgEl(bs, 'line', { x1: lx + L(x.reelH), x2: lx + L(x.reelH), y1: y, y2: y + 22, stroke: 'var(--s4)', 'stroke-width': 2.5, 'stroke-dasharray': '3 2' });
+        var part = x.v > 0 ? (x.v - x.verse) / x.v * 100 : 0;
+        svgEl(bs, 'text', etroit ? { x: lx, y: y + 36 } : { x: lx + L(Math.max(x.v, x.verse)) + 8, y: y + 15 }, eur.format(x.v) + ' · gains ' + ent.format(part) + ' %');
+      });
+    } else $('p-barres-legende').textContent = '';
+
+    // phrase
+    if (taux.length) {
+      var mid = taux[Math.floor((taux.length - 1) / 2)];
+      var vf = valeur(C, M, mid.r, f, N * 12), versT = C + M * N * 12;
+      $('p-phrase').textContent = 'Au ' + mid.nom.toLowerCase() + ' (' + dec1.format(mid.r * 100) + ' %), ' + eur.format(versT) + ' versés en ' + N + ' ans deviennent ' +
+        eur.format(vf) + ', dont ' + eur.format(vf - versT) + ' de gains, soit ' + (infB === infH ? eur.format(auj(vf, N * 12, infB)) : 'entre ' + eur.format(auj(vf, N * 12, infH)) + ' et ' + eur.format(auj(vf, N * 12, infB))) + ' aux prix d’aujourd’hui (inflation ' + (infB === infH ? dec1.format(infB * 100) + ' %' : 'de ' + dec1.format(infB * 100) + ' à ' + dec1.format(infH * 100) + ' %') + ').';
+    } else $('p-phrase').textContent = 'Indique au moins un taux pour voir le calcul.';
+
+    // calcul inverse
+    var ob = nb('i-objectif'), di = Math.max(1, Math.round(nb('i-duree') || 1)), ri = nb('i-taux') / 100;
+    var res = $('i-resultat');
+    if (!isFinite(ob) || !isFinite(ri)) res.textContent = 'Indique un objectif et un taux.';
+    else {
+      var men = mensualite(ob, C, ri, di * 12);
+      res.textContent = men === 0 ? 'La somme de départ (' + eur.format(C) + ') suffit déjà à atteindre ' + eur.format(ob) + ' en ' + di + ' ans à ' + dec1.format(ri * 100) + ' %, sans versement.'
+        : 'Il faut verser environ ' + eur.format(Math.ceil(men)) + ' par mois pendant ' + di + ' ans, à ' + dec1.format(ri * 100) + ' % par an (hors frais), pour atteindre ' + eur.format(ob) +
+          ' en partant de ' + eur.format(C) + '. Total versé : ' + eur.format(C + Math.ceil(men) * di * 12) + '.';
+    }
+  }
+
+  /* ---------- outil 2 : habitude ---------- */
+  var etat = { effets: [], suggestions: [] };
+  try { var sauve = JSON.parse(localStorage.getItem(CLE) || 'null'); if (sauve && Array.isArray(sauve.effets)) etat = { effets: sauve.effets, suggestions: sauve.suggestions || [] }; } catch (e) {}
+  if (!etat.effets.length && !sauve) etat.effets = [
+    { id: 'x1', traj: 'avec', dim: 'Temps', sens: 'moins', hor: 'm1', texte: 'Je dois me lever plus tôt ou retirer ce temps à autre chose le matin.', origine: 'toi', source: 'Exemple à remplacer' }
+  ];
+  function sauver() { try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch (e) {} }
+
+  DOMAINES.forEach(function (d) { $('e-dim').appendChild(el('option', { value: d }, d)); });
+  HORIZONS.forEach(function (h) {
+    $('e-hor').appendChild(el('option', { value: h.id }, h.nom));
+    $('h-jours-hor').appendChild(el('option', { value: h.id }, h.nom));
+    $('b-hor').appendChild(el('option', { value: h.id }, h.nom));
+  });
+  $('h-jours-hor').value = 'a10'; $('b-hor').value = 'a10';
+  var NS = 'http://www.w3.org/2000/svg';
+  function svgEl(svg, tag, a, texte) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); if (texte !== undefined) e.textContent = texte; svg.appendChild(e); return e; }
+
+  function chiffresHabitude() {
+    var fq = Math.max(0, nb('h-freq') || 0), mn = Math.max(0, nb('h-min') || 0), cu = Math.max(0, nb('h-cout') || 0), ca = Math.max(0, nb('h-cout-an') || 0);
+    var tauxH = nb('h-taux') / 100, tenue = parseInt($('h-tenue').value, 10) || 0;
+    var t = $('h-table'); t.textContent = '';
+    var tr = el('tr');
+    ['Horizon', 'Fois', 'Heures', 'Jours de 24 h', 'Argent dépensé'].concat(isFinite(tauxH) ? ['Si placé à ' + dec1.format(tauxH * 100) + ' %'] : []).forEach(function (x) { tr.appendChild(el('th', null, x)); });
+    var th = el('thead'); th.appendChild(tr); t.appendChild(th);
+    var tb = el('tbody');
+    HORIZONS.forEach(function (h) {
+      var moisTot = Math.round(h.ans * 12), moisActifs = tenue ? Math.min(tenue, moisTot) : moisTot;
+      var semaines = moisActifs * 52 / 12, fois = fq * semaines, heures = fois * mn / 60;
+      var argent = fois * cu + ca * moisActifs / 12, parMois = moisActifs ? argent / moisActifs : 0;
+      var r = el('tr'); r.appendChild(el('td', null, h.nom));
+      [ent.format(fois), ent.format(heures), dec1.format(heures / 24), eur.format(argent)].forEach(function (x) { r.appendChild(el('td', { class: 'n' }, x)); });
+      if (isFinite(tauxH)) {
+        // l'argent dépensé chaque mois pendant la tenue, placé à la place, puis laissé fructifier jusqu'à l'horizon
+        var v = valeur(0, parMois, tauxH, 0, moisActifs) * Math.pow(1 + tauxH, (moisTot - moisActifs) / 12);
+        r.appendChild(el('td', { class: 'n' }, eur.format(v)));
+      }
+      tb.appendChild(r);
+    });
+    t.appendChild(tb);
+
+    // jours entiers : un carré = 24 h
+    var hj = HORIZONS.filter(function (x) { return x.id === $('h-jours-hor').value; })[0] || HORIZONS[3];
+    var mt = Math.round(hj.ans * 12), ma = tenue ? Math.min(tenue, mt) : mt;
+    var jours = fq * ma * 52 / 12 * mn / 60 / 24, plein = Math.floor(jours), reste = jours - plein;
+    var bj = $('h-jours'); bj.textContent = '';
+    var aff = Math.min(plein, 3000);
+    for (var i = 0; i < aff; i++) bj.appendChild(el('i'));
+    if (reste > 0.05 && aff === plein) { var pq = el('i', { class: 'part' }); pq.style.opacity = String(0.35 + reste * 0.65); bj.appendChild(pq); }
+    bj.setAttribute('aria-label', dec1.format(jours) + ' jours entiers');
+    $('h-jours-legende').textContent = 'Chaque carré vaut 24 heures. Sur ' + hj.nom + ' : ' + dec1.format(jours) + ' jour' + (jours >= 2 ? 's' : '') + ' entier' + (jours >= 2 ? 's' : '') +
+      (plein > aff ? ' (les 3 000 premiers sont dessinés)' : '') + (tenue ? ', avec un arrêt au bout de ' + (tenue === 3 ? '3 mois' : 'un an') : '') + '.' +
+      (jours < 1 ? ' Moins d’un jour entier : le carré clair montre la fraction.' : '');
+    return { fq: fq, mn: mn, tenue: tenue };
+  }
+
+  function carteEffet(e, conteneur, boutons) {
+    var d = el('div', { class: 'effet' });
+    d.appendChild(el('span', { class: 'sens ' + e.sens, 'aria-label': e.sens === 'plus' ? 'positif' : 'négatif' }, e.sens === 'plus' ? '+' : '−'));
+    var c = el('div'); c.appendChild(el('p', null, e.texte));
+    var meta = el('div', { class: 'meta' });
+    meta.appendChild(el('span', null, e.traj === 'avec' ? 'Avec l’habitude' : 'Sans (par défaut)'));
+    meta.appendChild(el('span', null, '· ' + e.dim));
+    var h = HORIZONS.filter(function (x) { return x.id === e.hor; })[0]; if (h) meta.appendChild(el('span', null, '· dès ' + h.nom));
+    var pu = e.origine === 'verifie' ? el('span', { class: 'puce ok' }, 'vérifié') : e.origine === 'ia' ? el('span', { class: 'puce ex' }, 'à vérifier') : el('span', { class: 'puce neutre' }, 'selon toi');
+    meta.appendChild(pu);
+    if (e.source) meta.appendChild(el('span', null, 'Source : ' + e.source));
+    if (e.niveau) meta.appendChild(el('span', null, '· preuve ' + e.niveau));
+    c.appendChild(meta); d.appendChild(c);
+    var b = el('div', { class: 'boutons' }); boutons.forEach(function (x) { b.appendChild(x); }); d.appendChild(b);
+    conteneur.appendChild(d);
+  }
+  function bouton(texte, fn) { var b = el('button', { class: 'discret', type: 'button' }, texte); b.addEventListener('click', fn); return b; }
+
+  function rendreEffets() {
+    var l = $('e-liste'); l.textContent = '';
+    if (!etat.effets.length) l.appendChild(el('p', { class: 'note' }, 'Aucun effet noté pour l’instant.'));
+    etat.effets.forEach(function (e) { carteEffet(e, l, [bouton('Retirer', function () { etat.effets = etat.effets.filter(function (x) { return x.id !== e.id; }); sauver(); tout(); })]); });
+    var s = $('ia-liste'); s.textContent = '';
+    etat.suggestions.forEach(function (e) {
+      var lien = el('a', { class: 'discret', href: 'https://www.google.com/search?q=' + encodeURIComponent(e.source + ' ' + e.texte), target: '_blank', rel: 'noopener' }, 'Chercher la source');
+      lien.style.textDecoration = 'none'; lien.style.display = 'inline-flex'; lien.style.alignItems = 'center';
+      carteEffet(e, s, [lien,
+        bouton('J’ai vérifié', function () { e.origine = 'verifie'; etat.effets.push(e); etat.suggestions = etat.suggestions.filter(function (x) { return x !== e; }); sauver(); tout(); }),
+        bouton('Rejeter', function () { etat.suggestions = etat.suggestions.filter(function (x) { return x !== e; }); sauver(); tout(); })]);
+    });
+  }
+
+  function bilan(ch) {
+    var al = $('b-alertes'); al.textContent = '';
+    var comptes = etat.effets.filter(function (e) { return e.origine !== 'ia'; });
+    var avec = comptes.filter(function (e) { return e.traj === 'avec'; }), sans = comptes.filter(function (e) { return e.traj === 'sans'; });
+    function alerte(txt, douce) { al.appendChild(el('p', { class: 'alerte' + (douce ? ' douce' : '') }, txt)); }
+    if (avec.length && !avec.some(function (e) { return e.sens === 'moins'; })) alerte('Aucun coût, risque ou effet négatif noté pour la trajectoire « avec ». Toute habitude en a au moins un (temps pris ailleurs, blessure, fatigue, argent) : ajoute-le, ou écris qu’il est inconnu.');
+    if (!sans.length) alerte('La trajectoire « sans » est vide. Ne rien changer est aussi un choix : qu’est-ce qui se passe si tu continues comme aujourd’hui ?', true);
+    if (ch.tenue) alerte('Scénario de tenue : arrêt au bout de ' + (ch.tenue === 3 ? '3 mois' : 'un an') + '. Les effets qui demandent plus de temps ne comptent que si tu les as notés comme visibles avant cet arrêt.', true);
+
+    var t = $('b-table'); t.textContent = '';
+    var tr = el('tr'); tr.appendChild(el('th', null, 'Domaine'));
+    HORIZONS.forEach(function (h) { tr.appendChild(el('th', null, h.nom)); });
+    var thd = el('thead'); thd.appendChild(tr); t.appendChild(thd);
+    var rang = {}; HORIZONS.forEach(function (h, i) { rang[h.id] = i; });
+    var limite = ch.tenue ? (ch.tenue === 3 ? 0 : 1) : 99;
+    var tb = el('tbody');
+    DOMAINES.forEach(function (d) {
+      var r = el('tr'); r.appendChild(el('td', null, d));
+      HORIZONS.forEach(function (h, i) {
+        function compte(liste, sens) { return liste.filter(function (e) { return e.dim === d && e.sens === sens && rang[e.hor] <= i && (e.traj === 'sans' || rang[e.hor] <= limite); }).length; }
+        var ap = compte(avec, 'plus'), am = compte(avec, 'moins'), sp = compte(sans, 'plus'), sm = compte(sans, 'moins');
+        var txt = (ap + am + sp + sm) === 0 ? 'inconnu' : 'avec +' + ap + ' −' + am + ' · sans +' + sp + ' −' + sm;
+        var td = el('td', { class: 'n' }, txt); if (txt === 'inconnu') td.style.color = 'var(--neutre)'; r.appendChild(td);
+      });
+      tb.appendChild(r);
+    });
+    t.appendChild(tb);
+
+    // balance par domaine à l'horizon choisi
+    var hb = rang[$('b-hor').value] !== undefined ? rang[$('b-hor').value] : 3;
+    var bal = $('b-balance'); bal.textContent = '';
+    var lignesB = DOMAINES.map(function (d) {
+      function c(liste, sens) { return liste.filter(function (e) { return e.dim === d && e.sens === sens && rang[e.hor] <= hb && (e.traj === 'sans' || rang[e.hor] <= limite); }).length; }
+      return { d: d, ap: c(avec, 'plus'), am: c(avec, 'moins'), sp: c(sans, 'plus'), sm: c(sans, 'moins') };
+    });
+    var mxB = Math.max.apply(null, [1].concat(lignesB.map(function (x) { return Math.max(x.ap, x.am, x.sp, x.sm); })));
+    var BW2 = Math.max(300, bal.parentNode.clientWidth || 640), etr = BW2 < 520, lab = etr ? 0 : 170, mid = lab + (BW2 - lab) / 2, demi = (BW2 - lab) / 2 - 30, rh = etr ? 52 : 38, dy = etr ? 16 : 0;
+    bal.setAttribute('viewBox', '0 0 ' + BW2 + ' ' + (30 + rh * lignesB.length));
+    svgEl(bal, 'text', { x: mid - 8, y: 14, 'text-anchor': 'end' }, '← négatifs, coûts');
+    svgEl(bal, 'text', { x: mid + 8, y: 14 }, 'positifs →');
+    lignesB.forEach(function (x, i) {
+      var y = 24 + i * rh, vide = !(x.ap + x.am + x.sp + x.sm);
+      svgEl(bal, 'line', { x1: mid, x2: mid, y1: y + dy, y2: y + dy + 33, stroke: 'var(--trait-doux)', 'stroke-width': 1 });
+      svgEl(bal, 'text', { x: 0, y: etr ? y + 12 : y + 18, style: vide ? 'fill: var(--neutre)' : '' }, x.d + (vide ? ' · inconnu' : ''));
+      [[x.ap, x.am, 'var(--encre)', y + 4 + dy, 'avec'], [x.sp, x.sm, 'var(--veille)', y + 18 + dy, 'sans']].forEach(function (b) {
+        var wp = demi * b[0] / mxB, wm = demi * b[1] / mxB;
+        if (wm) svgEl(bal, 'rect', { x: mid - wm, y: b[3], width: wm, height: 11, fill: b[2], opacity: 0.55, rx: 2 });
+        if (wp) svgEl(bal, 'rect', { x: mid, y: b[3], width: wp, height: 11, fill: b[2], rx: 2 });
+        if (b[1]) svgEl(bal, 'text', { x: mid - wm - 4, y: b[3] + 10, 'text-anchor': 'end' }, '−' + b[1]);
+        if (b[0]) svgEl(bal, 'text', { x: mid + wp + 4, y: b[3] + 10 }, '+' + b[0]);
+      });
+    });
+
+    var rc = $('b-recit'); rc.textContent = '';
+    var nom = $('h-nom').value.trim() || 'cette habitude';
+    var heures10 = ch.fq * (ch.tenue ? Math.min(ch.tenue, 120) : 120) * 52 / 12 * ch.mn / 60;
+    rc.appendChild(el('p', null, '« ' + nom + ' », ' + ch.fq + ' fois par semaine, ' + ch.mn + ' minutes : sur 10 ans, ' + ent.format(heures10) + ' heures, soit ' + dec1.format(heures10 / 24) + ' jours entiers.'));
+    function phrase(liste, quoi) {
+      var p = liste.filter(function (e) { return e.sens === 'plus'; }).length, m = liste.length - p;
+      return quoi + ' : ' + p + ' effet' + (p > 1 ? 's' : '') + ' positif' + (p > 1 ? 's' : '') + ', ' + m + ' négatif' + (m > 1 ? 's' : '') + ' ou coût' + (m > 1 ? 's' : '') + ' notés.';
+    }
+    rc.appendChild(el('p', null, phrase(avec, 'Avec l’habitude') + ' ' + phrase(sans, 'Sans')));
+    var inconnus = DOMAINES.filter(function (d) { return !comptes.some(function (e) { return e.dim === d; }); });
+    rc.appendChild(el('p', null, inconnus.length ? 'Domaines sans aucun effet connu : ' + inconnus.join(', ') + '. Rien n’y est supposé.' : 'Chaque domaine a au moins un effet noté.'));
+    var aVerif = etat.suggestions.length;
+    if (aVerif) rc.appendChild(el('p', null, aVerif + ' suggestion' + (aVerif > 1 ? 's' : '') + ' de Claude en attente de vérification, non comptée' + (aVerif > 1 ? 's' : '') + '.'));
+  }
+
+  function tout() { calculPlacement(); var ch = chiffresHabitude(); rendreEffets(); bilan(ch); }
+
+  $('e-ajouter').addEventListener('click', function () {
+    var texte = $('e-texte').value.trim(), err = $('e-erreur');
+    if (!texte) { err.textContent = 'Écris l’effet en une phrase avant de l’ajouter.'; err.hidden = false; return; }
+    err.hidden = true;
+    etat.effets.push({ id: 'e' + Date.now(), traj: $('e-traj').value, dim: $('e-dim').value, sens: $('e-sens').value, hor: $('e-hor').value,
+                       texte: texte, origine: 'toi', source: $('e-source').value.trim() });
+    $('e-texte').value = ''; $('e-source').value = ''; sauver(); tout();
+  });
+
+  document.querySelectorAll('input, select').forEach(function (i) { i.addEventListener('input', function () { $('p-exemple').hidden = true; tout(); }); });
+
+  /* ---------- suggestions de Claude (capacité « sample ») ---------- */
+  var iaBloc = $('ia-bloc'); iaBloc.hidden = true;
+  var sampleP = window.claude && window.claude.use ? window.claude.use('sample') : Promise.resolve(null);
+  sampleP.then(function (sample) {
+    if (!sample) return;
+    iaBloc.hidden = false;
+    $('ia-lancer').addEventListener('click', function () {
+      var nom = $('h-nom').value.trim(), etatIA = $('ia-etat'), btn = $('ia-lancer');
+      if (!nom) { etatIA.textContent = 'Indique d’abord l’habitude.'; etatIA.hidden = false; return; }
+      btn.disabled = true; etatIA.textContent = 'Recherche en cours…'; etatIA.hidden = false;
+      var consigne = 'Habitude ou décision : « ' + nom + ' », ' + (nb('h-freq') || 0) + ' fois par semaine, ' + (nb('h-min') || 0) + ' minutes.\n' +
+        'Donne les effets documentés de cette habitude sur la vie d’un adulte, POSITIFS ET NÉGATIFS (coûts, risques, contreparties), en nombre comparable, ' +
+        'et les effets de l’absence de cette habitude (trajectoire « sans »).\n' +
+        'RÈGLES STRICTES : n’inclus un effet que si tu peux nommer une source réelle et précise (organisme officiel comme OMS, Santé publique France, HAS, INSERM, ' +
+        'ou une étude ou synthèse identifiable par ses auteurs et son année). N’invente aucun chiffre, aucune source, aucun effet « plausible ». ' +
+        'Si tu n’es pas sûr d’une source, n’inclus pas l’effet. Une liste courte et sûre vaut mieux qu’une longue. Pas de conseil.\n' +
+        'Domaines autorisés : ' + DOMAINES.join(', ') + '. Horizons autorisés : m1, a1, a5, a10, a20 (moment où l’effet devient visible).\n' +
+        'Réponds UNIQUEMENT en JSON : {"effets":[{"traj":"avec"|"sans","dim":"<domaine>","sens":"plus"|"moins","hor":"<horizon>","texte":"<une phrase>","source":"<source précise>","niveau":"établi"|"probable"}]}';
+      sample.json(consigne, { modelTier: 'default' }).then(function (rep) {
+        var liste = (rep && Array.isArray(rep.effets)) ? rep.effets : [];
+        var gardes = liste.filter(function (e) {
+          return e && typeof e.texte === 'string' && e.texte.trim() && typeof e.source === 'string' && e.source.trim().length > 3 &&
+            DOMAINES.indexOf(e.dim) >= 0 && (e.sens === 'plus' || e.sens === 'moins') && (e.traj === 'avec' || e.traj === 'sans') &&
+            HORIZONS.some(function (h) { return h.id === e.hor; }) && (e.niveau === 'établi' || e.niveau === 'probable');
+        });
+        var ecartes = liste.length - gardes.length;
+        gardes.forEach(function (e, k) { etat.suggestions.push({ id: 's' + Date.now() + k, traj: e.traj, dim: e.dim, sens: e.sens, hor: e.hor,
+          texte: e.texte.trim().slice(0, 300), source: e.source.trim().slice(0, 200), niveau: e.niveau, origine: 'ia' }); });
+        etatIA.textContent = gardes.length ? gardes.length + ' suggestion(s) à vérifier' + (ecartes ? ' ; ' + ecartes + ' écartée(s) faute de source ou de format.' : '.') +
+          ' Ouvre la source de chacune avant de cliquer « J’ai vérifié ».' : 'Aucun effet sourcé proposé. Rien n’a été ajouté.';
+        sauver(); tout();
+      }).catch(function (e) {
+        etatIA.textContent = e && e.code === 'not_granted' ? 'Les suggestions de Claude ne sont pas autorisées sur cette page.' :
+          e && e.code === 'rate_limited' ? 'Trop de demandes pour l’instant : réessaie plus tard.' : 'La recherche n’a pas abouti. Rien n’a été ajouté.';
+      }).then(function () { btn.disabled = false; });
+    });
+  });
+
+  var minuterie; window.addEventListener('resize', function () { clearTimeout(minuterie); minuterie = setTimeout(tout, 150); });
+  // #habitude ou #placement dans l'adresse ouvre l'onglet voulu (liens depuis Ma carte de vie) ; sinon le dernier onglet utilisé
+  var ancre = (location.hash || '').slice(1);
+  if (ancre === 'habitude' || ancre === 'placement') montrer(ancre);
+  else { try { var o = localStorage.getItem(CLE + '-onglet'); if (o === 'habitude') montrer('habitude'); } catch (e) {} }
+  tout();
+})();
+</script>
+</body>
+</html>

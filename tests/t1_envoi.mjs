@@ -114,4 +114,25 @@ export const tests = [
       await ctx.close();
     }
   } }
+  ,
+  // Pre-mortem du 18/10 (T1) : le serveur dit « ok » mais LIFE n'a rien répondu (réponse vide) → on le dit, pas de bulle vide.
+  { nom: 'Réponse vide de LIFE : bandeau « LIFE n\'a rien répondu » avec Vérifier, aucune bulle vide', f: async ({ nav, st, profil, verif }) => {
+    const S = fauxServeur();
+    S.repondre = (c, S) => {
+      if (c.action !== 'envoyer') return null;
+      const d = S.F.lireDemandeLife(c), avant = S.feuille.map(l => Object.assign({}, l));
+      const lg = S.F.lignesEchangeSeq(d, { reponse: '', statut: 'SUCCÈS' }, S.heure(), Date.now() + (S.n++), avant);
+      S.ajouter(lg[0]);
+      return S.F.reponseEnvoi(avant, d, lg, 'SUCCÈS');
+    };
+    const { page, ctx, erreurs } = await ouvrir(nav, st, profil, S);
+    await ecrire(page, 'muet'); await pause(800);
+    const b = await bulles(page);
+    verif(!b.some(x => / life/.test(x.classe) && !x.texte.trim()), 'aucune bulle de LIFE vide', b);
+    verif(b.some(x => x.texte === 'muet'), 'le message reste à l\'écran', b);
+    const txt = await page.$eval('#bandeau', z => z.hidden ? '' : z.textContent);
+    verif(/rien répondu/.test(txt) && /Vérifier/.test(txt), 'bandeau « LIFE n\'a rien répondu » avec Vérifier', txt);
+    verif(!erreurs.length, 'aucune erreur JavaScript', erreurs);
+    await ctx.close();
+  } }
 ];

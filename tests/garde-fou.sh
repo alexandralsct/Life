@@ -25,7 +25,7 @@ liste_norm=$(printf '%s' "$MOTS" | tr '|' '\n' | sed 's/^[[:space:]]*//;s/[[:spa
 echo "Liste des mots : $(printf '%s\n' "$liste_norm" | wc -l | tr -d ' ') mots, empreinte sha256 $(printf '%s\n' "$liste_norm" | sha256sum | cut -c1-16)"
 # sous-chaînes : chaque « mot » (lettres, chiffres, _ et -) qui CONTIENT un mot de la liste, moins les exceptions
 sous_chaines() { grep -oiE -- "[[:alnum:]_-]*($MOTS)[[:alnum:]_-]*" | { if [ -n "$EXCEPTIONS" ]; then grep -viwE -- "^($EXCEPTIONS)$"; else cat; fi; } | head -1; }
-OK=${GF_OK:-'^(\.nojekyll|\.github/workflows/[^/]+\.yml|CLAUDE\.md|README\.md|index\.html|sw\.js|manifest\.webmanifest|icon\.svg|icon-(192|512|maskable-512)\.png|qr\.js|app\.js|app\.css|fonts/[a-z0-9-]+\.woff2|fonts/OFL-[A-Za-z]+\.txt|tests/[^/]+\.sh|tests/[^/]+\.mjs)$'}
+OK=${GF_OK:-'^(\.nojekyll|\.github/workflows/[^/]+\.yml|CLAUDE\.md|README\.md|index\.html|boussole\.html|sw\.js|manifest\.webmanifest|icon\.svg|icon-(192|512|maskable-512)\.png|qr\.js|app\.js|app\.css|fonts/[a-z0-9-]+\.woff2|fonts/OFL-[A-Za-z]+\.txt|tests/[^/]+\.sh|tests/[^/]+\.mjs)$'}
 SECRETS='sk-ant-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|gh[ousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[abp]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY'
 EMAIL='[A-Z0-9._%+-]+@[A-Z0-9.-]+\.(fr|com|net|org|archi|io)\b'
 ko=0; err(){ echo "::error::$1"; ko=1; }
