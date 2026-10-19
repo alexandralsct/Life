@@ -104,7 +104,7 @@ export const tests = [
     await ctx.close();
   } },
   { nom: 'Erreurs 401 et 500, réseau coupé : bulle gardée et message clair', f: async ({ nav, st, profil, verif }) => {
-    for (const [nom, conf, motif] of [['401', { statut: 401 }, /clé refusée/], ['500', { statut: 500 }, /erreur 500/], ['coupé', { coupe: true }, /injoignable|hors ligne/]]) {
+    for (const [nom, conf, motif] of [['401', { statut: 401 }, /plus connecté/], ['500', { statut: 500 }, /erreur 500/], ['coupé', { coupe: true }, /injoignable|hors ligne/]]) {
       const S = fauxServeur(); const { page, ctx } = await ouvrir(nav, st, profil, S); Object.assign(S, conf);
       await ecrire(page, 'essai ' + nom); await pause(600);
       const t = await page.textContent('#bandeau');

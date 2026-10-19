@@ -196,7 +196,15 @@ function ouvrirReglages() {
   $('accueil').hidden = !premier; $('dlg').classList.toggle('premier', premier); $('dlg').classList.remove('main'); $('a-la-main').hidden = false;
   $('dlg-titre').textContent = premier ? 'Bienvenue dans LIFE' : 'Clé et connexion';
   $('cle').value = cle(); $('cle-life').value = store.lire('cleLife', ''); $('adresse').value = adresse();
+  $('avance-life').open = premier ? false : $('avance-life').open;
+  montrerConnexion();
   ouvrirDialogue($('dlg'));
+}
+// Écran « Connexion » commun (connexion.js) : un code, un QR, un test. LIFE ne parle qu'au serveur : le test GitHub se fait dans Ma carte de vie.
+function montrerConnexion() {
+  Connexion.monter($('connexion-ecran'), { github: false, carteUrl: location.origin + '/carte-de-vie/',
+    qr: async t => { await chargerQr(); const q = qrcode(0, 'M'); q.addData(t); q.make(); return q.createDataURL(6, 2); },
+    apres: () => setTimeout(() => location.reload(), 1500) });   // la règle de sécurité de la page nomme le serveur au chargement : on recharge
 }
 // Clé du lien : sans clé enregistrée ici, LIFE reprend celle de Ma carte de vie (même site, même stockage).
 // Clé du lien (celle des experts). Depuis la V.0.0.35, LIFE ne lit plus la clé de Ma carte de vie à chaque appel
@@ -310,7 +318,9 @@ function attendreReponse(cid, filCible) {
     if (!Object.keys(enCours).length || DEMO) return;
     // pre-mortem du 18/10 (T1) : les relèves sont finies et la réponse manque toujours : on le dit (avant : les trois
     // points restaient puis disparaissaient sans un mot)
-    if (k >= RELEVES_EN_COURS.length) { erreur('Toujours pas de réponse de LIFE au bout de 4 minutes. Ton message est gardé ; « Vérifier » relit le fil.', ['Vérifier', () => actualiser().then(() => { afficher(); attendreReponse(); })], 12000); return; }
+    // revue du 18/10 : plus d'attente annoncée (trois points) une fois l'absence de réponse dite ; une réponse tardive
+    // s'affiche quand même, par la relecture normale du fil
+    if (k >= RELEVES_EN_COURS.length) { enCours = {}; store.ecrire('enCours', enCours); afficher(); erreur('Toujours pas de réponse de LIFE au bout de 4 minutes. Ton message est gardé ; « Vérifier » relit le fil.', ['Vérifier', () => actualiser().then(() => { afficher(); attendreReponse(); })], 12000); return; }
     releveEnCours = setTimeout(() => { actualiser().then(() => { afficher(); suivante(k + 1); }); }, RELEVES_EN_COURS[k]);
   };
   suivante(0);
@@ -789,10 +799,10 @@ function actualiser() {
 // Dire pourquoi la connexion ne passe pas, au lieu d'un simple « hors ligne » (Réglages → « Tester la connexion »).
 function raison(e) {
   const m = (e && e.message) || '';
-  if (/manquante/.test(m)) return 'pas connectée : adresse ou clé manquante';
+  if (/manquante/.test(m)) return Connexion.ERREUR;   // un seul message pour « pas connecté » (simplification de la connexion, 19/10)
   if (m === 'clé refusée') return adresseDuLien()
     ? 'le serveur « ' + hoteDe(adresse()) + ' », reçu par un lien, refuse la clé — ne lui donne pas ta clé : saisis toi-même l\'adresse dans les Réglages'
-    : 'clé refusée : c\'est la clé des apps (pas la clé GitHub de synchro), elle a sans doute changé. Sur le Mac : « zsh scripts/cocon_copier_cle_app.sh », puis Réglages → Coller la clé copiée → Enregistrer';
+    : Connexion.ERREUR;
   if (m === 'délai dépassé') return 'pas de réponse à temps (réseau lent ?) — le message est peut-être arrivé : LIFE vérifie d\'elle-même, et « Réessayer » ne le traitera jamais deux fois';
   if (m === 'fil inconnu') return 'le serveur ne connaît pas ce fil — sa dernière version doit être installée puis publiée';
   if (/erreur 404/.test(m)) return 'serveur introuvable (404) — lien LIFE pas encore publié dans ton système ?';
@@ -1220,7 +1230,7 @@ function appliquerTheme(t) {
 let theme = store.lire('theme', 'auto'); appliquerTheme(theme);
 $('theme').onclick = e => { e.stopPropagation(); theme = { auto: 'jour', jour: 'nuit', nuit: 'auto' }[theme] || 'auto'; store.ecrire('theme', theme); appliquerTheme(theme); bandeau(THEMES[theme], null, 2500); };
 $('annuler').onclick = () => $('dlg').close();
-$('a-la-main').onclick = () => { $('dlg').classList.add('main'); $('a-la-main').hidden = true; $('adresse').focus(); };
+$('a-la-main').onclick = () => { $('avance-life').open = true; $('dlg').classList.add('main'); $('a-la-main').hidden = true; $('adresse').focus(); };
 $('garder').onclick = () => {   // adresse saisie ici par elle-même : elle n'est plus « venue d'un lien »
   const a = $('adresse').value.trim();
   if (a !== adresse()) { store.effacer('curseur'); store.effacer('adresseDuLien'); }
@@ -1274,7 +1284,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.5.1';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.5.2';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
@@ -1315,12 +1325,12 @@ function pretAConnecter() {
   etat('enregistre d\'abord l\'adresse et la clé'); return false;
 }
 let qrCharge = null;
+const chargerQr = () => (qrCharge = qrCharge || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = POLITIQUE.createScriptURL('qr.js'); s.onload = ok; s.onerror = ko; document.head.appendChild(s); }));
 $('montrer-qr').onclick = async () => {
   if (!pretAConnecter()) return;
   if (!$('qr').hidden) { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; return; }
-  qrCharge = qrCharge || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = POLITIQUE.createScriptURL('qr.js'); s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
   try {
-    await qrCharge;
+    await chargerQr();
     const l = await lienConnexion();
     const q = qrcode(0, 'M'); q.addData(l.lien); q.make();
     $('qr').src = q.createDataURL(6, 2); $('qr').hidden = false; $('montrer-qr').textContent = 'Cacher le code';

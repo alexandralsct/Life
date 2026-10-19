@@ -21,14 +21,14 @@ export const tests = [
     const B = await ouvrir(nav, st, profil, S);
     await ecrire(B.page, 'bonjour'); await pause(500);
     const u = await B.page.textContent('#bandeau');
-    verif(/clé refusée : c'est la clé des apps.*cocon_copier_cle_app\.sh/.test(u), 'adresse saisie par elle : message ordinaire', u);
+    verif(/plus connecté.*Réglages → Connexion/.test(u), 'adresse saisie par elle : message unique « plus connecté »', u);
     await B.ctx.close();
   } },
   { nom: 'Coller une clé ne valide ni ne garde rien (ni clé, ni adresse étrangère) sans « Enregistrer »', f: async ({ nav, st, profil, verif }) => {
     const S = fauxServeur();
     const A = await ouvrir(nav, st, profil, S, { avantChargement: pressePapiers });
     const n0 = S.appels.length;
-    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); });
+    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
     await A.page.fill('#adresse', 'https://pirate.exemple.cloud/webhook/life');
     await A.page.evaluate(() => document.getElementById('coller-cle').click()); await pause(300);
     verif((await A.page.inputValue('#cle')) === 'cle-collee-1234567890', 'la clé collée est dans le champ');
@@ -48,7 +48,7 @@ export const tests = [
     await A.ctx.close();
     const B = await ouvrir(nav, st, profil, S);   // sans clé propre : comportement d'avant
     verif(S.appels.slice(-1)[0].cle === 'cle-de-test-123456', 'sans clé propre : la clé du lien');
-    await B.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); });
+    await B.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
     await B.page.fill('#cle-life', 'cle-saisie-life-123456'); await B.page.evaluate(() => document.getElementById('garder').click()); await pause(400);
     verif((await ls(B.page, 'cleLife')) === 'cle-saisie-life-123456' && S.appels.slice(-1)[0].cle === 'cle-saisie-life-123456', 'réglage séparé enregistré et utilisé');
     await B.ctx.close();
@@ -58,7 +58,7 @@ export const tests = [
     const A = await ouvrir(nav, st, profil, S, { init: { messages: [{ id: 'S-1', t: '2026-10-13 10:00:00', auteur: 'systeme', fil: 'general', texte: 'x' }] } });
     await A.page.evaluate(async () => { localStorage.setItem('carte-de-vie-lien', 'cle-de-la-carte'); localStorage.setItem('autre.reglage', '1');
       await caches.open('autre-app'); await caches.open('life-essai'); });
-    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('effacer-appareil').click(); });
+    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; document.getElementById('effacer-appareil').click(); });
     verif(await A.page.evaluate(() => document.getElementById('dlg-effacer').open && document.getElementById('ef-ok').disabled), 'confirmation forte : bouton inactif au départ');
     await A.page.fill('#ef-saisie', 'effac');
     verif(await A.page.evaluate(() => document.getElementById('ef-ok').disabled), 'un mot incomplet ne suffit pas');

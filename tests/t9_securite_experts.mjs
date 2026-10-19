@@ -19,7 +19,7 @@ export const tests = [
     await actualiser(page); await pause(300);
     const apres = S.appels.slice(n0).filter(a => /\/life$/.test(new URL(a.url).pathname));
     verif(apres.length && apres.every(a => a.cle === 'cle-propre-life-123456'), 'une fois acceptée, la clé du lien n\'est plus jamais envoyée au serveur de LIFE', apres.map(a => a.cle));
-    verif(/clé refusée/.test(await page.textContent('#bandeau')), 'un refus est dit');
+    verif(/plus connecté/.test(await page.textContent('#bandeau')), 'un refus est dit');
     await ctx.close();
   } },
   { nom: 'Plus de repli sur la clé de Ma carte de vie : recopiée une fois si l\'appareil était relié, jamais lue ensuite', f: async ({ nav, st, profil, verif }) => {
@@ -37,7 +37,7 @@ export const tests = [
     const A = await ouvrir(nav, st, profil, S, { init: { cleLife: 'cle-propre-life-123456' } });
     await A.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: st.base.slice(0, -1) });
     verif((await ls(A.page, 'transfert')) === true, 'le serveur annonce le transfert (version 3)');
-    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); });
+    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
     await A.page.click('#copier-lien'); await pause(400);
     const lien = await A.page.evaluate(() => navigator.clipboard.readText());
     verif(/#transfert=/.test(lien) && /une fois, 2 min/.test(await A.page.textContent('#copier-lien')), 'lien de transfert copié', lien.slice(0, 60));
@@ -60,7 +60,7 @@ export const tests = [
     const S2 = fauxServeur({ version: 2 });   // serveur version 2 : l'ancien lien, et la page le dit
     const D = await ouvrir(nav, st, profil, S2);
     await D.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: st.base.slice(0, -1) });
-    await D.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); });
+    await D.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
     await D.page.click('#copier-lien'); await pause(300);
     verif(!/#connexion=/.test(await D.page.evaluate(() => navigator.clipboard.readText())) && /mis à jour|mettre à jour/.test(await D.page.textContent('#copier-lien') + await D.page.textContent('#bandeau')), 'serveur version 2 : plus d\'ancien lien avec la clé — refus, le serveur est à mettre à jour');
     await D.ctx.close();

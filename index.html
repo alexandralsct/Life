@@ -12,6 +12,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.cloud https://cocon.metamorphose-architecture.fr; worker-src 'self'; manifest-src 'self'; frame-src 'none'; media-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; require-trusted-types-for 'script'; trusted-types life">
 <meta name="referrer" content="no-referrer">
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="connexion.css">
 </head>
 <body>
 <div id="ouverture" aria-hidden="true"><svg viewBox="79 79 354 354" fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round"><path d="M256 96v86M256 330v86M96 256h86M330 256h86M143 143l54 54M315 315l54 54M143 369l54-54M315 197l54-54"/></svg></div>
@@ -51,11 +52,13 @@
   <div class="accueil" id="accueil" hidden>
     <p>Ici, tu écris à ton système comme dans une messagerie. Le plus court pour la relier :</p>
     <ol>
-      <li>sur ton Mac (ou un appareil déjà relié), ouvre LIFE → <strong>⋯</strong> → <strong>Réglages</strong> → <strong>Montrer le code</strong> ;</li>
-      <li>vise ce code avec l'appareil photo de ce téléphone : LIFE s'ouvre, connectée.</li>
+      <li>sur ton Mac (ou un appareil déjà connecté), ouvre <strong>Réglages</strong> → <strong>Connexion</strong> → <strong>Connecter un autre appareil</strong> ;</li>
+      <li>vise le QR avec l'appareil photo de ce téléphone : Ma carte de vie s'ouvre et connecte aussi LIFE (ou touche « Coller un code de connexion » plus bas).</li>
     </ol>
     <button type="button" class="lien" id="a-la-main">Saisir l'adresse et la clé à la main</button>
   </div>
+  <div id="connexion-ecran"></div>
+  <details class="avance-life" id="avance-life"><summary>Avancé : saisie à la main et ancien code</summary>
   <div class="manuel">
   <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil. C'est la clé des apps, pas la clé GitHub de synchro : si elle est refusée, lance « zsh scripts/cocon_copier_cle_app.sh » sur le Mac, puis « Coller la clé copiée » et « Tester la connexion ».</p>
   <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (commence par https://)" aria-label="Adresse du lien">
@@ -70,6 +73,7 @@
     <div class="rang"><button id="tester">Tester la connexion</button><button id="montrer-qr">Montrer le code (téléphone)</button><button id="copier-lien">Copier le lien</button></div>
     <img id="qr" alt="Code de connexion" hidden>
   </div>
+  </details>
   <div class="appareil">
     <h3>Cet appareil</h3>
     <p id="stockage"></p>
@@ -105,6 +109,7 @@
 <div id="annonce" class="lecteur" role="status" aria-live="polite" aria-atomic="true"></div>
 <button id="maj" hidden>Nouvelle version de LIFE — toucher pour l'ouvrir</button>
 
+<script src="connexion.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
