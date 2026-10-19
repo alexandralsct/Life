@@ -188,13 +188,26 @@ const erreur = (texte, action, duree) => bandeau(texte, action, Math.max(duree |
   z.addEventListener('pointerenter', tenir); z.addEventListener('focusin', tenir);
   z.addEventListener('pointerleave', relacher); z.addEventListener('focusout', () => setTimeout(relacher, 0)); })();
 function etat(t) { const z = $('bandeau'); if (t) bandeau(t); else if (!z.querySelector('button') && !(z.dataset.important && !z.hidden)) bandeau(''); }   // sans texte : efface, sauf un « Annuler » en cours
+// T2 : appareil « délié » = adresse ou clé absente, ou clé refusée par le serveur (drapeau life.cleRefusee, posé par appel()).
+// Après un nettoyage complet du navigateur, tout est effacé, drapeau compris : l'appareil ressemble à un appareil neuf
+// (« Bienvenue »), dont la page donne les mêmes gestes. Un seul parcours : Réglages → Connexion → Connecter un autre appareil.
+const appareilDelie = () => !(cle() && adresse()) || !!store.lire('cleRefusee', false);
+const TEXTE_BIENVENUE = 'Ici, tu écris à ton système comme dans une messagerie. Le plus court pour la relier :';
+const TEXTE_DELIE = 'LIFE ne retrouve plus la clé qui la relie à ton système (navigateur nettoyé, nouveau téléphone ou clé changée). Tes messages sont toujours sur le serveur et un message écrit ici reste gardé. Pour relier cet appareil de nouveau :';
+let dernierAvertDelie = 0;
+function avertirDelie() {   // bandeau qui reste, avec un bouton ; au plus une fois par minute (les relèves ne le répètent pas)
+  if (Date.now() - dernierAvertDelie < 60e3) return; dernierAvertDelie = Date.now();
+  erreur('Cet appareil n\'est plus connecté à LIFE : la clé n\'est plus acceptée. Rien n\'est perdu.', ['Relier', ouvrirReglages], 15000);
+}
 function ouvrirReglages() {
   decrireAppareil();
   // premier lancement (audit UX du 13/10) : une seule page, « Bienvenue », le chemin court d'abord (code montré par un appareil
   // déjà relié) ; la saisie à la main reste à un toucher (« Saisir l'adresse et la clé à la main »)
-  const premier = !(cle() && adresse());
+  // pre-mortem du 18/10 (T2) : un appareil qui a perdu sa clé, ou dont la clé est refusée, reçoit la même page que l'appareil neuf, mais le dit
+  const premier = appareilDelie(), perdu = premier && (!!adresse() || store.lire('cleRefusee', false));
   $('accueil').hidden = !premier; $('dlg').classList.toggle('premier', premier); $('dlg').classList.remove('main'); $('a-la-main').hidden = false;
-  $('dlg-titre').textContent = premier ? 'Bienvenue dans LIFE' : 'Clé et connexion';
+  $('accueil-intro').textContent = perdu ? TEXTE_DELIE : TEXTE_BIENVENUE;
+  $('dlg-titre').textContent = perdu ? 'Cet appareil n\'est plus relié' : premier ? 'Bienvenue dans LIFE' : 'Clé et connexion';
   $('cle').value = cle(); $('cle-life').value = store.lire('cleLife', ''); $('adresse').value = adresse();
   $('avance-life').open = premier ? false : $('avance-life').open;
   montrerConnexion();
@@ -204,7 +217,7 @@ function ouvrirReglages() {
 function montrerConnexion() {
   Connexion.monter($('connexion-ecran'), { github: false, carteUrl: location.origin + '/carte-de-vie/',
     qr: async t => { await chargerQr(); const q = qrcode(0, 'M'); q.addData(t); q.make(); return q.createDataURL(6, 2); },
-    apres: () => setTimeout(() => location.reload(), 1500) });   // la règle de sécurité de la page nomme le serveur au chargement : on recharge
+    apres: () => { store.effacer('cleRefusee'); setTimeout(() => location.reload(), 1500); } });   // la règle de sécurité de la page nomme le serveur au chargement : on recharge
 }
 // Clé du lien : sans clé enregistrée ici, LIFE reprend celle de Ma carte de vie (même site, même stockage).
 // Clé du lien (celle des experts). Depuis la V.0.0.35, LIFE ne lit plus la clé de Ma carte de vie à chaque appel
@@ -262,7 +275,8 @@ async function appel(corps, o = {}) {
       if (propre && (r.status === 403 || r.status === 401) && !store.lire('cleLifeServeur', false) && cle() && cle() !== propre) r = await poster(cle());
       else if (propre && r.ok && !store.lire('cleLifeServeur', false)) store.ecrire('cleLifeServeur', true);
     } catch (e) { if (ac.signal.aborted) throw new Error('délai dépassé'); throw e; }
-    if (r.status === 403 || r.status === 401) throw new Error('clé refusée');
+    if (r.status === 403 || r.status === 401) { store.ecrire('cleRefusee', true); throw new Error('clé refusée'); }
+    if (r.ok && store.lire('cleRefusee', false)) store.effacer('cleRefusee');   // le serveur accepte de nouveau la clé
     const j = await r.json().catch(() => ({}));
     if (ac.signal.aborted) throw new Error('délai dépassé');
     if (o.contrat !== false) noterContrat(j); else noterExperts(j);
@@ -791,7 +805,7 @@ function actualiser() {
       }
       afficher(); etat('');
       if (persistant === null) demanderPersistance();   // connectée : on protège la copie de l'appareil
-    } catch (e) { etat(raison(e)); }
+    } catch (e) { if (e && e.message === 'clé refusée' && !adresseDuLien()) avertirDelie(); else etat(raison(e)); }
     finally { actuEnCours = null; }
   })();
   return actuEnCours;
@@ -917,6 +931,8 @@ async function expedier(texte, filCible, cid, parti) {
     if (e.message === 'délai dépassé') m.delai = true;
     garderMessages();
     if (m.delai) erreur('Pas encore de réponse de LIFE : ton message est peut-être bien arrivé. « Vérifier » regarde avant de renvoyer.', ['Vérifier', () => reessayer(m)], 10000);
+    else if (/manquante|^clé refusée$/.test(e.message) && !(e.message === 'clé refusée' && adresseDuLien()))   // T2 : appareil délié
+      erreur('Non envoyé : ' + raison(e) + '. Ton message est gardé : une fois l\'appareil connecté, touche « Réessayer ».', ['Relier', ouvrirReglages], 12000);
     else erreur('Non envoyé : ' + raison(e), ['Réessayer', () => reessayer(m)]);
     if (e.message === 'délai dépassé' && serveurAJour()) attendreReponse(cid, filCible);   // la réponse a pu arriver entre-temps
     return false;
@@ -1234,7 +1250,7 @@ $('a-la-main').onclick = () => { $('avance-life').open = true; $('dlg').classLis
 $('garder').onclick = () => {   // adresse saisie ici par elle-même : elle n'est plus « venue d'un lien »
   const a = $('adresse').value.trim();
   if (a !== adresse()) { store.effacer('curseur'); store.effacer('adresseDuLien'); }
-  store.ecrire('cle', $('cle').value.trim()); store.ecrire('adresse', a);
+  store.ecrire('cle', $('cle').value.trim()); store.ecrire('adresse', a); store.effacer('cleRefusee');   // nouvelle clé : « Tester la connexion » dira si elle est bonne
   const cl = $('cle-life').value.trim();
   if (cl !== store.lire('cleLife', '')) store.effacer('cleLifeServeur');   // nouvelle clé propre : la bascule recommence
   if (cl) store.ecrire('cleLife', cl); else store.effacer('cleLife');
@@ -1284,7 +1300,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.5.3';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.5.5';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
@@ -1455,8 +1471,8 @@ async function finirConnexion(n, neuf) {
       if (neuf) { store.effacer('adresse'); store.effacer('adresseDuLien'); store.effacer('curseur'); }   // rien de relié : comme avant le lien
       bandeau('Connexion impossible : ' + ((e && e.message) || 'code illisible') + '. Montre un nouveau code sur l\'autre appareil.', null, 9000, true);
       if (!(cle() && adresse())) setTimeout(ouvrirReglages, 300); return; }
-    store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l);
-  } else if (!neuf) { store.ecrire('adresse', n.a); store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l); }
+    store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l); store.effacer('cleRefusee');
+  } else if (!neuf) { store.ecrire('adresse', n.a); store.ecrire('cle', n.c); if (n.l) store.ecrire('cleLife', n.l); store.effacer('cleRefusee'); }
   annonce('appareil connecté ✓'); proposerInstallation(); actualiser(); retirerServeur();
 }
 $('cx-non').onclick = () => {

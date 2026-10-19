@@ -315,6 +315,33 @@
       zonePlus.append(champ, ok); champ.focus(); dit('Colle le code dans le champ, ou autorise la lecture du presse-papiers.');
       viaPressePapiers().then(function (t) { if (/CV1\./.test(t) && zonePlus.isConnected && !champ.value && applique(t)) zonePlus.textContent = ''; });
     }
+    // Scanner le QR d'un autre appareil avec la caméra de celui-ci (navigateurs qui savent lire un QR : BarcodeDetector, Chrome Android).
+    // Aucune bibliothèque ajoutée ; l'image de la caméra ne quitte pas l'appareil et n'est pas gardée. Le texte lu suit le chemin de « Recevoir ».
+    function scanner() {
+      zonePlus.textContent = '';
+      var md = g.navigator && navigator.mediaDevices, det = null;
+      try { if (g.BarcodeDetector && md && md.getUserMedia) det = new g.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { det = null; }
+      if (!det) { dit('Ce navigateur ne sait pas lire un QR depuis l\'app. Ouvre l\'appareil photo du téléphone, vise le QR et touche le lien qui apparaît.'); return; }
+      var video = el('video', 'cx-video', null, { playsinline: '', autoplay: '', 'aria-label': 'Image de la caméra : vise le QR de connexion' }); video.muted = true;
+      var flux = null, minuterie = null, actif = true;
+      function arrete() { actif = false; if (minuterie) clearInterval(minuterie); if (flux) flux.getTracks().forEach(function (t) { t.stop(); }); flux = null; zonePlus.textContent = ''; }
+      zonePlus.append(video, bouton('Annuler', 'cx-sec', function () { arrete(); dit(''); }));
+      dit('Vise le QR affiché sur l\'autre appareil.');
+      md.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }).then(function (f) {
+        if (!actif) { f.getTracks().forEach(function (t) { t.stop(); }); return; }
+        flux = f; video.srcObject = f; return video.play();
+      }).then(function () {
+        if (!actif) return;
+        minuterie = setInterval(function () {
+          if (!video.isConnected) { arrete(); return; }   // l'écran a été vidé (autre bouton) : la caméra s'éteint
+          det.detect(video).then(function (codes) {
+            if (!actif || !codes.length) return;
+            var t = String(codes[0].rawValue || ''); arrete(); dit('Je vérifie…');
+            if (/CV1\./.test(t)) applique(t); else retirer(t).then(applique, function (x) { dit(messageErreur(x)); });
+          }, function () { /* image pas prête : on réessaie */ });
+        }, 300);
+      }).catch(function () { if (actif) { arrete(); dit('La caméra n\'a pas pu s\'ouvrir (autorisation refusée ?). Autorise-la pour ce site, ou ouvre l\'appareil photo du téléphone.'); } });
+    }
     function toutTester() {
       dit('Test en cours…'); var res = lignes().map(function (l) { return Object.assign({}, l, { ok: null, detail: 'je vérifie…' }); }); dessine(res);
       tester({ github: o.github }, function (v) { res = res.map(function (x) { return x.id === v.id ? v : x; }); dessine(res); }).then(function (tous) {
@@ -322,7 +349,7 @@
         dit(ko.length ? 'À reprendre : ' + ko.map(function (l) { return l.nom; }).join(', ') + '. ' + ERREUR + '.' : 'Tout ce qui est relié répond ✓');
       });
     }
-    actions.append(bouton('Connecter un autre appareil', '', connecteAutre), bouton('Coller un code de connexion', 'cx-sec', colle), bouton('Tout tester', 'cx-sec', toutTester));
+    actions.append(bouton('Connecter un autre appareil', '', connecteAutre), bouton('Scanner un QR', 'cx-sec', scanner), bouton('Coller un code de connexion', 'cx-sec', colle), bouton('Tout tester', 'cx-sec', toutTester));
     // Avancé : copier le code, recevoir un QR, oublier
     var av = el('details', 'cx-avance'), sm = el('summary', null, 'Avancé'), rec = el('div', 'cx-rec');
     var champQr = el('input', 'cx-champ', null, { type: 'text', autocomplete: 'off', spellcheck: 'false', placeholder: 'Texte ou lien d\'un QR de connexion', 'aria-label': 'Texte ou lien d\'un QR de connexion' });

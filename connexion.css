@@ -22,6 +22,7 @@
   border: 1px solid var(--cx-trait, rgba(128,128,128,.6)); background: var(--cx-fond, transparent); color: var(--cx-texte, inherit); }
 .cx .cx-plus { margin: .4rem 0; display: grid; justify-items: center; gap: .4rem; }
 .cx .cx-qr { width: min(248px, 70vw); height: auto; background: #fff; padding: 8px; border-radius: .5rem; image-rendering: pixelated; }
+.cx .cx-video { width: min(320px, 90vw); aspect-ratio: 1; object-fit: cover; border-radius: .6rem; background: #000; }
 .cx .cx-etat { min-height: 1.3em; margin: .4rem 0; font-size: .9rem; }
 .cx .cx-avance { margin-top: .6rem; }
 .cx .cx-avance summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
@@ -30,7 +31,7 @@
 /* ===== App ordinateur ===== */
 @media (min-width: 900px) and (pointer: fine) {
   .cx .cx-liens { grid-template-columns: 1fr 1fr; }
-  .cx .cx-actions { grid-template-columns: repeat(3, auto); justify-content: start; }
+  .cx .cx-actions { grid-template-columns: repeat(4, auto); justify-content: start; }
   .cx .cx-btn { width: auto; min-height: 38px; }
   .cx .cx-champ { max-width: 32rem; }
   .cx .cx-plus { justify-items: start; }

@@ -50,17 +50,17 @@
 <dialog id="dlg" aria-labelledby="dlg-titre">
   <h2 id="dlg-titre">Clé et connexion</h2>
   <div class="accueil" id="accueil" hidden>
-    <p>Ici, tu écris à ton système comme dans une messagerie. Le plus court pour la relier :</p>
+    <p id="accueil-intro">Ici, tu écris à ton système comme dans une messagerie. Le plus court pour la relier :</p>
     <ol>
       <li>sur ton Mac (ou un appareil déjà connecté), ouvre <strong>Réglages</strong> → <strong>Connexion</strong> → <strong>Connecter un autre appareil</strong> ;</li>
-      <li>vise le QR avec l'appareil photo de ce téléphone : Ma carte de vie s'ouvre et connecte aussi LIFE (ou touche « Coller un code de connexion » plus bas).</li>
+      <li>vise le QR avec l'appareil photo de ce téléphone : Ma carte de vie s'ouvre et connecte aussi LIFE (ou touche « Scanner un QR » plus bas, ou « Coller un code de connexion »).</li>
     </ol>
     <button type="button" class="lien" id="a-la-main">Saisir l'adresse et la clé à la main</button>
   </div>
   <div id="connexion-ecran"></div>
   <details class="avance-life" id="avance-life"><summary>Avancé : saisie à la main et ancien code</summary>
   <div class="manuel">
-  <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil. C'est la clé des apps, pas la clé GitHub de synchro : si elle est refusée, lance « zsh scripts/cocon_copier_cle_app.sh » sur le Mac, puis « Coller la clé copiée » et « Tester la connexion ».</p>
+  <p>Colle l'adresse du lien et la clé (les mêmes que dans Ma carte de vie). Elles restent sur cet appareil. C'est la clé des apps, pas la clé GitHub de synchro : si elle est refusée ou perdue, prends-la dans ton gestionnaire de mots de passe, puis « Coller la clé copiée », « Enregistrer » et « Tester la connexion ».</p>
   <input id="adresse" type="url" autocomplete="off" placeholder="Adresse du lien (commence par https://)" aria-label="Adresse du lien">
   <input id="cle" type="password" autocomplete="off" placeholder="Clé du lien" aria-label="Clé du lien">
   <input id="cle-life" type="password" autocomplete="off" placeholder="Clé propre à LIFE (facultatif)" aria-label="Clé propre à LIFE, facultative">
