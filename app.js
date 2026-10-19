@@ -368,7 +368,7 @@ function sobre(t) {
   let x = String(t || ''); Object.keys(SIGNES).forEach(k => { x = x.split(k).join(SIGNES[k]); });
   return x.replace(EMOJI, c => GARDES.has(c.replace(/\uFE0F/g, '')) ? c.replace(/\uFE0F/g, '') + '\ufe0e' : '').replace(/\uFE0E+/g, '\uFE0E').replace(/[ \t]{2,}/g, ' ');
 }
-// Liens (V.0.0.5.8) : une adresse web (http, https ou www.) devient un lien cliquable. Construit en DOM (createElement('a')), jamais en HTML ;
+// Liens (V.0.0.5.9) : une adresse web (http, https ou www.) devient un lien cliquable. Construit en DOM (createElement('a')), jamais en HTML ;
 // le href est refait par URL() et limité à http / https ; ouverture dans un autre onglet, sans lien avec LIFE (noopener).
 const ADRESSE_WEB = /\b(?:https?:\/\/|www\.)[^\s<>"'`]+/gi;
 function lienSur(a) {
@@ -552,6 +552,18 @@ const fenetre = {};            // fil → nombre de bulles affichées (fixé au 
 const rendus = new Map();      // clé → { el, sig }
 let filAffiche = null, focusFil = null;
 const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
+// Filtres du fil Patrimoine (19/10) : « Immobilier » et « Bourse » ne sont pas des fils, seulement une vue du même fil.
+// Le message n'arrive qu'avec id, t, auteur, fil, texte : on classe donc sur le texte, par mots fixes (les libellés des envois :
+// « • Immobilier — », « • Viager », « • Copropriété », « • Bourse », « • Crypto », « 📈 Revue bourse », « 📚 Cours de finance »…), sans IA.
+// Un message sans aucun de ces mots n'est classé nulle part : il reste visible dans « Tout » seulement. Un message qui parle des
+// deux (le point de la semaine) apparaît dans les deux filtres. Viager et copropriété vont avec l'immobilier ; crypto avec la bourse.
+const SUJETS_PATRIMOINE = [['tout', 'Tout'], ['immobilier', 'Immobilier'], ['bourse', 'Bourse']];
+const MOTS_SUJET = {
+  immobilier: /\b(immobili\w*|viager|copro\w*|syndic|appartement)\b/i,
+  bourse: /\b(bourse|boursi\w*|crypto\w*|bitcoin|etf|cac ?40|watchlist|dividendes?|cours de finance)\b/i
+};
+const sujetsPatrimoine = m => { const t = String(m.texte || ''); return Object.keys(MOTS_SUJET).filter(k => MOTS_SUJET[k].test(t)); };
+const filtrePatrimoine = () => { const v = store.lire('filtrePatrimoine', 'tout'); return SUJETS_PATRIMOINE.some(x => x[0] === v) ? v : 'tout'; };
 // Nom affiché sur la tuile du téléphone quand le nom complet ne tient pas à 11 px (le nom complet reste celui lu à voix haute).
 const NOM_COURT = {};
 const nomFil = id => (FILS.concat(FILS_CACHES).find(f => f[0] === id) || ['', id === 'systeme' ? 'Maintenance' : 'Général'])[1];
@@ -596,8 +608,9 @@ const messageDe = b => b && messages.find(m => m.id === b.dataset.id);
 function afficherConversation() {
   if (!$('recherche').hidden && $('q').value.trim().length >= 2) return;   // résultats de recherche à l'écran
   const zone = $('messages'), flux = $('flux');
-  const liste = messages.filter(m => (m.fil || 'general') === fil && !estBrief(m));
-  const nouveauFil = filAffiche !== fil; filAffiche = fil;
+  const sujet = fil === 'patrimoine' ? filtrePatrimoine() : 'tout';   // filtre du fil Patrimoine ; ce que j'envoie reste visible
+  const liste = messages.filter(m => (m.fil || 'general') === fil && !estBrief(m) && (sujet === 'tout' || m.temp || m.echec || m.local || sujetsPatrimoine(m).includes(sujet)));
+  const cleFil = fil + '|' + sujet, nouveauFil = filAffiche !== cleFil; filAffiche = cleFil;
   const enBas = nouveauFil || zone.scrollHeight - zone.scrollTop - zone.clientHeight < 120;
   const hautAvant = zone.scrollHeight - zone.scrollTop;
   if (!fenetre[fil]) { let n = 0, car = 0;
@@ -607,7 +620,10 @@ function afficherConversation() {
   const voulus = [];
   if (debut > 0) voulus.push(elementUnique('anciens', () => { const b = document.createElement('button'); b.type = 'button'; b.className = 'anciens';
     b.textContent = 'Messages plus anciens'; b.onclick = () => plusAnciens(true); return b; }));
-  if (!liste.length) voulus.push(elementUnique('vide', () => { const d = document.createElement('div'); d.className = 'vide';
+  if (!liste.length && sujet !== 'tout') voulus.push(element('vide|sujet|' + sujet, sujet, () => { const d = document.createElement('div'); d.className = 'vide';
+    const g = document.createElement('strong'); g.textContent = 'Rien sur « ' + SUJETS_PATRIMOINE.find(x => x[0] === sujet)[1] + ' » pour l\'instant';
+    d.append(g, 'Choisis « Tout » pour voir tous les messages du fil.'); return d; }));
+  else if (!liste.length) voulus.push(elementUnique('vide', () => { const d = document.createElement('div'); d.className = 'vide';
     html(d, '<strong>Rien ici pour l\'instant</strong>Écris à LIFE : une question, une idée, une chose à ne pas oublier.'); return d; }));
   let dernierJour = debut > 0 ? jourLisible(liste[debut - 1].t) : '';
   for (let k = debut; k < liste.length; k++) {
@@ -743,6 +759,16 @@ function filCache() {   // bandeau « Moi dans 5 ans · Revenir à Général » 
   const r = document.createElement('button'); r.type = 'button'; r.textContent = 'Revenir à Général'; r.onclick = () => choisirFil('general');
   z.append(t, r);
 }
+// Pastilles « Tout · Immobilier · Bourse » en haut du fil Patrimoine (dans #outilfil, construites ici : index.html est au plafond).
+function majFiltres() {
+  const barre = $('outilfil'); let g = $('filtres');
+  if (!g) { g = document.createElement('div'); g.id = 'filtres'; g.setAttribute('role', 'group'); g.setAttribute('aria-label', 'Sujet du fil Patrimoine');
+    SUJETS_PATRIMOINE.forEach(([k, nom]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pastille'; b.dataset.sujet = k; b.textContent = nom;
+      b.onclick = () => { store.ecrire('filtrePatrimoine', k); majFiltres(); afficherConversation(); }; g.appendChild(b); });
+    barre.insertBefore(g, barre.firstChild); }
+  const v = filtrePatrimoine();
+  g.querySelectorAll('.pastille').forEach(b => { const on = b.dataset.sujet === v; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('on', on); });
+}
 let sigBrief = null, sigMaint = null;
 function afficherVues() {
   const briefs = messages.filter(estBrief), maint = messages.filter(m => m.fil === 'systeme');
@@ -779,6 +805,7 @@ function afficher() {
   pastilleAppli(c);
   afficherEpingles(); afficherVues();
   $('outilfil').hidden = fil !== 'patrimoine' || vueAPart;   // bouton « Boussole » : fil Patrimoine seulement
+  majFiltres();
   $('flux').setAttribute('aria-label', 'Messages du fil ' + nomFil(fil));
   if (!vueAPart) afficherConversation();
   majComite(vueAPart);
@@ -1121,7 +1148,7 @@ $('menu').addEventListener('keydown', e => naviguerMenu(e, itemsMenu(), fermerMe
 document.addEventListener('click', fermerMenu);
 $('actualiser').onclick = actualiser;
 $('vers-futur').onclick = () => { $('menu').hidden = true; choisirFil('futur'); $('saisie').focus(); };
-$('ouvrir-boussole').onclick = () => { location.href = 'boussole.html'; };   // Boussole des choix (18/10) : placement et habitudes, page à côté de l'app ; bouton du fil Patrimoine (V.0.0.5.8)
+$('ouvrir-boussole').onclick = () => { location.href = 'boussole.html'; };   // Boussole des choix (18/10) : placement et habitudes, page à côté de l'app ; bouton du fil Patrimoine (V.0.0.5.9)
 filCache();   // au lancement, si l'app rouvre sur un fil sans tuile
 // Effacer ce fil : tout de suite à l'écran, annulable 10 s (bandeau « Annuler ») avant de partir au serveur, puis effacé
 // sur tous les appareils (audit UX du 13/10 : 5 s était trop court pour une action de cette taille).
@@ -1305,7 +1332,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.5.8';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.5.9';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au

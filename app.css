@@ -487,3 +487,11 @@ body.en-selection #flux .bulle[data-id] { cursor: pointer; }
 #outilfil[hidden] { display: none; }
 #outilfil button { min-height: var(--cible); padding: 0 16px; border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre); font: 600 var(--t-m) var(--mono); cursor: pointer; }
 #outilfil button:focus-visible { outline: 3px solid var(--trait); outline-offset: 2px; }
+/* pastilles Tout / Immobilier / Bourse du fil Patrimoine (19/10) : app téléphone ; l'app ordinateur a ses règles plus bas */
+#outilfil { flex-wrap: wrap; align-items: center; gap: 8px; }
+#filtres { display: flex; flex-wrap: wrap; gap: 8px; }
+#outilfil #ouvrir-boussole { margin-left: auto; }
+#filtres .pastille { min-height: var(--cible); padding: 0 16px; border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre); font: 600 var(--t-m) var(--mono); cursor: pointer; }
+#filtres .pastille.on { background: var(--accent); border-color: var(--accent); color: var(--sur-accent); }
+#filtres .pastille:focus-visible { outline: 3px solid var(--trait); outline-offset: 2px; }
+@media (min-width: 900px) and (pointer: fine) { #outilfil { padding: 10px 24px 8px; gap: 6px; } #filtres { gap: 6px; } #filtres .pastille, #outilfil button { min-height: 36px; padding: 0 14px; font-size: var(--t-s, var(--t-m)); } }
