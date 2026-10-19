@@ -3,7 +3,7 @@
 /* ===== App téléphone ===== */
 .cx { color: var(--cx-texte, inherit); font: inherit; }
 .cx .cx-titre { margin: 0 0 .25rem; font-size: 1.15rem; }
-.cx .cx-aide { margin: .25rem 0 .75rem; font-size: .9rem; line-height: 1.4; opacity: .85; }
+.cx .cx-aide { margin: .25rem 0 .75rem; font-size: .9rem; line-height: 1.4; color: var(--texte); }
 .cx .cx-liens { list-style: none; margin: 0 0 .75rem; padding: 0; display: grid; gap: .4rem; }
 .cx .cx-lien { display: grid; grid-template-columns: 1.6rem 1fr; column-gap: .5rem; align-items: baseline; padding: .5rem .6rem; border-radius: .6rem;
   border: 1px solid var(--cx-trait, rgba(128,128,128,.35)); }
