@@ -205,17 +205,15 @@ function ouvrirReglages() {
   // déjà relié) ; la saisie à la main reste à un toucher (« Saisir l'adresse et la clé à la main »)
   // pre-mortem du 18/10 (T2) : un appareil qui a perdu sa clé, ou dont la clé est refusée, reçoit la même page que l'appareil neuf, mais le dit
   const premier = appareilDelie(), perdu = premier && (!!adresse() || store.lire('cleRefusee', false));
-  $('accueil').hidden = !premier; $('dlg').classList.toggle('premier', premier); $('dlg').classList.remove('main'); $('a-la-main').hidden = false;
+  $('accueil').hidden = !premier; $('dlg').classList.toggle('premier', premier);
   $('accueil-intro').textContent = perdu ? TEXTE_DELIE : TEXTE_BIENVENUE;
   $('dlg-titre').textContent = perdu ? 'Cet appareil n\'est plus relié' : premier ? 'Bienvenue dans LIFE' : 'Clé et connexion';
-  $('cle').value = cle(); $('cle-life').value = store.lire('cleLife', ''); $('adresse').value = adresse();
-  $('avance-life').open = premier ? false : $('avance-life').open;
   montrerConnexion();
   ouvrirDialogue($('dlg'));
 }
 // Écran « Connexion » commun (connexion.js) : un code, un QR, un test. LIFE ne parle qu'au serveur : le test GitHub se fait dans Ma carte de vie.
 function montrerConnexion() {
-  Connexion.monter($('connexion-ecran'), { github: false, carteUrl: location.origin + '/carte-de-vie/',
+  Connexion.monter($('connexion-ecran'), { nomApp: 'LIFE', github: false, carteUrl: location.origin + '/carte-de-vie/',
     qr: async t => { await chargerQr(); const q = qrcode(0, 'M'); q.addData(t); q.make(); return q.createDataURL(6, 2); },
     apres: () => { store.effacer('cleRefusee'); setTimeout(() => location.reload(), 1500); } });   // la règle de sécurité de la page nomme le serveur au chargement : on recharge
 }
@@ -1123,9 +1121,7 @@ $('reglages').onclick = () => { fermerMenu(); ouvrirReglages(); };
 // ===== V.0.0.4.9 =====
 // Connecter un autre appareil : une entrée à part dans le menu ••• ; elle ouvre les Réglages au bon endroit et montre le code tout de suite.
 $('vers-appareil').onclick = () => { fermerMenu(); ouvrirReglages();
-  if (!pretAConnecter()) return;
-  const bloc = $('montrer-qr').closest('.appareil'); if (bloc) bloc.scrollIntoView({ block: 'start' });
-  if ($('qr').hidden) $('montrer-qr').click(); };
+  };
 
 // Balayer pour changer de fil (APP TÉLÉPHONE : au doigt seulement ; même mécanique que le balayage des remarques dans
 // « Mes assistants » de Ma carte de vie : pointeur ≠ souris, 12 px pour décider, le vertical reste celui du téléphone).
@@ -1246,18 +1242,7 @@ function appliquerTheme(t) {
 let theme = store.lire('theme', 'auto'); appliquerTheme(theme);
 $('theme').onclick = e => { e.stopPropagation(); theme = { auto: 'jour', jour: 'nuit', nuit: 'auto' }[theme] || 'auto'; store.ecrire('theme', theme); appliquerTheme(theme); bandeau(THEMES[theme], null, 2500); };
 $('annuler').onclick = () => $('dlg').close();
-$('a-la-main').onclick = () => { $('avance-life').open = true; $('dlg').classList.add('main'); $('a-la-main').hidden = true; $('adresse').focus(); };
-$('garder').onclick = () => {   // adresse saisie ici par elle-même : elle n'est plus « venue d'un lien »
-  const a = $('adresse').value.trim();
-  if (a !== adresse()) { store.effacer('curseur'); store.effacer('adresseDuLien'); }
-  store.ecrire('cle', $('cle').value.trim()); store.ecrire('adresse', a); store.effacer('cleRefusee');   // nouvelle clé : « Tester la connexion » dira si elle est bonne
-  const cl = $('cle-life').value.trim();
-  if (cl !== store.lire('cleLife', '')) store.effacer('cleLifeServeur');   // nouvelle clé propre : la bascule recommence
-  if (cl) store.ecrire('cleLife', cl); else store.effacer('cleLife');
-  $('dlg').close();
-  if (hoteDe(a) !== HOTE_CSP) { location.reload(); return; }   // autre serveur : la règle de sécurité du lancement doit suivre
-  actualiser();
-};
+$('annuler').onclick = () => $('dlg').close();
 // Effacer cet appareil : seulement ce que LIFE garde ici (clés « life. » et caches « life- ») ; la carte et les autres apps
 // du même site ne sont pas touchées. Confirmation forte : retaper EFFACER.
 $('effacer-appareil').onclick = () => { $('ef-saisie').value = ''; $('ef-ok').disabled = true; ouvrirDialogue($('dlg-effacer')); $('ef-saisie').focus(); };
@@ -1300,7 +1285,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.5.5';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.5.6';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
@@ -1342,48 +1327,6 @@ function pretAConnecter() {
 }
 let qrCharge = null;
 const chargerQr = () => (qrCharge = qrCharge || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = POLITIQUE.createScriptURL('qr.js'); s.onload = ok; s.onerror = ko; document.head.appendChild(s); }));
-$('montrer-qr').onclick = async () => {
-  if (!pretAConnecter()) return;
-  if (!$('qr').hidden) { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; return; }
-  try {
-    await chargerQr();
-    const l = await lienConnexion();
-    const q = qrcode(0, 'M'); q.addData(l.lien); q.make();
-    $('qr').src = q.createDataURL(6, 2); $('qr').hidden = false; $('montrer-qr').textContent = 'Cacher le code';
-    $('qr').scrollIntoView({ block: 'nearest' });
-    $('qr').alt = 'Code de connexion, valable une fois pendant 2 minutes';
-    etat('code valable une seule fois, pendant 2 minutes — vise-le avec l\'appareil photo du téléphone');
-    setTimeout(() => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; }, 120e3);
-  } catch (e) { qrCharge = null; etat('code indisponible : ' + raison(e)); }
-};
-// La clé ne s'affiche jamais : on la colle depuis le presse-papiers (copiée dans Ma carte de vie → Clé du lien) ou on la copie.
-$('coller-cle').onclick = async () => {
-  let v = ''; try { v = ((await navigator.clipboard.readText()) || '').trim(); } catch (e) { /* lecture refusée */ }
-  if (!v) { $('cle').focus(); etat('colle la clé dans le champ (⌘V)'); return; }
-  if (/\s/.test(v) || v.length < 12) { $('coller-cle').textContent = 'Pas une clé'; }
-  else { $('cle').value = v; $('coller-cle').textContent = 'Clé collée ✓ — Enregistrer pour la garder'; }   // rien n'est enregistré ni validé ici
-  setTimeout(() => { $('coller-cle').textContent = 'Coller la clé copiée'; }, 2500);
-};
-$('copier-cle').onclick = async () => {
-  const v = $('cle').value.trim() || cle();
-  if (!v) { $('copier-cle').textContent = 'Aucune clé'; }
-  else { try { await navigator.clipboard.writeText(v); $('copier-cle').textContent = 'Clé copiée ✓'; viderPressePapiers(60e3); } catch (e) { $('copier-cle').textContent = 'Copie refusée'; } }
-  setTimeout(() => { $('copier-cle').textContent = 'Copier la clé'; }, 2500);
-};
-$('tester').onclick = async () => {
-  $('tester').textContent = 'Test…';
-  try { await appel({ action: 'fil', depuis: depuisServeur() }); $('tester').textContent = 'Connectée ✓'; }
-  catch (e) { $('tester').textContent = raison(e); }
-  setTimeout(() => { $('tester').textContent = 'Tester la connexion'; }, 6000);
-};
-$('copier-lien').onclick = async () => {
-  if (!pretAConnecter()) return;
-  try { const l = await lienConnexion(); await navigator.clipboard.writeText(l.lien); viderPressePapiers(120e3);
-    $('copier-lien').textContent = l.unique ? 'Lien copié ✓ (une fois, 2 min)' : 'Lien copié ✓'; }
-  catch (e) { $('copier-lien').textContent = 'Copie refusée'; etat('lien indisponible : ' + raison(e)); }
-  setTimeout(() => { $('copier-lien').textContent = 'Copier le lien'; }, 2500);
-};
-$('dlg').addEventListener('close', () => { $('qr').hidden = true; $('qr').removeAttribute('src'); $('montrer-qr').textContent = 'Montrer le code (téléphone)'; });
 // Installation : Chrome (Android, ordinateur) donne l'invitation « beforeinstallprompt » ; on la garde pour le bouton
 // « Installer LIFE » affiché après une connexion par code. Sans elle (iPhone, ou Chrome qui croit l'app déjà là) : le geste à faire.
 let invitation = null;

@@ -1,39 +1,25 @@
-/* Écran « Connexion » commun (Ma carte de vie, LIFE, Coulisses). Couleurs reprises de l'app hôte quand elle les définit
-   (--cx-texte, --cx-fond, --cx-accent) ; sinon valeurs sobres, contraste suffisant. */
+/* Écran « Connexion » commun (Ma carte de vie, LIFE, Coulisses) : un QR, et la saisie à la main. Fichier identique dans les trois apps ;
+   couleurs reprises de l'app hôte quand elle les définit (--cx-texte, --cx-fond, --cx-accent) ; sinon valeurs sobres, contraste suffisant. */
 /* ===== App téléphone ===== */
 .cx { color: var(--cx-texte, inherit); font: inherit; }
-.cx .cx-titre { margin: 0 0 .25rem; font-size: 1.15rem; }
-.cx .cx-aide { margin: .25rem 0 .75rem; font-size: .9rem; line-height: 1.4; color: var(--texte); }
-.cx .cx-liens { list-style: none; margin: 0 0 .75rem; padding: 0; display: grid; gap: .4rem; }
-.cx .cx-lien { display: grid; grid-template-columns: 1.6rem 1fr; column-gap: .5rem; align-items: baseline; padding: .5rem .6rem; border-radius: .6rem;
-  border: 1px solid var(--cx-trait, rgba(128,128,128,.35)); }
-.cx .cx-marque { font-weight: 700; font-size: 1.1rem; text-align: center; }
-.cx .cx-lien.ok .cx-marque { color: var(--cx-ok, #1b7a3a); }
-.cx .cx-lien.ko .cx-marque { color: var(--cx-ko, #b3261e); }
-.cx .cx-nom { font-weight: 600; }
-.cx .cx-detail { grid-column: 2; font-size: .85rem; opacity: .85; }
-.cx .cx-actions { display: grid; gap: .5rem; margin: .5rem 0; }
+.cx .cx-titre { margin: 0 0 .5rem; font-size: 1.15rem; }
+.cx .cx-bloc { margin: 0 0 1rem; padding: 0 0 .25rem; border: 0; }
+.cx .cx-sous { margin: .25rem 0; font-size: 1rem; }
+.cx .cx-aide { margin: .25rem 0 .75rem; font-size: .9rem; line-height: 1.4; color: var(--cx-texte, inherit); }
+.cx .cx-groupe { margin: 0 0 .75rem; padding: .4rem .7rem .6rem; border: 1px solid var(--cx-trait, rgba(128,128,128,.35)); border-radius: .6rem; min-inline-size: 0; }
+.cx .cx-legende { padding: 0 .3rem; font-weight: 600; font-size: .95rem; }
+.cx .cx-label { display: block; margin-top: .5rem; font-size: .9rem; }
 .cx .cx-btn { min-height: 44px; padding: .55rem .9rem; border-radius: .6rem; border: 1px solid var(--cx-accent, #1f5f7a); background: var(--cx-accent, #1f5f7a);
   color: var(--cx-sur-accent, #fff); font: inherit; font-weight: 600; cursor: pointer; width: 100%; }
-.cx .cx-btn.cx-sec { background: transparent; color: var(--cx-texte, inherit); }
-.cx .cx-btn.cx-danger { border-color: var(--cx-ko, #b3261e); color: var(--cx-ko, #b3261e); }
-.cx .cx-btn:focus-visible, .cx .cx-champ:focus-visible, .cx summary:focus-visible { outline: 3px solid var(--cx-focus, #f2a900); outline-offset: 2px; }
-.cx .cx-champ { box-sizing: border-box; width: 100%; min-height: 44px; padding: .5rem .7rem; margin: .4rem 0; border-radius: .6rem; font: inherit;
+.cx .cx-btn:focus-visible, .cx .cx-champ:focus-visible { outline: 3px solid var(--cx-focus, #f2a900); outline-offset: 2px; }
+.cx .cx-champ { box-sizing: border-box; width: 100%; min-height: 44px; padding: .5rem .7rem; margin: .25rem 0; border-radius: .6rem; font: inherit;
   border: 1px solid var(--cx-trait, rgba(128,128,128,.6)); background: var(--cx-fond, transparent); color: var(--cx-texte, inherit); }
 .cx .cx-plus { margin: .4rem 0; display: grid; justify-items: center; gap: .4rem; }
 .cx .cx-qr { width: min(248px, 70vw); height: auto; background: #fff; padding: 8px; border-radius: .5rem; image-rendering: pixelated; }
-.cx .cx-video { width: min(320px, 90vw); aspect-ratio: 1; object-fit: cover; border-radius: .6rem; background: #000; }
 .cx .cx-etat { min-height: 1.3em; margin: .4rem 0; font-size: .9rem; }
-.cx .cx-avance { margin-top: .6rem; }
-.cx .cx-avance summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
-.cx .cx-avance > .cx-btn, .cx .cx-avance .cx-rec { margin-top: .5rem; }
-.cx .cx-rec { display: grid; gap: .4rem; }
 /* ===== App ordinateur ===== */
 @media (min-width: 900px) and (pointer: fine) {
-  .cx .cx-liens { grid-template-columns: 1fr 1fr; }
-  .cx .cx-actions { grid-template-columns: repeat(4, auto); justify-content: start; }
   .cx .cx-btn { width: auto; min-height: 38px; }
   .cx .cx-champ { max-width: 32rem; }
   .cx .cx-plus { justify-items: start; }
-  .cx .cx-rec { grid-template-columns: 1fr auto; align-items: center; max-width: 40rem; }
 }

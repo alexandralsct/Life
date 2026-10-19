@@ -37,10 +37,9 @@ export const tests = [
     const A = await ouvrir(nav, st, profil, S, { init: { cleLife: 'cle-propre-life-123456' } });
     await A.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: st.base.slice(0, -1) });
     verif((await ls(A.page, 'transfert')) === true, 'le serveur annonce le transfert (version 3)');
-    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
-    await A.page.click('#copier-lien'); await pause(400);
-    const lien = await A.page.evaluate(() => navigator.clipboard.readText());
-    verif(/#transfert=/.test(lien) && /une fois, 2 min/.test(await A.page.textContent('#copier-lien')), 'lien de transfert copié', lien.slice(0, 60));
+    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); });
+    const lien = await A.page.evaluate(async () => (await lienConnexion()).lien);
+    verif(/#transfert=/.test(lien), 'lien de transfert fabriqué', lien.slice(0, 60));
     const contenu = Buffer.from(lien.split('#transfert=')[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString();
     verif(!contenu.includes('cle-de-test') && !contenu.includes('cle-propre') && Object.keys(S.memoire.transferts || {}).length === 1, 'aucune clé dans le lien ; le serveur ne garde qu\'un paquet chiffré', contenu);
     verif(!JSON.stringify(S.memoire).includes('cle-'), 'le paquet gardé par le serveur est illisible sans le code', JSON.stringify(S.memoire).slice(0, 120));
@@ -60,9 +59,9 @@ export const tests = [
     const S2 = fauxServeur({ version: 2 });   // serveur version 2 : l'ancien lien, et la page le dit
     const D = await ouvrir(nav, st, profil, S2);
     await D.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: st.base.slice(0, -1) });
-    await D.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
-    await D.page.click('#copier-lien'); await pause(300);
-    verif(!/#connexion=/.test(await D.page.evaluate(() => navigator.clipboard.readText())) && /mis à jour|mettre à jour/.test(await D.page.textContent('#copier-lien') + await D.page.textContent('#bandeau')), 'serveur version 2 : plus d\'ancien lien avec la clé — refus, le serveur est à mettre à jour');
+    await D.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); });
+    const refus = await D.page.evaluate(async () => { try { await lienConnexion(); return ''; } catch (e) { return e.message; } });
+    verif(/mettre à jour|mis à jour/.test(refus), 'serveur version 2 : plus d\'ancien lien avec la clé — refus, le serveur est à mettre à jour', refus);
     await D.ctx.close();
   } },
   { nom: 'CSP : seconde règle sur le serveur exact, Trusted Types, aucune violation au chargement', f: async ({ nav, st, profil, verif }) => {

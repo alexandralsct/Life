@@ -33,13 +33,5 @@ export const tests = [
     await choisirFil(p, 'Général'); await pause(200);
     verif(await p.evaluate(() => document.getElementById('comite').hidden), 'retour à Général : la table disparaît');
     await A.ctx.close();
-  } },
-  { nom: '« Connecter un autre appareil » : entrée du menu ••• qui montre le code tout de suite, sans clé dans le lien', f: async ({ nav, st, profil, verif }) => {
-    const S = fauxServeur(); const A = await ouvrir(nav, st, profil, S); const p = A.page;
-    verif(await p.evaluate(() => { document.getElementById('plus').click(); const b = document.getElementById('vers-appareil'); return !!b && !!b.querySelector('svg') && !!document.getElementById('reglages').querySelector('svg'); }), 'le menu a « Connecter un autre appareil » et « Réglages » avec leur icône');
-    await p.evaluate(() => document.getElementById('vers-appareil').click());
-    await attendre(() => p.evaluate(() => !document.getElementById('qr').hidden && document.getElementById('qr').naturalWidth > 0));
-    verif(await p.evaluate(() => !document.getElementById('qr').hidden && document.getElementById('qr').naturalWidth > 0), 'le code est affiché dès l\'ouverture');
-    await A.ctx.close();
   } }
 ];

@@ -119,9 +119,9 @@ export const tests = [
     verif(!/unsafe-inline/.test(d.csp) && /script-src 'self';/.test(d.csp) && /style-src 'self';/.test(d.csp), 'CSP stricte (script-src et style-src \'self\')', d.csp);
     verif(/connect-src 'self' https:\/\/\*\.cloud https:\/\/cocon\.metamorphose-architecture\.fr;/.test(d.csp) && /img-src 'self' data:;/.test(d.csp) && !/blob:/.test(d.csp), 'connexions et images : seulement ce qui sert', d.csp);
     verif(d.inline === 0 && d.styles === 0 && d.evts === 0, 'aucun script, style ou gestionnaire en ligne', d);
-    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
-    await A.page.evaluate(() => document.getElementById('montrer-qr').click()); await pause(600);
-    verif(await A.page.evaluate(() => !document.getElementById('qr').hidden && document.getElementById('qr').naturalWidth > 0), 'le code QR (image data:) s\'affiche sous la CSP');
+    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); });
+    const qrOk = await A.page.evaluate(async () => { await chargerQr(); const q = qrcode(0, 'M'); q.addData('essai'); q.make(); const i = new Image(); i.src = q.createDataURL(6, 2); await i.decode(); return i.naturalWidth > 0; });
+    verif(qrOk, 'le code QR (image data:) s\'affiche sous la CSP');
     verif(A.csp.length === 0 && A.erreurs.length === 0, 'aucune violation de CSP ni erreur', A.csp.concat(A.erreurs));
     await A.ctx.close();
   } }

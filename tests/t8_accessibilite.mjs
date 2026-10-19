@@ -47,7 +47,7 @@ export const tests = [
       accueil: async () => {},
       nuit: async () => { await p.evaluate(() => document.documentElement.setAttribute('data-theme', 'nuit')); },
       menu: async () => { await p.evaluate(() => document.documentElement.removeAttribute('data-theme')); await p.click('#plus'); },
-      reglages: async () => { await p.keyboard.press('Escape'); await p.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; }); },
+      reglages: async () => { await p.keyboard.press('Escape'); await p.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); }); },
       actions: async () => { await p.keyboard.press('Escape'); await p.evaluate(() => { const b = [...document.querySelectorAll('#flux .bulle')].pop(); b.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })); }); },
       recherche: async () => { await p.keyboard.press('Escape'); await p.evaluate(() => document.getElementById('chercher').click()); await p.fill('#q', 'relance'); }
     };

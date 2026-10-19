@@ -42,7 +42,7 @@ export const tests = [
     verif(l.some(m => m.id === 'S-neuf-0') && l.filter(m => m.fil === 'quotidien').length === 3, 'le message neuf et les 5 derniers de chaque fil sont gardés', l.filter(m => m.fil === 'quotidien').length);
     const garde = await page.evaluate(() => { let n = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('life.')) n += k.length + localStorage.getItem(k).length; } return n; });
     verif(garde < 560000, 'LIFE occupe moins de 560 000 caractères du stockage commun', garde);
-    await page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; }); await pause(200);
+    await page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); }); await pause(200);
     verif(/LIFE garde \d+ Ko sur cet appareil \(plafond : environ 1 Mo/.test(await page.textContent('#stockage')), 'Réglages → « Cet appareil » : la place prise est affichée', await page.textContent('#stockage'));
     await ctx.close();
   } },
@@ -53,7 +53,7 @@ export const tests = [
     const { page, ctx } = await ouvrir(nav, st, profil, S, { avantChargement: espion });
     await pause(300);
     verif(await page.evaluate(() => window.__persist) === 1, 'persist() demandé une fois après la première actualisation réussie', await page.evaluate(() => window.__persist));
-    await page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; }); await pause(200);
+    await page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); }); await pause(200);
     verif(/effacement automatique : oui/.test(await page.textContent('#stockage')), 'état « protégée : oui » dans les Réglages', await page.textContent('#stockage'));
     await ctx.close();
   } },
@@ -64,7 +64,7 @@ export const tests = [
     const { page, ctx } = await ouvrir(nav, st, profil, S, { avantChargement: plein });
     await page.click('#theme'); await pause(100);
     verif(/Stockage de l'appareil plein : un réglage n'a pas pu être enregistré/.test(await page.textContent('#bandeau')), 'bandeau immédiat', await page.textContent('#bandeau'));
-    await page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; }); await pause(200);
+    await page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); }); await pause(200);
     verif(/Dernier enregistrement raté à \d\d:\d\d/.test(await page.textContent('#stockage')), 'rappelé dans Réglages → « Cet appareil »', await page.textContent('#stockage'));
     await ctx.close();
   } },

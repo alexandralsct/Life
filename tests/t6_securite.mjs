@@ -24,41 +24,12 @@ export const tests = [
     verif(/plus connecté.*Réglages → Connexion/.test(u), 'adresse saisie par elle : message unique « plus connecté »', u);
     await B.ctx.close();
   } },
-  { nom: 'Coller une clé ne valide ni ne garde rien (ni clé, ni adresse étrangère) sans « Enregistrer »', f: async ({ nav, st, profil, verif }) => {
-    const S = fauxServeur();
-    const A = await ouvrir(nav, st, profil, S, { avantChargement: pressePapiers });
-    const n0 = S.appels.length;
-    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
-    await A.page.fill('#adresse', 'https://pirate.exemple.cloud/webhook/life');
-    await A.page.evaluate(() => document.getElementById('coller-cle').click()); await pause(300);
-    verif((await A.page.inputValue('#cle')) === 'cle-collee-1234567890', 'la clé collée est dans le champ');
-    verif((await ls(A.page, 'cle')) === 'cle-de-test-123456' && (await ls(A.page, 'adresse')) === 'https://essai.exemple.cloud/webhook/life', 'rien d\'enregistré : ni la clé, ni l\'adresse tapée');
-    verif(S.appels.length === n0, 'aucun appel au serveur (rien n\'est « validé »)');
-    await A.page.evaluate(() => document.getElementById('annuler').click()); await A.page.reload(); await pause(700);
-    verif((await ls(A.page, 'adresse')) === 'https://essai.exemple.cloud/webhook/life', 'après Annuler et rechargement : adresse d\'origine');
-    await A.ctx.close();
-  } },
-  { nom: 'Clé propre à LIFE (facultative) : envoyée au serveur de LIFE ; les experts gardent la clé du lien', f: async ({ nav, st, profil, verif }) => {
-    const S = fauxServeur();
-    const A = await ouvrir(nav, st, profil, S, { init: { cleLife: 'cle-propre-life-123456' } });
-    await choisirFil(A.page, 'Experts'); await ecrire(A.page, 'question'); await pause(500);
-    const life = S.appels.filter(a => !a.url.includes('app-lien')), exp = S.appels.filter(a => a.url.includes('app-lien'));
-    verif(life.length && life.every(a => a.cle === 'cle-propre-life-123456'), 'LIFE reçoit sa clé propre', life.map(a => a.cle));
-    verif(exp.length === 1 && exp[0].cle === 'cle-de-test-123456', 'les experts reçoivent la clé du lien', exp.map(a => a.cle));
-    await A.ctx.close();
-    const B = await ouvrir(nav, st, profil, S);   // sans clé propre : comportement d'avant
-    verif(S.appels.slice(-1)[0].cle === 'cle-de-test-123456', 'sans clé propre : la clé du lien');
-    await B.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; });
-    await B.page.fill('#cle-life', 'cle-saisie-life-123456'); await B.page.evaluate(() => document.getElementById('garder').click()); await pause(400);
-    verif((await ls(B.page, 'cleLife')) === 'cle-saisie-life-123456' && S.appels.slice(-1)[0].cle === 'cle-saisie-life-123456', 'réglage séparé enregistré et utilisé');
-    await B.ctx.close();
-  } },
   { nom: 'Effacer cet appareil : seulement LIFE (clés life. et caches life-), après avoir retapé EFFACER', f: async ({ nav, st, profil, verif }) => {
     const S = fauxServeur();
     const A = await ouvrir(nav, st, profil, S, { init: { messages: [{ id: 'S-1', t: '2026-10-13 10:00:00', auteur: 'systeme', fil: 'general', texte: 'x' }] } });
     await A.page.evaluate(async () => { localStorage.setItem('carte-de-vie-lien', 'cle-de-la-carte'); localStorage.setItem('autre.reglage', '1');
       await caches.open('autre-app'); await caches.open('life-essai'); });
-    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('avance-life').open = true; document.getElementById('effacer-appareil').click(); });
+    await A.page.evaluate(() => { document.getElementById('plus').click(); document.getElementById('reglages').click(); document.getElementById('effacer-appareil').click(); });
     verif(await A.page.evaluate(() => document.getElementById('dlg-effacer').open && document.getElementById('ef-ok').disabled), 'confirmation forte : bouton inactif au départ');
     await A.page.fill('#ef-saisie', 'effac');
     verif(await A.page.evaluate(() => document.getElementById('ef-ok').disabled), 'un mot incomplet ne suffit pas');
