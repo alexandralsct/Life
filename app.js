@@ -368,7 +368,7 @@ function sobre(t) {
   let x = String(t || ''); Object.keys(SIGNES).forEach(k => { x = x.split(k).join(SIGNES[k]); });
   return x.replace(EMOJI, c => GARDES.has(c.replace(/\uFE0F/g, '')) ? c.replace(/\uFE0F/g, '') + '\ufe0e' : '').replace(/\uFE0E+/g, '\uFE0E').replace(/[ \t]{2,}/g, ' ');
 }
-// Liens (V.0.0.5.7) : une adresse web (http, https ou www.) devient un lien cliquable. Construit en DOM (createElement('a')), jamais en HTML ;
+// Liens (V.0.0.5.8) : une adresse web (http, https ou www.) devient un lien cliquable. Construit en DOM (createElement('a')), jamais en HTML ;
 // le href est refait par URL() et limité à http / https ; ouverture dans un autre onglet, sans lien avec LIFE (noopener).
 const ADRESSE_WEB = /\b(?:https?:\/\/|www\.)[^\s<>"'`]+/gi;
 function lienSur(a) {
@@ -1121,7 +1121,7 @@ $('menu').addEventListener('keydown', e => naviguerMenu(e, itemsMenu(), fermerMe
 document.addEventListener('click', fermerMenu);
 $('actualiser').onclick = actualiser;
 $('vers-futur').onclick = () => { $('menu').hidden = true; choisirFil('futur'); $('saisie').focus(); };
-$('ouvrir-boussole').onclick = () => { location.href = 'boussole.html'; };   // Boussole des choix (18/10) : placement et habitudes, page à côté de l'app ; bouton du fil Patrimoine (V.0.0.5.7)
+$('ouvrir-boussole').onclick = () => { location.href = 'boussole.html'; };   // Boussole des choix (18/10) : placement et habitudes, page à côté de l'app ; bouton du fil Patrimoine (V.0.0.5.8)
 filCache();   // au lancement, si l'app rouvre sur un fil sans tuile
 // Effacer ce fil : tout de suite à l'écran, annulable 10 s (bandeau « Annuler ») avant de partir au serveur, puis effacé
 // sur tous les appareils (audit UX du 13/10 : 5 s était trop court pour une action de cette taille).
@@ -1305,7 +1305,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.5.7';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.5.8';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au

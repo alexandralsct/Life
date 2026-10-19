@@ -20,9 +20,9 @@ export const tests = [
   } },
   { nom: 'Connexion : le bouton « Générer un QR » affiche un QR à usage unique, sans clé dans le lien', f: async ({ nav, st, profil, verif }) => {
     const S = fauxServeur(); const { page, ctx } = await ouvrir(nav, st, profil, S); const paquets = [];
-    await ctx.route('https://essai.exemple.cloud/crochets/app-lien', async r => { const q = r.request(), h = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'content-type': 'application/json' };
+    await ctx.route('https://essai.exemple.cloud/crochets/life', async r => { const q = r.request(), h = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'content-type': 'application/json' };
       if (q.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: h });
-      const c = JSON.parse(q.postData() || '{}'); if (c.type === 'transfert_deposer') paquets.push(c.donnees);
+      const c = JSON.parse(q.postData() || '{}'); if (c.action === 'transfert_deposer') paquets.push(c.donnees);
       return r.fulfill({ status: 200, headers: h, body: '{"ok":true,"transfert":true,"expire":1}' }); });
     await ouvreReglages(page); await pause(300);
     await page.click('.cx button:has-text("Générer un QR")'); await page.waitForSelector('.cx .cx-qr', { timeout: 8000 });

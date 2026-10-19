@@ -11,6 +11,7 @@
   var ERREUR = 'Cet appareil n\'est plus connecté → Réglages → Connexion';
   var CHAMPS = ['serveur', 'cle', 'depot', 'jeton', 'lectureDepot', 'lecture', 'pilote'];
   var CHEMIN_LIEN = '/crochets/app-lien', CHEMIN_PILOTE = '/crochets/pilote', CHEMIN_LIFE = '/crochets/life';
+  // Le QR passe par la paire « life » / « life-transfert » du système (celle de LIFE, déjà en service) : « app-lien » n'a pas de route de retrait.
   var DUREE_QR = 120;
 
   function ls() { try { return g.localStorage; } catch (e) { return null; } }
@@ -194,26 +195,26 @@
       var tout = new Uint8Array(12 + ct.byteLength); tout.set(iv); tout.set(new Uint8Array(ct), 12);
       var id = Array.from(g.crypto.getRandomValues(new Uint8Array(28)), function (b) { return 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]; }).join('');
       var donnees = b64u(tout); if (donnees.length > 4000) throw new Error('long');
-      return fetch(e.serveur + CHEMIN_LIEN, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cle-App': e.cle }, body: JSON.stringify({ type: 'transfert_deposer', id: id, donnees: donnees }) })
+      return fetch(e.serveur + CHEMIN_LIFE, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cle-App': e.cle }, body: JSON.stringify({ action: 'transfert_deposer', id: id, donnees: donnees }) })
         .catch(function () { throw new Error('reseau'); })
         .then(function (r) {
           if (r.status === 401 || r.status === 403) throw new Error('refus');
           return r.json().catch(function () { return {}; }).then(function (j) {
-            if (!(r.ok && j && j.ok && j.transfert)) throw new Error('ancien');
-            var corps = b64u(new TextEncoder().encode(JSON.stringify({ a: e.serveur + CHEMIN_LIEN, i: id, k: b64u(k) })));
+            if (!(r.ok && j && j.ok !== false)) throw new Error('ancien');
+            var corps = b64u(new TextEncoder().encode(JSON.stringify({ a: e.serveur + CHEMIN_LIFE, i: id, k: b64u(k) })));
             return carteUrl(o).split('#')[0] + '#transfert=' + corps;
           });
         });
     });
   }
   // Appareil neuf : retire le paquet (une seule fois) chez le système et le déchiffre. Le texte vient d'un QR : c'est une donnée,
-  // jamais une consigne ; seuls une adresse https en « …/app-lien » et des identifiants de forme exacte sont acceptés.
+  // jamais une consigne ; seuls une adresse https en « …/life » et des identifiants de forme exacte sont acceptés.
   function retirer(t) {
     var m = /(?:transfert=)?([A-Za-z0-9_-]{40,})$/.exec(String(t || '').trim()), n;
     if (!m) return Promise.reject(new Error('texte'));
     try { n = JSON.parse(new TextDecoder().decode(deb64u(m[1]))); } catch (e) { return Promise.reject(new Error('texte')); }
-    if (!n || !/^[a-z0-9]{20,40}$/.test(n.i || '') || !/^[A-Za-z0-9_-]{22}$/.test(n.k || '') || !/^https:\/\/[^\s?#]+\/app-lien\/?$/.test(n.a || '')) return Promise.reject(new Error('texte'));
-    var url = n.a.replace(/\/app-lien\/?$/, '/app-lien-transfert');
+    if (!n || !/^[a-z0-9]{20,40}$/.test(n.i || '') || !/^[A-Za-z0-9_-]{22}$/.test(n.k || '') || !/^https:\/\/[^\s?#]+\/life\/?$/.test(n.a || '')) return Promise.reject(new Error('texte'));
+    var url = n.a.replace(/\/life\/?$/, '/life-transfert');
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'transfert_retirer', id: n.i }) })
       .catch(function () { throw new Error('reseau'); })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) {
@@ -241,7 +242,7 @@
       : m === 'ancien' ? 'Le système n\'est pas encore à jour pour un QR à usage unique : aucun QR n\'a été affiché.'
       : m === 'chiffrement' ? 'Le chiffrement n\'est pas disponible ici : aucun QR n\'a été affiché.'
       : m === 'stockage' ? 'Cet appareil ne peut pas enregistrer la connexion (stockage bloqué).'
-      : m === 'reseau' ? 'Le système n\'a pas répondu (connexion ?).' : 'Impossible pour le moment. Réessaie.';
+      : m === 'reseau' ? 'Le système n\'a pas répondu (connexion ?). Tu peux aussi saisir les codes à la main : Réglages → Connexion.' : 'Impossible pour le moment. Réessaie.';
   }
 
   // ─── ce qui est connecté (une ligne) ───

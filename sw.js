@@ -1,5 +1,5 @@
 // LIFE — service worker : l'app s'ouvre même hors ligne (coquille en cache). Les messages ne passent jamais par le cache.
-const CACHE = 'life-V.0.0.5.7';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
+const CACHE = 'life-V.0.0.5.8';   // un chiffre par position (règle de la propriétaire, 13/10) ; changer cette valeur à chaque version (avec VERSION dans app.js) : les appareils se mettent à jour d'eux-mêmes
 const COQUILLE = ['./', 'index.html', 'boussole.html', 'app.js', 'app.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'qr.js', 'connexion.js', 'connexion.css',
   'fonts/instrument-sans.woff2', 'fonts/plex-mono-400.woff2', 'fonts/plex-mono-400-italique.woff2', 'fonts/plex-mono-500.woff2',
   'fonts/plex-mono-600.woff2', 'fonts/plex-mono-700.woff2'];
@@ -10,7 +10,7 @@ const COQUILLE = ['./', 'index.html', 'boussole.html', 'app.js', 'app.css', 'man
 const EMPREINTES = {
   'index.html': 'c5983ec5fd3cf6e8b5bafa6ee2826cec2436797f8bf054d9a34054bdf9b79060',
   'boussole.html': '9b670ef040ff25ea54f232de812cc49dddf60f97d4c7a7c271b68d4899497c95',
-  'app.js': '812310774cbe07ddd23658ffe6a1118a723e42ac8d0c4fe80f2f29d84d9638a9',
+  'app.js': '7abf9a614baefc5b06845151e3ee811c4dd6c7ae9a3acb90b30e754d7094dc7a',
   'app.css': '3d52e0cc340a01a5cd91bcc8723c9740d9ba1853aa80d3ea5542e8a17e6d6921',
   'manifest.webmanifest': '59b243d98715d5a854c578e49a063b4896d74b9792ba1152c07ff43deeaf7223',
   'icon.svg': '3db4a287148a7d8bb77418ca5408d217a967804f150eca013b5a03f9e39f3d35',
@@ -18,7 +18,7 @@ const EMPREINTES = {
   'icon-512.png': '911decb9b5c73875a1783cf51b022846e0f02cbf75f110e2a0f800a73f6a65dc',
   'icon-maskable-512.png': '48d9d5e3aa2e608158933d22e566853ca8c34a2e4fcda8b7b3a12f374c035c59',
   'qr.js': '14685aab1677fc1e530c7e761a28bd842ede7a18fcd3e804b3e7037ca0fb0444',
-  'connexion.js': 'be3a8228c42470d2fef1f3e9751ad01caafd746f84c57b4ac906e1e90ee1b6cd',
+  'connexion.js': 'c25c5a9ca19236108606957edfcf7049d7c95327873f6b9f06ed4e0664e28b5d',
   'connexion.css': '01bf86c5c909a65f76fd2a55214ead405d8ce57ff1d2d394ab7eac950c8819ce',
   'fonts/instrument-sans.woff2': '6219bc4bfdfc5d9b2201dcdf046218b122a758f932e25ed5f168f929b7ca2311',
   'fonts/plex-mono-400.woff2': 'c36f509c0a8f9f85f29cb44bc8701d8a9e0b14c499e77a884f789ead7093a7ac',
