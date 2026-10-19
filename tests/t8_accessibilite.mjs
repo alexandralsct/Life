@@ -28,7 +28,7 @@ const controleScripte = page => page.evaluate(() => {
   visibles('button').forEach(b => { if (!nom(b)) v.push({ id: 'button-name', impact: 'critical', n: 1, cibles: [b.id || b.className] }); });
   visibles('input, textarea').forEach(i => { if (!nom(i) && !(i.id && document.querySelector('label[for="' + i.id + '"]'))) v.push({ id: 'label', impact: 'critical', n: 1, cibles: [i.id] }); });
   document.querySelectorAll('dialog[open], [role="dialog"]:not([hidden])').forEach(d => { if (!nom(d)) v.push({ id: 'aria-dialog-name', impact: 'serious', n: 1, cibles: [d.id] }); });
-  document.querySelectorAll('[role="menu"]:not([hidden])').forEach(m => { if ([...m.children].some(c => c.getAttribute('role') !== 'menuitem')) v.push({ id: 'aria-required-children', impact: 'critical', n: 1, cibles: [m.id] }); });
+  document.querySelectorAll('[role="menu"]:not([hidden])').forEach(m => { if ([...m.children].some(c => !(c.getAttribute('role') === 'menuitem' || (c.getAttribute('role') === 'group' && [...c.children].every(x => x.getAttribute('role') === 'menuitem' || x.getAttribute('aria-hidden') === 'true'))))) v.push({ id: 'aria-required-children', impact: 'critical', n: 1, cibles: [m.id] }); });
   const ids = {}; document.querySelectorAll('[id]').forEach(e => { ids[e.id] = (ids[e.id] || 0) + 1; }); Object.keys(ids).filter(i => ids[i] > 1).forEach(i => v.push({ id: 'duplicate-id', impact: 'serious', n: 1, cibles: [i] }));
   document.querySelectorAll('[aria-hidden="true"]').forEach(e => { if (e.querySelector('button, a, input, [tabindex="0"]')) v.push({ id: 'aria-hidden-focus', impact: 'serious', n: 1, cibles: [e.id || e.className] }); });
   if (!document.querySelector('main')) v.push({ id: 'landmark-one-main', impact: 'moderate', n: 1, cibles: [] });
@@ -84,13 +84,13 @@ export const tests = [
   { nom: 'Clavier : menu « Plus » aux flèches, boîte des réglages nommée, focus rendu à la fermeture', f: async ({ nav, st, profil, verif }) => {
     const A = await ouvrir(nav, st, profil, null, { chemin: '?demo' }); const p = A.page;
     await p.focus('#plus'); await p.keyboard.press('Enter'); await pause(100);
-    verif(await focusDe(p) === 'actualiser', 'Entrée : focus sur la première entrée');
-    await p.keyboard.press('ArrowDown'); verif(await focusDe(p) === 'calme', 'flèche bas : entrée suivante', await focusDe(p));
+    verif(await focusDe(p) === 'vers-appareil', 'Entrée : focus sur la première entrée (section Connexion)');
+    await p.keyboard.press('ArrowDown'); verif(await focusDe(p) === 'reglages', 'flèche bas : entrée suivante', await focusDe(p));
     await p.keyboard.press('End'); verif(await focusDe(p) === 'effacer-fil', 'Fin : dernière entrée', await focusDe(p));
     await p.keyboard.press('Escape'); verif(await focusDe(p) === 'plus' && await p.$eval('#menu', m => m.hidden), 'Échap : menu fermé, focus sur « Plus »');
     await p.keyboard.press('ArrowDown'); await pause(50);
-    verif(await focusDe(p) === 'actualiser', 'flèche bas sur « Plus » : le menu s\'ouvre');
-    await p.keyboard.press('ArrowUp'); await p.keyboard.press('ArrowUp'); await p.keyboard.press('Enter'); await pause(200);   // Réglages
+    verif(await focusDe(p) === 'vers-appareil', 'flèche bas sur « Plus » : le menu s\'ouvre');
+    await p.keyboard.press('ArrowDown'); await p.keyboard.press('Enter'); await pause(200);   // Réglages (Clé et connexion)
     verif(await p.evaluate(() => { const d = document.getElementById('dlg'); return d.open && document.getElementById(d.getAttribute('aria-labelledby')).textContent === 'Clé et connexion'; }), 'la boîte des réglages est ouverte et nommée « Clé et connexion »');
     await p.keyboard.press('Escape'); await pause(150);
     verif(await focusDe(p) === 'plus', 'Échap : focus rendu au bouton « Plus » (et non au corps de la page)', await focusDe(p));

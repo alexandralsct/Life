@@ -368,6 +368,25 @@ function sobre(t) {
   let x = String(t || ''); Object.keys(SIGNES).forEach(k => { x = x.split(k).join(SIGNES[k]); });
   return x.replace(EMOJI, c => GARDES.has(c.replace(/\uFE0F/g, '')) ? c.replace(/\uFE0F/g, '') + '\ufe0e' : '').replace(/\uFE0E+/g, '\uFE0E').replace(/[ \t]{2,}/g, ' ');
 }
+// Liens (V.0.0.5.7) : une adresse web (http, https ou www.) devient un lien cliquable. Construit en DOM (createElement('a')), jamais en HTML ;
+// le href est refait par URL() et limité à http / https ; ouverture dans un autre onglet, sans lien avec LIFE (noopener).
+const ADRESSE_WEB = /\b(?:https?:\/\/|www\.)[^\s<>"'`]+/gi;
+function lienSur(a) {
+  try { const u = new URL(/^www\./i.test(a) ? 'https://' + a : a); return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null; } catch (e) { return null; }
+}
+function texteAvecLiens(parent, texte) {
+  const t = String(texte); let i = 0, m; ADRESSE_WEB.lastIndex = 0;
+  while ((m = ADRESSE_WEB.exec(t))) {
+    let adr = m[0]; const fin = adr.match(/[.,;:!?)\]»…]+$/);   // la ponctuation qui suit l'adresse n'en fait pas partie
+    if (fin) adr = adr.slice(0, adr.length - fin[0].length);
+    const href = adr && lienSur(adr);
+    if (!href) continue;
+    if (m.index > i) parent.appendChild(document.createTextNode(t.slice(i, m.index)));
+    const a = document.createElement('a'); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'lien'; a.textContent = adr;
+    parent.appendChild(a); i = m.index + adr.length; ADRESSE_WEB.lastIndex = i;
+  }
+  if (i < t.length) parent.appendChild(document.createTextNode(t.slice(i)));
+}
 function remplirCarte(b, texte) {   // 1re ligne = titre, lignes « ━━ » = sections (texte brut, jamais du HTML)
   String(texte).split('\n').forEach((l, i) => {
     if (i === 0) {
@@ -378,7 +397,7 @@ function remplirCarte(b, texte) {   // 1re ligne = titre, lignes « ━━ » = 
       b.appendChild(t); return;
     }
     if (/^━━/.test(l)) { const t = document.createElement('span'); t.className = 'section'; t.textContent = sobre(l.replace(/^━━\s*/, '')); b.appendChild(t); return; }
-    if (l.trim()) b.appendChild(document.createTextNode(sobre(l) + '\n'));
+    if (l.trim()) texteAvecLiens(b, sobre(l) + '\n');
   });
 }
 function carteSysteme(m) {
@@ -548,7 +567,7 @@ function creerBulle(m, finDeGroupe) {
   const b = document.createElement('div');
   b.className = 'bulle ' + (m.auteur === 'moi' ? 'moi' : m.auteur === 'systeme' ? 'systeme info' : 'life') + (m.temp ? ' attente' : '') + (m.echec ? ' echec' : '');
   if (m.auteur === 'systeme') { remplirCarte(b, m.texte); b.dataset.etiquette = 'Info · ' + nomFil(m.fil || 'general'); }
-  else b.textContent = m.auteur === 'moi' ? m.texte : sobre(m.texte);   // texte brut : jamais interprété comme du HTML
+  else texteAvecLiens(b, m.auteur === 'moi' ? m.texte : sobre(m.texte));   // texte brut : jamais interprété comme du HTML (liens construits en DOM)
   // au clavier : chaque message est un « article » atteignable (flèches), avec ses actions (Entrée, Maj+F10, touche Menu)
   b.dataset.id = m.id; b.tabIndex = -1; b.setAttribute('role', 'article');
   b.setAttribute('aria-label', auteurLisible(m) + (m.temp ? ', envoi en cours' : m.echec ? (m.delai ? ', pas encore de réponse' : ', non envoyé') : (heure(m.t) ? ', ' + heureParlee(m.t) : '')));
@@ -639,7 +658,7 @@ function plusAnciens(focus) {   // ajoute FENETRE bulles plus anciennes, sans fa
   const flux = $('flux'); let appui = null, depart = null;
   const annuler = () => { clearTimeout(appui); appui = null; };
   flux.addEventListener('pointerdown', e => {
-    const b = bulleDe(e.target); if (!b || selection || e.target.closest('button')) return;
+    const b = bulleDe(e.target); if (!b || selection || e.target.closest('button, a')) return;
     depart = [e.clientX, e.clientY];
     appui = setTimeout(() => { try { if (navigator.vibrate) navigator.vibrate(15); } catch (x) { /* */ } const m = messageDe(b); if (!m) return; actionsMessage(m, b);
       // au doigt, relâcher après l'appui long produit un « clic » qui refermait aussitôt le menu (14/10) : on l'ignore
@@ -759,6 +778,7 @@ function afficher() {
   const c = afficherFils(vueAPart);
   pastilleAppli(c);
   afficherEpingles(); afficherVues();
+  $('outilfil').hidden = fil !== 'patrimoine' || vueAPart;   // bouton « Boussole » : fil Patrimoine seulement
   $('flux').setAttribute('aria-label', 'Messages du fil ' + nomFil(fil));
   if (!vueAPart) afficherConversation();
   majComite(vueAPart);
@@ -1101,7 +1121,7 @@ $('menu').addEventListener('keydown', e => naviguerMenu(e, itemsMenu(), fermerMe
 document.addEventListener('click', fermerMenu);
 $('actualiser').onclick = actualiser;
 $('vers-futur').onclick = () => { $('menu').hidden = true; choisirFil('futur'); $('saisie').focus(); };
-$('vers-boussole').onclick = () => { $('menu').hidden = true; location.href = 'boussole.html'; };   // Boussole des choix (18/10) : placement et habitudes, page à côté de l'app
+$('ouvrir-boussole').onclick = () => { location.href = 'boussole.html'; };   // Boussole des choix (18/10) : placement et habitudes, page à côté de l'app ; bouton du fil Patrimoine (V.0.0.5.7)
 filCache();   // au lancement, si l'app rouvre sur un fil sans tuile
 // Effacer ce fil : tout de suite à l'écran, annulable 10 s (bandeau « Annuler ») avant de partir au serveur, puis effacé
 // sur tous les appareils (audit UX du 13/10 : 5 s était trop court pour une action de cette taille).
@@ -1285,7 +1305,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.5.6';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.5.7';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au

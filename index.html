@@ -23,7 +23,7 @@
   <button id="maintenance" title="Maintenance" aria-label="Maintenance" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></button>
   <button id="theme" title="Jour / nuit" aria-label="Jour ou nuit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
   <button id="plus" title="Plus" aria-label="Plus d'options" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></button>
-  <div id="menu" role="menu" hidden><button id="actualiser" role="menuitem">Actualiser</button><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="notifs" role="menuitem">Notifications : non</button><button id="vers-futur" role="menuitem">Moi dans 5 ans</button><button id="vers-boussole" role="menuitem">Boussole des choix</button><button id="vers-carte" role="menuitem">Ma carte de vie</button><button id="vers-appareil" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Connecter un autre appareil</span></button><button id="reglages" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg><span>Réglages (clé du lien)</span></button><button id="effacer-fil" role="menuitem">Effacer ce fil</button></div>
+  <div id="menu" role="menu" hidden><div class="grp" role="group" aria-label="Connexion"><span class="grp-t" aria-hidden="true">Connexion</span><button id="vers-appareil" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Connecter un autre appareil</span></button><button id="reglages" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg><span>Clé et connexion</span></button></div><div class="grp" role="group" aria-label="Notifications"><span class="grp-t" aria-hidden="true">Notifications</span><button id="calme" role="menuitem">Ne pas déranger : non</button><button id="notifs" role="menuitem">Notifications : non</button></div><div class="grp" role="group" aria-label="Aller à"><span class="grp-t" aria-hidden="true">Aller à</span><button id="vers-futur" role="menuitem">Moi dans 5 ans</button><button id="vers-carte" role="menuitem">Ma carte de vie</button></div><div class="grp" role="group" aria-label="Messages"><span class="grp-t" aria-hidden="true">Messages</span><button id="actualiser" role="menuitem">Actualiser</button><button id="effacer-fil" role="menuitem">Effacer ce fil</button></div></div>
 </header>
 <div id="app">
   <div id="barre-fils">
@@ -33,6 +33,7 @@
   </div>
   <div id="conv">
     <div id="recherche" role="search" hidden><input id="q" type="search" placeholder="Rechercher dans mes messages…" autocomplete="off" aria-label="Rechercher dans mes messages"><button id="fermer-recherche" aria-label="Fermer la recherche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div id="outilfil" hidden><button type="button" id="ouvrir-boussole">Boussole</button></div>
     <div id="epingles"></div>
     <div id="tirer" aria-hidden="true">relâche pour actualiser</div>
     <main id="messages" aria-label="Conversation"><section id="flux" aria-label="Messages"></section><div id="resultats" role="region" aria-label="Résultats de la recherche" hidden></div></main>
@@ -53,17 +54,14 @@
     <p id="accueil-intro">Ici, tu écris à ton système comme dans une messagerie. Le plus court pour la relier :</p>
   </div>
   <div id="connexion-ecran"></div>
-  <menu><button value="annuler" id="annuler">Fermer</button></menu>
   <div class="appareil">
     <h3>Cet appareil</h3>
     <p id="stockage"></p>
-  </div>
-  <div class="appareil">
-    <h3>Effacer cet appareil</h3>
-    <p>Retire de cet appareil tout ce que LIFE y garde (adresse, clés, messages, réglages, copie hors ligne). Rien n'est effacé sur le serveur ni dans Ma carte de vie.</p>
+    <p>Effacer retire de cet appareil tout ce que LIFE y garde (adresse, clés, messages, réglages, copie hors ligne). Rien n'est effacé sur le serveur ni dans Ma carte de vie.</p>
     <div class="rang"><button id="effacer-appareil">Effacer cet appareil…</button></div>
   </div>
   <p class="version" id="version"></p>
+  <menu><button value="annuler" id="annuler">Fermer</button></menu>
 </dialog>
 <dialog id="dlg-effacer" aria-labelledby="ef-titre">
   <h2 id="ef-titre">Effacer LIFE de cet appareil ?</h2>

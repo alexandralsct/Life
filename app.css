@@ -471,3 +471,19 @@ body.en-selection #flux .bulle[data-id] { cursor: pointer; }
 .cm-pied { margin: 6px 0 2px; text-align: center; font: 400 var(--t-xs) var(--mono); color: var(--accent); }
 @media (max-height: 700px) { .cm-table { display: none; } }   /* petit écran / clavier ouvert : la table se replie, étapes et voix restent */
 @media (min-width: 900px) and (pointer: fine) { #comite { padding: 14px 24px 8px; } .cm-table { width: 300px; } .cm-table.large { width: 340px; } .cm-rond { width: 44px; height: 44px; } .cm-table.large .cm-rond { width: 38px; height: 38px; } .cm-modes { max-width: 420px; } .cm-siege small { max-width: 96px; } }
+
+/* ===== V.0.0.5.7 ===== */
+/* Réglages (menu •••) rangés en sections : Connexion, Notifications, Aller à, Messages */
+#menu .grp { display: flex; flex-direction: column; }
+#menu .grp + .grp { border-top: 1.5px solid var(--trait); }
+#menu .grp-t { padding: 10px 20px 2px; font: 600 var(--t-xs)/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--encre-2); }
+#menu .grp > button:first-of-type { border-top: 0; }
+#menu #effacer-fil { margin-top: 0; border-top: 1px solid var(--trait-doux); }
+/* liens dans les messages */
+.bulle a.lien { color: inherit; text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.bulle a.lien:focus-visible { outline: 3px solid var(--trait); outline-offset: 2px; }
+/* bouton « Boussole » du fil Patrimoine */
+#outilfil { flex: none; display: flex; padding: 8px 16px 10px; }
+#outilfil[hidden] { display: none; }
+#outilfil button { min-height: var(--cible); padding: 0 16px; border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre); font: 600 var(--t-m) var(--mono); cursor: pointer; }
+#outilfil button:focus-visible { outline: 3px solid var(--trait); outline-offset: 2px; }
