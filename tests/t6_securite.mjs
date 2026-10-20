@@ -11,7 +11,7 @@ export const tests = [
   { nom: 'Clé refusée par un serveur reçu par lien : le message n\'invite pas à coller la clé', f: async ({ nav, st, profil, verif }) => {
     const S = fauxServeur(); S.statut = 401;
     const A = await ouvrir(nav, st, profil, S, { sansConnexion: true, chemin: lien('https://nouveau.exemple.cloud/webhook/life', 'cle-piege-123456') });
-    await A.page.fill('#cx-saisie', 'nouveau.exemple.cloud'); await A.page.evaluate(() => document.getElementById('cx-ok').click());
+    await A.page.evaluate(() => document.getElementById('cx-ok').click());
     await pause(500);
     await ecrire(A.page, 'bonjour'); await pause(500);
     const t = await A.page.textContent('#bandeau');

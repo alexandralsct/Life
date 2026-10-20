@@ -50,7 +50,7 @@ function fonctionsInternes(o) {
     return r; };
   const curs = v => { const n = Number(v); return v !== '' && v !== null && v !== undefined && Number.isInteger(n) && n >= 0 ? n : -1; };
   const seqDe = v => { const n = Number(v); return V >= 3 && v !== '' && v != null && Number.isInteger(n) && n >= 1e12 ? n : 0; };
-  F.contratLife = x => Object.assign({ version: V, fils: FILS_V2 }, o.experts ? { experts: o.experts } : {}, V >= 3 && o.transfert !== false ? { transfert: true } : {}, x);
+  F.contratLife = x => Object.assign({ version: V, fils: FILS_V2 }, o.experts ? { experts: o.experts } : {}, o.sujets ? { sujets: o.sujets } : {}, V >= 3 && o.transfert !== false ? { transfert: true } : {}, x);
   F.lireDemandeLife = c => {
     c = c || {}; const action = t(c.action), filBrut = t(c.fil).toLowerCase(), fil = filBrut || 'general';
     if (action === 'fil') return filBrut && !FILS_V2.includes(filBrut) ? { erreur: 'fil inconnu' } : { action, fil: filBrut, depuis: t(c.depuis).slice(0, 19), curseur: curs(c.curseur) };
@@ -113,7 +113,7 @@ function fonctionsInternes(o) {
 }
 function fonctionsReelles(fichier, o) {
   const ctx = {}; vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(fichier, 'utf8') + (o.experts ? '\nvar LIFE_EXPERTS = ' + JSON.stringify(o.experts) + ';' : '') + '\nvar LIFE_TRANSFERT = true;', ctx);
+  vm.runInContext(fs.readFileSync(fichier, 'utf8') + (o.experts ? '\nvar LIFE_EXPERTS = ' + JSON.stringify(o.experts) + ';' : '') + (o.sujets ? '\nvar LIFE_SUJETS = ' + JSON.stringify(o.sujets) + ';' : '') + '\nvar LIFE_TRANSFERT = true;', ctx);
   return ctx;
 }
 const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type,x-cle-app', 'access-control-allow-methods': 'POST' };

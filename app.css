@@ -472,6 +472,47 @@ body.en-selection #flux .bulle[data-id] { cursor: pointer; }
 @media (max-height: 700px) { .cm-table { display: none; } }   /* petit écran / clavier ouvert : la table se replie, étapes et voix restent */
 @media (min-width: 900px) and (pointer: fine) { #comite { padding: 14px 24px 8px; } .cm-table { width: 300px; } .cm-table.large { width: 340px; } .cm-rond { width: 44px; height: 44px; } .cm-table.large .cm-rond { width: 38px; height: 38px; } .cm-modes { max-width: 420px; } .cm-siege small { max-width: 96px; } }
 
+/* ===== V.0.0.6.0 : App téléphone, Comité = un écran plein, à part (maquette « Le comité »). Rien ici ne vaut pour l'ordinateur. ===== */
+.cm-retour, .cm-echange { display: none; }
+@media (max-width: 899px), (pointer: coarse), (pointer: none) {   /* mêmes conditions que les autres règles du téléphone */
+  body.comite-plein > header, body.comite-plein #barre-fils, body.comite-plein #epingles, body.comite-plein #outilfil, body.comite-plein #filcache, body.comite-plein #messages { display: none !important; }
+  body.comite-plein.comite-echange #messages { display: block !important; flex: 1; }
+  body.comite-plein #comite { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; border-bottom: 0; padding: calc(env(safe-area-inset-top) + 12px) 16px 8px; animation: cm-entree .22s ease-out; }
+  body.comite-plein.comite-echange #comite { flex: none; max-height: 46%; }
+  body.comite-plein.comite-echange .cm-table, body.comite-plein.comite-echange .cm-modes { display: none; }
+  @keyframes cm-entree { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { body.comite-plein #comite { animation: none; } }
+  body.comite-plein .cm-tete { align-items: center; gap: 8px; flex-wrap: wrap; }
+  body.comite-plein .cm-tete h2 { font-size: var(--t-2xl); letter-spacing: -.4px; }
+  body.comite-plein .cm-retour, body.comite-plein .cm-echange { all: unset; box-sizing: border-box; display: inline-grid; place-items: center; cursor: pointer; min-height: 44px; min-width: 44px; padding: 0 10px; font: 600 var(--t-s) var(--mono); color: var(--accent); }
+  body.comite-plein .cm-echange { text-decoration: underline; text-underline-offset: 3px; font-weight: 500; font-size: var(--t-xs); }
+  body.comite-plein .cm-retour:focus-visible, body.comite-plein .cm-echange:focus-visible { outline: 3px solid var(--trait); }
+  body.comite-plein .cm-repli { display: none; }
+  body.comite-plein .cm-etape { margin-left: auto; }
+  body.comite-plein .cm-tete { display: grid; grid-template-columns: auto 1fr auto; }
+  body.comite-plein .cm-tete h2 { grid-column: 1 / -1; grid-row: 2; }
+  body.comite-plein .cm-tete .cm-etape { grid-row: 1; grid-column: 3; margin: 0; }
+  body.comite-plein .cm-tete .cm-echange { grid-row: 1; grid-column: 2; justify-self: end; }
+  body.comite-plein .cm-barre { gap: 6px; margin: 10px 0 6px; } body.comite-plein .cm-barre i { height: 5px; }
+  body.comite-plein .cm-modes { margin: 4px 0 2px; }
+  body.comite-plein .cm-table, body.comite-plein .cm-table.large { width: min(100%, 360px, 46dvh); margin: auto; flex: none; display: block; }
+  body.comite-plein .cm-centre { inset: 19%; border-width: 2px; box-shadow: var(--sh-2); padding: 12px; }
+  body.comite-plein .cm-centre small { font-size: var(--t-xs); letter-spacing: 1.2px; margin-bottom: 4px; }
+  body.comite-plein .cm-centre b { font-size: var(--t-xl); line-height: 1.2; -webkit-line-clamp: 5; text-wrap: balance; }
+  body.comite-plein .cm-siege { gap: 3px; }
+  body.comite-plein .cm-rond { width: 50px; height: 50px; font-size: var(--t-xl); border-width: 2px; }
+  body.comite-plein .cm-table.large .cm-rond { width: 42px; height: 42px; font-size: var(--t-l); }
+  body.comite-plein .cm-siege.futur .cm-rond { border-style: dashed; }
+  body.comite-plein .cm-siege.parle { z-index: 1; }
+  body.comite-plein .cm-siege.parle .cm-rond { transform: scale(1.18); box-shadow: 0 0 0 5px var(--trait-doux); }
+  body.comite-plein .cm-siege small { font-size: 11px; max-width: 92px; }
+  body.comite-plein .cm-siege.parle small { margin-top: 7px; }
+  body.comite-plein .cm-parole { margin-top: 12px; border-width: 2px; padding: 12px 16px; box-shadow: var(--sh-2); }
+  body.comite-plein .cm-parole p { font-size: var(--t-l); max-height: none; }
+  body.comite-plein .cm-pied { margin: 14px 0 4px; font-size: var(--t-xs); }
+  @media (max-height: 560px) { body.comite-plein .cm-table { display: none; } }   /* clavier ouvert : la table se replie, étapes et voix restent */
+}
+
 /* ===== V.0.0.5.7 ===== */
 /* Réglages (menu •••) rangés en sections : Connexion, Notifications, Aller à, Messages */
 #menu .grp { display: flex; flex-direction: column; }
@@ -489,6 +530,7 @@ body.en-selection #flux .bulle[data-id] { cursor: pointer; }
 #outilfil button:focus-visible { outline: 3px solid var(--trait); outline-offset: 2px; }
 /* pastilles Tout / Immobilier / Bourse du fil Patrimoine (19/10) : app téléphone ; l'app ordinateur a ses règles plus bas */
 #outilfil { flex-wrap: wrap; align-items: center; gap: 8px; }
+#filtres[hidden] { display: none; }
 #filtres { display: flex; flex-wrap: wrap; gap: 8px; }
 #outilfil #ouvrir-boussole { margin-left: auto; }
 #filtres .pastille { min-height: var(--cible); padding: 0 16px; border: 1.5px solid var(--trait); border-radius: var(--r-p); background: var(--surface); color: var(--encre); font: 600 var(--t-m) var(--mono); cursor: pointer; }

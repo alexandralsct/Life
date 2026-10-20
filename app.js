@@ -256,6 +256,7 @@ function noterContrat(j) {
   if (serveurAJour() && Object.keys(filsForces).length) { filsForces = {}; store.effacer('filsForces'); }   // plus utile : purgée
   if (v && !!j.transfert !== store.lire('transfert', false)) store.ecrire('transfert', !!j.transfert);   // code à usage unique possible
   noterExperts(j);
+  noterSujets(j);
 }
 // Clé propre à LIFE, bascule SANS COUPURE (audit de sécurité LC1) : tant que le serveur ne l'a jamais acceptée, un refus
 // fait reprendre la clé du lien (serveur pas encore passé à sa propre clé). Dès qu'il l'a acceptée une fois, la clé du
@@ -552,18 +553,25 @@ const fenetre = {};            // fil → nombre de bulles affichées (fixé au 
 const rendus = new Map();      // clé → { el, sig }
 let filAffiche = null, focusFil = null;
 const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
-// Filtres du fil Patrimoine (19/10) : « Immobilier » et « Bourse » ne sont pas des fils, seulement une vue du même fil.
-// Le message n'arrive qu'avec id, t, auteur, fil, texte : on classe donc sur le texte, par mots fixes (les libellés des envois :
-// « • Immobilier — », « • Viager », « • Copropriété », « • Bourse », « • Crypto », « 📈 Revue bourse », « 📚 Cours de finance »…), sans IA.
-// Un message sans aucun de ces mots n'est classé nulle part : il reste visible dans « Tout » seulement. Un message qui parle des
-// deux (le point de la semaine) apparaît dans les deux filtres. Viager et copropriété vont avec l'immobilier ; crypto avec la bourse.
-const SUJETS_PATRIMOINE = [['tout', 'Tout'], ['immobilier', 'Immobilier'], ['bourse', 'Bourse']];
-const MOTS_SUJET = {
-  immobilier: /\b(immobili\w*|viager|copro\w*|syndic|appartement)\b/i,
-  bourse: /\b(bourse|boursi\w*|crypto\w*|bitcoin|etf|cac ?40|watchlist|dividendes?|cours de finance)\b/i
-};
-const sujetsPatrimoine = m => { const t = String(m.texte || ''); return Object.keys(MOTS_SUJET).filter(k => MOTS_SUJET[k].test(t)); };
-const filtrePatrimoine = () => { const v = store.lire('filtrePatrimoine', 'tout'); return SUJETS_PATRIMOINE.some(x => x[0] === v) ? v : 'tout'; };
+// Filtres du fil Patrimoine (19/10) : les sujets (clé, nom de la pastille, motif de reconnaissance) viennent du SERVEUR, dans le contrat
+// de chaque réponse (comme les experts) : aucun mot de sujet n'est écrit dans ce code. Sans sujets reçus, pas de pastilles.
+// Le message n'arrive qu'avec id, t, auteur, fil, texte : on classe sur le texte par le motif du sujet, sans IA. Un message qui ne
+// correspond à aucun sujet reste visible dans « Tout » seulement ; un message qui correspond à plusieurs apparaît dans chacun.
+let sujetsDef = store.lire('sujets', []);   // [{ k, nom, motif }] donnés par le serveur
+const sujetsRe = {};
+function compilerSujets() { Object.keys(sujetsRe).forEach(k => delete sujetsRe[k]);
+  sujetsDef = (Array.isArray(sujetsDef) ? sujetsDef : []).filter(s => { try { sujetsRe[s.k] = new RegExp(s.motif, 'i'); return true; } catch (e) { return false; } }); }
+compilerSujets();
+function noterSujets(j) {
+  if (!j || !Array.isArray(j.sujets)) return;
+  const l = j.sujets.filter(s => s && /^[a-z0-9_]{2,20}$/.test(String(s.k)) && typeof s.nom === 'string' && s.nom.length > 0 && s.nom.length <= 24 && typeof s.motif === 'string' && s.motif.length <= 600 && String(s.k) !== 'tout')
+    .slice(0, 6).map(s => ({ k: String(s.k), nom: s.nom, motif: s.motif }));
+  if (JSON.stringify(l) === JSON.stringify(sujetsDef)) return;
+  sujetsDef = l; compilerSujets(); store.ecrire('sujets', sujetsDef);
+}
+const SUJETS_PATRIMOINE = () => [['tout', 'Tout']].concat(sujetsDef.map(s => [s.k, s.nom]));
+const sujetsPatrimoine = m => { const t = String(m.texte || ''); return sujetsDef.filter(s => sujetsRe[s.k].test(t)).map(s => s.k); };
+const filtrePatrimoine = () => { const v = store.lire('filtrePatrimoine', 'tout'); return SUJETS_PATRIMOINE().some(x => x[0] === v) ? v : 'tout'; };
 // Nom affiché sur la tuile du téléphone quand le nom complet ne tient pas à 11 px (le nom complet reste celui lu à voix haute).
 const NOM_COURT = {};
 const nomFil = id => (FILS.concat(FILS_CACHES).find(f => f[0] === id) || ['', id === 'systeme' ? 'Maintenance' : 'Général'])[1];
@@ -621,7 +629,7 @@ function afficherConversation() {
   if (debut > 0) voulus.push(elementUnique('anciens', () => { const b = document.createElement('button'); b.type = 'button'; b.className = 'anciens';
     b.textContent = 'Messages plus anciens'; b.onclick = () => plusAnciens(true); return b; }));
   if (!liste.length && sujet !== 'tout') voulus.push(element('vide|sujet|' + sujet, sujet, () => { const d = document.createElement('div'); d.className = 'vide';
-    const g = document.createElement('strong'); g.textContent = 'Rien sur « ' + SUJETS_PATRIMOINE.find(x => x[0] === sujet)[1] + ' » pour l\'instant';
+    const g = document.createElement('strong'); g.textContent = 'Rien sur « ' + SUJETS_PATRIMOINE().find(x => x[0] === sujet)[1] + ' » pour l\'instant';
     d.append(g, 'Choisis « Tout » pour voir tous les messages du fil.'); return d; }));
   else if (!liste.length) voulus.push(elementUnique('vide', () => { const d = document.createElement('div'); d.className = 'vide';
     html(d, '<strong>Rien ici pour l\'instant</strong>Écris à LIFE : une question, une idée, une chose à ne pas oublier.'); return d; }));
@@ -743,8 +751,10 @@ function afficherFils(vueAPart) {
   });
   return c;
 }
+let filAvantComite = 'general';   // d'où l'on est entré dans Comité (bouton « ‹ LIFE » de l'App téléphone)
 function choisirFil(id) {
   if (selection) sortirSelection();
+  if (id === 'comite' && fil !== 'comite') filAvantComite = fil;
   fil = id; store.ecrire('fil', fil);
   if (!$('recherche').hidden) { $('recherche').hidden = true; $('q').value = ''; $('resultats').hidden = true; $('flux').hidden = false; }
   document.body.classList.remove('brief', 'maintenance'); majVues(); afficher(); filCache();
@@ -759,13 +769,16 @@ function filCache() {   // bandeau « Moi dans 5 ans · Revenir à Général » 
   const r = document.createElement('button'); r.type = 'button'; r.textContent = 'Revenir à Général'; r.onclick = () => choisirFil('general');
   z.append(t, r);
 }
-// Pastilles « Tout · Immobilier · Bourse » en haut du fil Patrimoine (dans #outilfil, construites ici : index.html est au plafond).
+// Pastilles « Tout » + un sujet par pastille (donnés par le serveur) en haut du fil Patrimoine (dans #outilfil, construites ici :
+// index.html est au plafond). Refaites si les sujets changent ; masquées s'il n'y en a aucun.
 function majFiltres() {
-  const barre = $('outilfil'); let g = $('filtres');
-  if (!g) { g = document.createElement('div'); g.id = 'filtres'; g.setAttribute('role', 'group'); g.setAttribute('aria-label', 'Sujet du fil Patrimoine');
-    SUJETS_PATRIMOINE.forEach(([k, nom]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pastille'; b.dataset.sujet = k; b.textContent = nom;
+  const barre = $('outilfil'); let g = $('filtres'); const sig = JSON.stringify(sujetsDef.map(s => [s.k, s.nom]));
+  if (g && g.dataset.sig !== sig) { g.remove(); g = null; }
+  if (!g) { g = document.createElement('div'); g.id = 'filtres'; g.dataset.sig = sig; g.setAttribute('role', 'group'); g.setAttribute('aria-label', 'Sujet du fil Patrimoine');
+    SUJETS_PATRIMOINE().forEach(([k, nom]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pastille'; b.dataset.sujet = k; b.textContent = nom;
       b.onclick = () => { store.ecrire('filtrePatrimoine', k); majFiltres(); afficherConversation(); }; g.appendChild(b); });
     barre.insertBefore(g, barre.firstChild); }
+  g.hidden = !sujetsDef.length;
   const v = filtrePatrimoine();
   g.querySelectorAll('.pastille').forEach(b => { const on = b.dataset.sujet === v; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('on', on); });
 }
@@ -1242,17 +1255,23 @@ function majComite(vueAPart) {
   let z = $('comite');
   const voir = fil === 'comite' && !vueAPart && $('recherche').hidden;
   if (!z) { if (!voir) return; z = document.createElement('section'); z.id = 'comite'; z.setAttribute('aria-label', 'Le comité'); $('conv').insertBefore(z, $('tirer')); }
-  z.hidden = !voir; if (!voir) return;
+  z.hidden = !voir; document.body.classList.toggle('comite-plein', voir); if (!voir) { document.body.classList.remove('comite-echange'); return; }   // téléphone : entrée dans l'écran plein (css)
   const S = sessionComite(), q = S.find(m => m.auteur === 'moi'), vies = S.filter(m => m.auteur === 'life'), dernier = S[S.length - 1];
   const etape = q ? Math.min(5, Math.max(1, vies.length)) : 0, attend = envoisEnCours || enCoursDans('comite');
   const mode = modeComite(), T = tableDuMode(S, mode), siege = T.membres.find(m => m.id === T.parle) || null;
-  const replie = !!store.lire('comiteRepli', false);
-  const sig = [etape, q && q.id, dernier && dernier.id, mode, T.membres.map(m => m.id + m.nom).join(','), T.parle, attend ? 1 : 0, replie ? 1 : 0].join('|');
+  const replie = !!store.lire('comiteRepli', false), echange = !!store.lire('comiteEchange', false);
+  document.body.classList.toggle('comite-echange', echange);
+  const sig = [echange ? 1 : 0, etape, q && q.id, dernier && dernier.id, mode, T.membres.map(m => m.id + m.nom).join(','), T.parle, attend ? 1 : 0, replie ? 1 : 0].join('|');
   if (sig === sigComite) return; sigComite = sig; z.textContent = '';
   const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
-  const tete = el('div', 'cm-tete'); tete.append(el('h2', '', 'Le comité'), el('span', 'cm-etape', etape ? 'ÉTAPE ' + etape + ' SUR 5' : 'PAS ENCORE DE DÉCISION'));
+  const tete = el('div', 'cm-tete');
+  const ret = el('button', 'cm-retour', '‹ LIFE'); ret.type = 'button'; ret.setAttribute('aria-label', 'Quitter le comité et revenir à LIFE');
+  ret.onclick = () => choisirFil(filAvantComite && filAvantComite !== 'comite' ? filAvantComite : 'general');
+  tete.append(ret, el('h2', '', 'Le comité'), el('span', 'cm-etape', etape ? 'ÉTAPE ' + etape + ' SUR 5' : 'PAS ENCORE DE DÉCISION'));
   const rep = el('button', 'cm-repli', replie ? 'Montrer la table' : 'Réduire'); rep.type = 'button'; rep.setAttribute('aria-expanded', String(!replie));
   rep.onclick = () => { store.ecrire('comiteRepli', !replie); sigComite = ''; majComite(false); }; tete.appendChild(rep);
+  const ech = el('button', 'cm-echange', echange ? 'La table' : 'L\'échange'); ech.type = 'button'; ech.setAttribute('aria-pressed', String(echange));
+  ech.onclick = () => { store.ecrire('comiteEchange', !echange); sigComite = ''; majComite(false); if (!echange) $('messages').scrollTop = $('messages').scrollHeight; }; tete.appendChild(ech);
   const barre = el('div', 'cm-barre'); barre.setAttribute('role', 'img'); barre.setAttribute('aria-label', etape ? 'Étape ' + etape + ' sur 5' : 'Aucune étape');
   for (let i = 1; i <= 5; i++) barre.appendChild(el('i', i <= etape ? 'on' : ''));
   const modes = el('div', 'cm-modes'); modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', 'Autour de la table');
@@ -1264,7 +1283,7 @@ function majComite(vueAPart) {
     const table = el('div', 'cm-table' + (T.membres.length > 5 ? ' large' : '')), centre = el('div', 'cm-centre');
     centre.append(el('small', '', q ? 'SUR LA TABLE' : 'LA TABLE EST VIDE'), el('b', '', q ? String(q.texte).slice(0, 90) : 'Pose ta décision ci-dessous'));
     table.appendChild(centre);
-    T.membres.forEach((m, i) => { const a = (-90 + i * 360 / T.membres.length) * Math.PI / 180, e = el('div', 'cm-siege' + (siege && siege.id === m.id ? ' parle' : ''));
+    T.membres.forEach((m, i) => { const a = (-90 + i * 360 / T.membres.length) * Math.PI / 180, e = el('div', 'cm-siege' + (siege && siege.id === m.id ? ' parle' : '') + (mode === 'voix' && m.id === 'futur' ? ' futur' : ''));
       e.style.left = (50 + 43 * Math.cos(a)) + '%'; e.style.top = (50 + 43 * Math.sin(a)) + '%'; e.title = m.nom;
       const lettre = mode === 'voix' && COMITE_ROND[m.id] ? COMITE_ROND[m.id] : ((m.nom.match(/[A-Za-zÀ-ÿ0-9]/) || ['?'])[0]).toUpperCase();
       e.append(el('span', 'cm-rond', lettre), el('small', '', m.nom)); table.appendChild(e); });
@@ -1332,7 +1351,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.5.9';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.6.2';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au
@@ -1401,8 +1420,8 @@ $('installe-non').onclick = fermerInstalle;
 // le message reste après la première actualisation, puis s'efface
 function annonce(t) { setTimeout(() => bandeau(t, null, 5000), 1500); }
 // Un lien reçu ne remplace JAMAIS l'adresse ni la clé sans confirmation : la boîte montre le serveur (son nom d'hôte).
-// Même serveur que celui déjà enregistré : un toucher suffit. Serveur différent, ou aucun enregistré : il faut retaper
-// son nom d'hôte (un lien piégé ne peut pas détourner les messages d'un simple toucher).
+// Le nom du serveur est affiché en gros, un toucher sur « Connecter » suffit (décision de la propriétaire, 19/10 : rien à taper).
+// Appareil déjà relié à un autre serveur : le lien est refusé.
 let connexionEnAttente = null;
 const hoteDe = a => { try { return new URL(a).host.toLowerCase(); } catch (e) { return ''; } };
 function recevoirConnexion(ev) {
@@ -1427,21 +1446,16 @@ function recevoirConnexion(ev) {
   $('cx-avert').textContent = refuse ? 'Cet appareil est relié au serveur « ' + actuel + ' ». Un lien ne peut pas le remplacer : rien n\'a changé. Pour changer de serveur, saisis toi-même l\'adresse dans les Réglages.'
     : meme ? 'C\'est le serveur déjà enregistré sur cet appareil : seule la clé sera mise à jour.'
     : 'Ne continue que si c\'est toi qui as créé ce lien (code montré par ton autre appareil).';
-  $('cx-retaper').hidden = !!actuel; $('cx-saisie').value = '';
-  $('cx-ok').hidden = !!refuse; $('cx-ok').disabled = !meme;
+  $('cx-ok').hidden = !!refuse; $('cx-ok').disabled = false;
   $('cx-non').textContent = refuse ? 'Fermer' : 'Refuser';
   if ($('dlg').open) $('dlg').close();
   ouvrirDialogue($('dlg-connexion'));
-  if (!actuel) $('cx-saisie').focus(); else $('cx-non').focus();   // par défaut : refuser
+  (refuse ? $('cx-non') : $('cx-ok')).focus();
 }
-$('cx-saisie').addEventListener('input', () => {
-  $('cx-ok').disabled = !connexionEnAttente || $('cx-saisie').value.trim().toLowerCase() !== hoteDe(connexionEnAttente.a);
-});
 $('cx-ok').onclick = async () => {
   const n = connexionEnAttente; if (!n) return;
   const actuel = adresse() ? hoteDe(adresse()) : '';
   if (actuel && actuel !== hoteDe(n.a)) return;   // jamais un autre serveur par un lien
-  if (!actuel && $('cx-saisie').value.trim().toLowerCase() !== hoteDe(n.a)) return;
   connexionEnAttente = null; $('dlg-connexion').close();
   if (!actuel) {   // appareil neuf : la règle de sécurité du lancement n'autorise encore aucun serveur. On enregistre
     // l'adresse (et la clé si le lien la porte), puis on relance : la nouvelle règle nomme ce serveur exact, et la
