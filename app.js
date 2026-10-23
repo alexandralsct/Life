@@ -313,6 +313,7 @@ function fusionner(nouveaux, retires) {
     if (m.cid && cids.has(m.cid)) parId.delete(m.id);
     else if (m.local && textes.has((m.fil || 'general') + '|' + String(m.texte || '').slice(0, TEXTE_MAX))) parId.delete(m.id);
   });
+  archiverBriefs([...parId.values()]);   // avant la borne : un brief ancien reste lisible dans la vue Brief
   messages = borner([...parId.values()].sort(ordre), PAR_FIL);
   garderMessages();
   if (partis.size) store.ecrire('epingles', epingles);
@@ -389,7 +390,7 @@ function texteAvecLiens(parent, texte) {
   if (i < t.length) parent.appendChild(document.createTextNode(t.slice(i)));
 }
 function remplirCarte(b, texte) {   // 1re ligne = titre, lignes « ━━ » = sections (texte brut, jamais du HTML)
-  String(texte).split('\n').forEach((l, i) => {
+  sansEtiquette(texte).split('\n').forEach((l, i) => {
     if (i === 0) {
       const t = document.createElement('span'); t.className = 'titre';
       const e = Object.keys(ICONES_CARTE).find(k => l.startsWith(k));
@@ -552,7 +553,21 @@ const FENETRE = 40, FENETRE_CAR = 12000;   // 40 bulles au plus, et environ 12 0
 const fenetre = {};            // fil → nombre de bulles affichées (fixé au premier affichage du fil, puis « plus anciens »)
 const rendus = new Map();      // clé → { el, sig }
 let filAffiche = null, focusFil = null;
-const estBrief = m => m.auteur === 'systeme' && /^☀️/.test(m.texte || '');
+// Étiquette « 🗂 <fil> » (envois du système) : tolérée en tête du brief, ignorée à l'affichage, au cas où le serveur ne l'aurait pas retirée.
+const sansEtiquette = t => String(t || '').replace(/^\s*🗂[^\n]*\n\s*/u, '');
+const estBrief = m => m.auteur === 'systeme' && /^☀/u.test(sansEtiquette(m.texte));
+// Historique des briefs : gardés à part (ajout seulement), hors de la borne des messages, pour que les précédents restent lisibles.
+const BRIEFS_MAX = 45, BRIEFS_CAR = 200000;
+let briefsGardes = (() => { const l = store.lire('briefs', []); return Array.isArray(l) ? l.filter(b => b && b.id && b.t && b.texte) : []; })();
+function archiverBriefs(liste) {
+  const parId = new Map(briefsGardes.map(b => [b.id, b]));
+  (liste || []).filter(estBrief).forEach(m => parId.set(m.id, { id: m.id, t: m.t, texte: sansEtiquette(m.texte) }));
+  let l = [...parId.values()].sort((a, b) => String(a.t).localeCompare(String(b.t))).slice(-BRIEFS_MAX), car = 0;
+  const gardes = []; for (let i = l.length - 1; i >= 0; i--) { car += l[i].texte.length; if (gardes.length && car > BRIEFS_CAR) break; gardes.unshift(l[i]); }
+  if (gardes.length === briefsGardes.length && gardes.every((b, i) => b.id === briefsGardes[i].id && b.texte === briefsGardes[i].texte)) return;
+  briefsGardes = gardes; store.ecrire('briefs', briefsGardes);
+}
+const tousLesBriefs = () => { archiverBriefs(messages); return briefsGardes; };
 // Filtres du fil Patrimoine (19/10) : les sujets (clé, nom de la pastille, motif de reconnaissance) viennent du SERVEUR, dans le contrat
 // de chaque réponse (comme les experts) : aucun mot de sujet n'est écrit dans ce code. Sans sujets reçus, pas de pastilles.
 // Le message n'arrive qu'avec id, t, auteur, fil, texte : on classe sur le texte par le motif du sujet, sans IA. Un message qui ne
@@ -784,7 +799,7 @@ function majFiltres() {
 }
 let sigBrief = null, sigMaint = null;
 function afficherVues() {
-  const briefs = messages.filter(estBrief), maint = messages.filter(m => m.fil === 'systeme');
+  const briefs = tousLesBriefs(), maint = messages.filter(m => m.fil === 'systeme');
   const ouvBrief = document.body.classList.contains('brief'), ouvMaint = document.body.classList.contains('maintenance');
   // Brief et Maintenance : lus quand on ouvre leur section ; sinon un petit numéro sur leur bouton.
   if (ouvBrief && briefs.length && vus.brief !== briefs[briefs.length - 1].t) { vus.brief = briefs[briefs.length - 1].t; store.ecrire('vus', vus); }
@@ -797,11 +812,20 @@ function afficherVues() {
     b.setAttribute('aria-label', (id === 'brief' ? 'Brief du jour' : 'Maintenance') + ', ' + n + ' nouveau' + (n > 1 ? 'x' : ''));
   });
   // contenu des vues : construit seulement quand on les ouvre, et refait seulement s'il a changé
-  const sb = briefs.length ? briefs[briefs.length - 1].id + '|' + briefs[briefs.length - 1].texte : '';
+  const sb = briefs.map(b => b.id + '|' + b.texte.length).join();
   if (ouvBrief && sb !== sigBrief) { sigBrief = sb;
     const vb = $('vue-brief'); vb.textContent = ''; vb.appendChild(boutonRetour());
     if (!briefs.length) vb.insertAdjacentHTML('beforeend', POLITIQUE.createHTML('<div class="vide"><strong>Pas encore de brief</strong>Il arrive chaque matin à 7 h 50.</div>'));
-    else vb.appendChild(carteSysteme(briefs[briefs.length - 1])); }
+    else {   // le plus récent en entier ; les précédents en dessous, par date, du plus récent au plus ancien
+      vb.appendChild(carteSysteme(briefs[briefs.length - 1]));
+      if (briefs.length > 1) {
+        const t = document.createElement('span'); t.className = 'section'; t.textContent = 'Briefs précédents'; vb.appendChild(t);
+        briefs.slice(0, -1).reverse().forEach(b => {
+          const d = document.createElement('details'); d.className = 'brief-ancien';
+          const r = document.createElement('summary'); r.textContent = jourLisible(b.t) + ' · ' + sobre(String(b.texte).split('\n')[0].replace(/^☀️?\s*/u, '')); d.appendChild(r);
+          d.addEventListener('toggle', () => { if (d.open && !d.dataset.ouvert) { d.dataset.ouvert = '1'; d.appendChild(carteSysteme(b)); } });
+          vb.appendChild(d); });
+      } } }
   const sm = maint.slice(-10).map(m => m.id).join();
   if (ouvMaint && sm !== sigMaint) { sigMaint = sm;
     const vm = $('vue-maintenance'); vm.textContent = ''; vm.appendChild(boutonRetour());
@@ -1351,7 +1375,7 @@ if (DANS_CARTE) window.addEventListener('message', e => {
   choisirFil(FILS.concat(FILS_CACHES).some(x => x[0] === d.fil) ? d.fil : 'general');
   const s = $('saisie'); s.value = d.texte.slice(0, 2000); ajuster(); s.focus(); });
 if (DANS_CARTE) try { window.parent.postMessage({ life: 'pret' }, location.origin); } catch (e) { /* */ }
-const VERSION = 'V.0.0.6.2';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
+const VERSION = 'V.0.0.6.3';   // un chiffre par position : V.0.0.3.7, puis V.0.0.3.8… ; à augmenter à chaque mise en ligne (avec CACHE dans sw.js)
 $('version').textContent = 'Version ' + VERSION + ' · mise à jour automatique'; $('ver-haut').textContent = VERSION;
 // Connecter un autre appareil (audit de sécurité LT2, LO1) : avec un serveur qui le permet (version 3, « transfert »),
 // le code ne contient PLUS la clé : l'appareil dépose au serveur un paquet chiffré (AES-GCM, clé de 128 bits tirée au

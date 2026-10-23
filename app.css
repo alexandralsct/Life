@@ -537,3 +537,7 @@ body.en-selection #flux .bulle[data-id] { cursor: pointer; }
 #filtres .pastille.on { background: var(--accent); border-color: var(--accent); color: var(--sur-accent); }
 #filtres .pastille:focus-visible { outline: 3px solid var(--trait); outline-offset: 2px; }
 @media (min-width: 900px) and (pointer: fine) { #outilfil { padding: 10px 24px 8px; gap: 6px; } #filtres { gap: 6px; } #filtres .pastille, #outilfil button { min-height: 36px; padding: 0 14px; font-size: var(--t-s, var(--t-m)); } }
+/* Vue Brief : briefs précédents repliés, un par jour */
+.brief-ancien { margin: 8px 0; }
+.brief-ancien > summary { cursor: pointer; padding: 10px 12px; border: 1.5px solid var(--trait); border-radius: var(--r-m); background: var(--surface); }
+.brief-ancien[open] > summary { margin-bottom: 8px; }
